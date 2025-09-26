@@ -5,7 +5,7 @@ import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
-import { convertToLocalMediaUrl } from '../utils/mediaUrlConverter'
+import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
@@ -31,15 +31,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   // Portrait menu state
   const [portraitMenuOpen, setPortraitMenuOpen] = useState(false)
 
-  // Helper function to get optimized media URL (local static files)
-  const getOptimizedMediaUrl = (originalUrl) => {
+  // Helper function to get optimized media URL (local static files with smart sizing)
+  const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {
     if (!originalUrl) return null
 
-    // Convert Firebase Storage URLs to local static file paths
-    const localUrl = convertToLocalMediaUrl(originalUrl)
+    // Use the enhanced converter with context-aware sizing
+    const localUrl = getCategoryImageUrl(originalUrl, size)
 
     if (localUrl !== originalUrl) {
-      console.log(`🚀 Using local static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
+      console.log(`🚀 Using optimized static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
     }
 
     return localUrl
