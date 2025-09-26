@@ -5,7 +5,7 @@ import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
-import persistentImageCache from '../utils/persistentImageCache'
+import { convertToLocalMediaUrl } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
@@ -31,22 +31,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   // Portrait menu state
   const [portraitMenuOpen, setPortraitMenuOpen] = useState(false)
 
-  // State for cached image URLs (localStorage base64 data)
-  const [cachedImageUrls, setCachedImageUrls] = useState(new Map())
-
-  // Helper function to get cached image URL from localStorage with instant loading
-  const getCachedImageUrl = (originalUrl) => {
+  // Helper function to get optimized media URL (local static files)
+  const getOptimizedMediaUrl = (originalUrl) => {
     if (!originalUrl) return null
 
-    // Check if we have a cached version (base64 data)
-    const cached = cachedImageUrls.get(originalUrl)
-    if (cached) {
-      console.log(`⚡ Using localStorage cached image: ${originalUrl.split('/').pop()?.split('?')[0]}`)
-      return cached
+    // Convert Firebase Storage URLs to local static file paths
+    const localUrl = convertToLocalMediaUrl(originalUrl)
+
+    if (localUrl !== originalUrl) {
+      console.log(`🚀 Using local static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
     }
 
-    // Fallback to original URL
-    return originalUrl
+    return localUrl
   }
 
   // Set up automatic cache updates for React re-renders
@@ -1633,7 +1629,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <div
                       className="flex-1 relative bg-gradient-to-br from-gray-200 to-gray-400"
                       style={{
-                        backgroundImage: category.imageUrl ? `url(${getCachedImageUrl(category.imageUrl)})` : 'none',
+                        backgroundImage: category.imageUrl ? `url(${getOptimizedMediaUrl(category.imageUrl)})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat'
@@ -1643,7 +1639,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       {category.imageUrl && (
                         <img
                           key={`${category.imageUrl}-hidden`}
-                          src={getCachedImageUrl(category.imageUrl)}
+                          src={getOptimizedMediaUrl(category.imageUrl)}
                           alt=""
                           style={{
                             display: 'none',
