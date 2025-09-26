@@ -1,0 +1,94 @@
+{
+  "categories": [
+    {
+      "id": "sports",
+      "name": "الرياضة",
+      "nameEn": "Sports",
+      "color": "bg-red-500",
+      "image": "⚽",
+      "imageUrl": "/images/soccer.png"
+    },
+    {
+      "id": "history",
+      "name": "التاريخ",
+      "nameEn": "History",
+      "color": "bg-blue-500",
+      "image": "🏺",
+      "imageUrl": ""
+    },
+    {
+      "id": "science",
+      "name": "العلوم",
+      "nameEn": "Science",
+      "color": "bg-green-500",
+      "image": "🔬",
+      "imageUrl": ""
+    },
+    {
+      "id": "entertainment",
+      "name": "الترفيه",
+      "nameEn": "Entertainment",
+      "color": "bg-purple-500",
+      "image": "🎭",
+      "imageUrl": "/images/anime.png"
+    },
+    {
+      "id": "geography",
+      "name": "الجغرافيا",
+      "nameEn": "Geography",
+      "color": "bg-yellow-500",
+      "image": "🌍",
+      "imageUrl": "/images/kuwait.png"
+    },
+    {
+      "id": "literature",
+      "name": "الأدب",
+      "nameEn": "Literature",
+      "color": "bg-pink-500",
+      "image": "📚",
+      "imageUrl": ""
+    },
+    {
+      "id": "technology",
+      "name": "التكنولوجيا",
+      "nameEn": "Technology",
+      "color": "bg-indigo-500",
+      "image": "💻",
+      "imageUrl": ""
+    },
+    {
+      "id": "food",
+      "name": "الطعام",
+      "nameEn": "Food",
+      "color": "bg-orange-500",
+      "image": "🍕",
+      "imageUrl": ""
+    }
+  ],
+  "questions": {
+    "sports": [
+      {"text": "من فاز بكأس العالم 2022؟", "answer": "الأرجنتين", "difficulty": "easy", "points": 200},
+      {"text": "كم عدد اللاعبين في فريق كرة القدم؟", "answer": "11 لاعب", "difficulty": "easy", "points": 200},
+      {"text": "في أي مدينة أقيمت أولمبياد 2016؟", "answer": "ريو دي جانيرو", "difficulty": "medium", "points": 400},
+      {"text": "من هو أسرع رجل في العالم؟", "answer": "يوسين بولت", "difficulty": "medium", "points": 400},
+      {"text": "كم عدد المرات التي فاز بها ريال مدريد بدوري أبطال أوروبا؟", "answer": "15 مرة", "difficulty": "hard", "points": 600},
+      {"text": "من هو أول لاعب يسجل 100 هدف دولي؟", "answer": "علي دائي", "difficulty": "hard", "points": 600}
+    ],
+    "history": [
+      {"text": "متى بدأت الحرب العالمية الأولى؟", "answer": "1914", "difficulty": "easy", "points": 200},
+      {"text": "من هو أول رئيس للولايات المتحدة؟", "answer": "جورج واشنطن", "difficulty": "easy", "points": 200},
+      {"text": "في أي سنة سقط جدار برلين؟", "answer": "1989", "difficulty": "medium", "points": 400},
+      {"text": "من هو القائد الذي فتح القسطنطينية؟", "answer": "محمد الفاتح", "difficulty": "medium", "points": 400},
+      {"text": "كم استمرت حرب المئة عام؟", "answer": "116 سنة", "difficulty": "hard", "points": 600},
+      {"text": "في أي سنة انتهت الإمبراطورية العثمانية رسمياً؟", "answer": "1922", "difficulty": "hard", "points": 600}
+    ],
+    "science": [
+      {"text": "ما هو الرمز الكيميائي للماء؟", "answer": "H2O", "difficulty": "easy", "points": 200},
+      {"text": "كم عدد الكواكب في النظام الشمسي؟", "answer": "8 كواكب", "difficulty": "easy", "points": 200},
+      {"text": "ما هو أسرع حيوان على الأرض؟", "answer": "الفهد", "difficulty": "medium", "points": 400},
+      {"text": "من اكتشف الجاذبية؟", "answer": "إسحاق نيوتن", "difficulty": "medium", "points": 400},
+      {"text": "ما هو العنصر الأكثر وفرة في الكون؟", "answer": "الهيدروجين", "difficulty": "hard", "points": 600},
+      {"text": "كم عدد العظام في جسم الإنسان البالغ؟", "answer": "206 عظمة", "difficulty": "hard", "points": 600}
+    ]
+  }
+}

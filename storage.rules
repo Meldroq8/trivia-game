@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow everyone to read/view images
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Temporarily allow any authenticated user (for debugging)
+    match /categories/{imageId} {
+      allow write, delete: if request.auth != null;
+    }
+
+    match /questions/{imageId} {
+      allow write, delete: if request.auth != null;
+    }
+  }
+}
