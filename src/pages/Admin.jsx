@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import AudioPlayer from '../components/AudioPlayer'
 import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
+import MediaUploadManager from '../components/MediaUploadManager'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
@@ -131,6 +132,18 @@ function Admin() {
               مراجعة الأسئلة
             </button>
           )}
+          {isAdminOrModerator && (
+            <button
+              onClick={() => changeTab('media')}
+              className={`flex-1 py-4 px-6 font-bold ${
+                activeTab === 'media'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              📁 الوسائط
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => changeTab('settings')}
@@ -151,6 +164,7 @@ function Admin() {
           {activeTab === 'questions' && <QuestionsManager isAdmin={isAdmin} isModerator={isModerator} user={user} />}
           {activeTab === 'users' && isAdmin && <UsersManager getAllUsers={getAllUsers} updateUserRole={updateUserRole} searchUsers={searchUsers} />}
           {activeTab === 'pending' && isAdmin && <PendingQuestionsManager />}
+          {activeTab === 'media' && isAdminOrModerator && <MediaUploadManager />}
           {activeTab === 'settings' && isAdmin && <SettingsManager isAdmin={isAdmin} isModerator={isModerator} />}
         </div>
       </div>
