@@ -27,27 +27,39 @@ jobs:
 
     - name: Process uploaded images
       run: |
-        # Create image directories if they don't exist
+        # Create media directories if they don't exist
         mkdir -p public/images/categories
         mkdir -p public/images/questions
+        mkdir -p public/audio
+        mkdir -p public/video
 
-        # Process any images in uploads/ folder (for future image upload system)
+        # Process any media files in uploads/ folder (for future upload system)
         if [ -d "uploads" ]; then
-          echo "Processing uploaded images..."
+          echo "Processing uploaded media files..."
 
-          # Copy and optimize category images
+          # Copy category images
           if [ -d "uploads/categories" ]; then
             cp -r uploads/categories/* public/images/categories/ 2>/dev/null || true
           fi
 
-          # Copy and optimize question images
+          # Copy question images
           if [ -d "uploads/questions" ]; then
             cp -r uploads/questions/* public/images/questions/ 2>/dev/null || true
           fi
 
-          echo "Images processed and moved to public/images/"
+          # Copy audio files
+          if [ -d "uploads/audio" ]; then
+            cp -r uploads/audio/* public/audio/ 2>/dev/null || true
+          fi
+
+          # Copy video files
+          if [ -d "uploads/video" ]; then
+            cp -r uploads/video/* public/video/ 2>/dev/null || true
+          fi
+
+          echo "Media files processed and moved to public/ directories"
         else
-          echo "No uploads folder found - skipping image processing"
+          echo "No uploads folder found - skipping media processing"
         fi
 
     - name: Build project
