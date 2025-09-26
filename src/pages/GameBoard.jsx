@@ -50,19 +50,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (!gameData?.categories) return
 
     const updateCachedImages = () => {
-      // Check all category images for newly available cached versions
-      gameState.selectedCategories.forEach(categoryId => {
-        const category = gameData.categories?.find(cat => cat.id === categoryId)
-        if (category?.imageUrl) {
-          // Check if we have a localStorage cached version
-          const localStorageCached = persistentImageCache.getImageFromLocalStorage(category.imageUrl)
-          if (localStorageCached) {
-            // Update cached URLs map with localStorage data
-            setCachedImageUrls(prev => new Map(prev.set(category.imageUrl, localStorageCached)))
-            setLoadedImages(prev => new Set([...prev, category.imageUrl]))
-          }
-        }
-      })
+      // Images are now served as local static files - no cache checking needed
     }
 
     // Check for cache updates periodically
@@ -128,23 +116,20 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
   }, [stateLoaded, gameState, location.pathname, navigate])
 
-  // Load cached images from localStorage on component mount
+  // Load game data and prepare local media URLs
   useEffect(() => {
-    if (!gameData?.categories || !gameState.selectedCategories.length) return
+    if (!gameData?.categories) return
 
-    console.log('🔄 Loading cached images from localStorage on mount')
-    gameState.selectedCategories.forEach(categoryId => {
-      const category = gameData.categories.find(cat => cat.id === categoryId)
-      if (category?.imageUrl) {
-        const localStorageCached = persistentImageCache.getImageFromLocalStorage(category.imageUrl)
-        if (localStorageCached) {
-          console.log(`⚡ Found localStorage cached image for ${category.name}: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
-          setCachedImageUrls(prev => new Map(prev.set(category.imageUrl, localStorageCached)))
-          setLoadedImages(prev => new Set([...prev, category.imageUrl]))
+    // Pre-log converted URLs for debugging
+    gameData.categories.forEach(category => {
+      if (category.imageUrl) {
+        const localUrl = convertToLocalMediaUrl(category.imageUrl)
+        if (localUrl !== category.imageUrl) {
+          console.log(`📂 Mapped: ${category.name} -> ${localUrl}`)
         }
       }
     })
-  }, [gameData, gameState.selectedCategories])
+  }, [gameData])
 
   // Immediate category image preloading for selected categories only
   const preloadSelectedCategoryImages = async (data) => {
@@ -166,20 +151,19 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         // Preload all selected category images in parallel with persistent caching
         const preloadResults = await Promise.allSettled(selectedCategoryImages.map(async (imageUrl) => {
           try {
-            const cachedUrl = await persistentImageCache.getCachedImageUrl(imageUrl)
+            const localImageUrl = getOptimizedMediaUrl(imageUrl)
 
-            // Get the localStorage cached version for instant loading
-            const localStorageData = persistentImageCache.getImageFromLocalStorage(imageUrl)
-            if (localStorageData) {
-              setCachedImageUrls(prev => new Map(prev.set(imageUrl, localStorageData)))
-              console.log(`✅ Category image cached to localStorage: ${imageUrl.split('/').pop()?.split('?')[0]}`)
-            } else {
-              console.log(`🔄 Category image cached to browser only: ${imageUrl.split('/').pop()?.split('?')[0]}`)
-            }
+            // Simple browser preload - no localStorage needed since files are now local
+            const img = new Image()
+            await new Promise((resolve, reject) => {
+              img.onload = resolve
+              img.onerror = reject
+              img.src = localImageUrl
+            })
 
-            // Mark this image as loaded immediately after successful preload
+            console.log(`✅ Category image preloaded: ${imageUrl.split('/').pop()?.split('?')[0]}`)
             setLoadedImages(prev => new Set([...prev, imageUrl]))
-            return { url: imageUrl, cached: true, cachedUrl }
+            return { url: imageUrl, cached: true }
           } catch (error) {
             // Image will load normally via background-image, no need to fail here
             console.log(`ℹ️ Category image will load on-demand: ${imageUrl.split('/').pop()?.split('?')[0]}`)
@@ -233,10 +217,19 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           .filter(q => q.imageUrl)
           .map(async (question) => {
             try {
-              await persistentImageCache.getCachedImageUrl(question.imageUrl)
-              console.log(`✅ Question image cached: ${question.imageUrl.split('/').pop()?.split('?')[0]}`)
+              const localImageUrl = getOptimizedMediaUrl(question.imageUrl)
+
+              // Simple browser preload for question images
+              const img = new Image()
+              await new Promise((resolve, reject) => {
+                img.onload = resolve
+                img.onerror = reject
+                img.src = localImageUrl
+              })
+
+              console.log(`✅ Question image preloaded: ${question.imageUrl.split('/').pop()?.split('?')[0]}`)
             } catch (error) {
-              console.warn(`⚠️ Failed to cache question image: ${question.imageUrl}`, error)
+              console.warn(`⚠️ Question image will load on-demand: ${question.imageUrl}`)
             }
           })
         await Promise.allSettled(questionImagePreloads)
