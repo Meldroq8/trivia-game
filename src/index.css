@@ -1,0 +1,131 @@
+
+/* Base Arabic theme */
+:root{
+  --bg1:#0b1020;
+  --bg2:#1b1f36;
+  --card:#12172b;
+  --primary:#DC2626;
+  --accent:#22D3EE;
+  --text:#E6E8EF;
+}
+
+*{ box-sizing:border-box; }
+
+html,body,#root{ height:100%; }
+
+body{
+  margin:0;
+  font-family: 'Tajawal','Cairo','Tahoma','Arial',sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(220,38,38,.25), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(34,211,238,.18), transparent 60%),
+    linear-gradient(180deg,var(--bg1), var(--bg2));
+  overflow-x:hidden;
+}
+
+/* Cards / panels */
+.card{
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 1rem;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+
+/* Fancy button */
+.btn-primary{
+  background: linear-gradient(135deg, var(--primary), #B91C1C);
+  color: white;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 0.875rem;
+  padding: .85rem 1.25rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  box-shadow: 0 10px 24px rgba(220,38,38,.35);
+  transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.btn-primary:hover{ transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 14px 30px rgba(220,38,38,.45); }
+.btn-primary:active{ transform: translateY(0); }
+
+/* Secondary button */
+.btn-secondary{
+  background: linear-gradient(135deg, #1f2937, #111827);
+  color: #E6E8EF;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 0.875rem;
+  padding: .8rem 1.1rem;
+  font-weight: 600;
+  transition: transform .12s ease, background .2s;
+}
+.btn-secondary:hover{ transform: translateY(-1px); background: linear-gradient(135deg, #273244, #111827); }
+
+/* Game tiles */
+.tile{
+  background: radial-gradient(120% 120% at 30% 10%, rgba(255,255,255,.08), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 1rem;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+.tile:hover{ transform: translateY(-3px); border-color: rgba(34,211,238,.35); box-shadow: 0 10px 26px rgba(34,211,238,.22); }
+
+/* Badges */
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  padding:.35rem .6rem;
+  border-radius:.75rem;
+  background: rgba(34,211,238,.12);
+  color:#A5F3FC;
+  border:1px solid rgba(34,211,238,.25);
+  font-weight:700;
+  font-size:.9rem;
+}
+
+/* Utils to emulate a bit of Tailwind spacing if needed */
+.text-2xl{ font-size:1.5rem; }
+.mb-2{ margin-bottom:.5rem; }
+.mb-4{ margin-bottom:1rem; }
+.grid{ display:grid; }
+.grid-cols-3{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gap-4{ gap:1rem; }
+
+/* Presentation mode top bar */
+.topbar{
+  position: sticky; top:0; z-index: 30;
+  background: rgba(11,16,32,.6);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  backdrop-filter: blur(8px);
+}
+
+/* Seenjeem-like pill buttons for board points */
+.game-board-button{
+  background: #e5e7eb; /* light gray */
+  color: #b91c1c;      /* deep red text */
+  border: 1px solid #d1d5db;
+  border-radius: 9999px; /* full pill */
+  box-shadow: 0 4px 10px rgba(0,0,0,.06);
+}
+.game-board-button:disabled{
+  color: #9ca3af;
+  opacity: .9;
+}
+
+/* Results page animations */
+@keyframes confetti {
+  0% { opacity: 1; transform: translateY(-10vh) rotateZ(0deg); }
+  100% { opacity: 0; transform: translateY(100vh) rotateZ(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-confetti { animation: confetti 3s linear infinite; }
+.animate-fadeIn { animation: fadeIn 0.6s ease-out; }

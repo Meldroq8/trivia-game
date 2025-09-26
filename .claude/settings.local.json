@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npm run lint)",
+      "Bash(npm run build:*)",
+      "Bash(npx eslint:*)",
+      "Bash(dir \"C:\\Users\\f17\\Downloads\\Jm3a\\trivia-game\\src\\assets\" /b)",
+      "Bash(copy:*)",
+      "Read(//c/**)",
+      "Bash(find:*)",
+      "Bash(unzip:*)",
+      "Bash(dir:*)",
+      "Bash(sed:*)",
+      "Bash(netstat:*)",
+      "Bash(robocopy:*)",
+      "Bash(npm install:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase --version)",
+      "Bash(npx firebase:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(curl:*)",
+      "WebSearch",
+      "Bash(rsync:*)",
+      "Bash(zip:*)",
+      "WebFetch(domain:console.firebase.google.com)",
+      "Bash(xcopy:*)",
+      "Bash(powershell:*)",
+      "Bash(awk:*)",
+      "Bash(pkill:*)",
+      "Bash(taskkill:*)",
+      "Bash(node:*)",
+      "Bash(gsutil:*)",
+      "Bash(python:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

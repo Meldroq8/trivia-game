@@ -1,0 +1,78 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { usePresentationMode } from './hooks/usePresentationMode'
+import GameSetup from './pages/GameSetup'
+import CategorySelection from './pages/CategorySelection'
+import GameBoard from './pages/GameBoard'
+import QuestionView from './pages/QuestionView'
+import Results from './pages/Results'
+import Statistics from './pages/Statistics'
+import Admin from './pages/Admin'
+
+function App() {
+  const { isPresentationMode } = usePresentationMode()
+  const [gameState, setGameState] = useState({
+    gameName: 'لعبة الأسئلة',
+    team1: { name: 'الفريق الأول', score: 0 },
+    team2: { name: 'الفريق الثاني', score: 0 },
+    currentTurn: 'team1', // Add turn tracking
+    selectedCategories: [],
+    usedQuestions: new Set(),
+    currentQuestion: null,
+    gameHistory: []
+  })
+
+  // Add/remove presentation mode class to body
+  useEffect(() => {
+    if (isPresentationMode) {
+      document.body.classList.add('presentation-mode')
+    } else {
+      document.body.classList.remove('presentation-mode')
+    }
+
+    return () => {
+      document.body.classList.remove('presentation-mode')
+    }
+  }, [isPresentationMode])
+
+  return (
+    <>
+      <Router>
+        <div className="min-h-screen w-full">
+          <Routes>
+            <Route
+              path="/"
+              element={<GameSetup gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/categories"
+              element={<CategorySelection gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/game"
+              element={<GameBoard gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/question"
+              element={<QuestionView gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/results"
+              element={<Results gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/statistics"
+              element={<Statistics />}
+            />
+            <Route
+              path="/admin"
+              element={<Admin />}
+            />
+          </Routes>
+        </div>
+      </Router>
+    </>
+  )
+}
+
+export default App
