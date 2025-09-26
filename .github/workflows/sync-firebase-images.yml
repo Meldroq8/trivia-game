@@ -1,0 +1,186 @@
+name: Sync Firebase Images (Manual Trigger)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_reason:
+        description: 'Reason for manual sync (e.g., new images uploaded)'
+        required: false
+        default: 'Manual sync requested'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  sync-images:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install image processing tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y imagemagick webp
+
+    - name: Sync Firebase Storage images
+      env:
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}
+      run: |
+        echo "🔄 Starting Firebase Storage sync..."
+        echo "Reason: ${{ github.event.inputs.sync_reason }}"
+
+        # Create media directories
+        mkdir -p public/images/categories
+        mkdir -p public/images/questions
+
+        # Set up Firebase service account
+        echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
+        export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
+
+        # Install Google Cloud Storage
+        npm install @google-cloud/storage
+
+        # Create the same sync script as in deploy.yml
+        cat > sync-firebase-storage.js << 'EOF'
+        const { Storage } = require('@google-cloud/storage');
+        const fs = require('fs');
+        const path = require('path');
+        const { execSync } = require('child_process');
+
+        const storage = new Storage();
+        const bucketName = 'lamah-357f3.appspot.com';
+
+        async function downloadAndProcessImages() {
+          try {
+            console.log('🔍 Scanning Firebase Storage for images...');
+
+            // Process category images
+            const [files] = await storage.bucket(bucketName).getFiles({
+              prefix: 'categories/'
+            });
+
+            let processedCount = 0;
+
+            for (const file of files) {
+              if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+                const filename = path.basename(file.name);
+                const baseName = filename.split('.')[0];
+
+                // Check if we already have processed versions
+                const expectedFiles = [
+                  `public/images/categories/${baseName}_large.webp`,
+                  `public/images/categories/${baseName}_medium.webp`,
+                  `public/images/categories/${baseName}_thumb.webp`,
+                  `public/images/categories/${baseName}_original.webp`
+                ];
+
+                const needsProcessing = expectedFiles.some(f => !fs.existsSync(f));
+
+                if (needsProcessing) {
+                  console.log(`📥 Processing: ${file.name}`);
+                  const localPath = `temp_${filename}`;
+
+                  await file.download({ destination: localPath });
+
+                  // Generate multiple sizes
+                  execSync(`convert "${localPath}" -resize 800x600^ -gravity center -extent 800x600 -quality 85 "public/images/categories/${baseName}_large.webp"`);
+                  execSync(`convert "${localPath}" -resize 400x300^ -gravity center -extent 400x300 -quality 80 "public/images/categories/${baseName}_medium.webp"`);
+                  execSync(`convert "${localPath}" -resize 150x113^ -gravity center -extent 150x113 -quality 75 "public/images/categories/${baseName}_thumb.webp"`);
+                  execSync(`convert "${localPath}" -quality 90 "public/images/categories/${baseName}_original.webp"`);
+
+                  fs.unlinkSync(localPath);
+                  processedCount++;
+                } else {
+                  console.log(`✅ Already processed: ${filename}`);
+                }
+              }
+            }
+
+            // Process question images
+            const [questionFiles] = await storage.bucket(bucketName).getFiles({
+              prefix: 'questions/'
+            });
+
+            for (const file of questionFiles) {
+              if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+                const filename = path.basename(file.name);
+                const baseName = filename.split('.')[0];
+
+                const expectedFiles = [
+                  `public/images/questions/${baseName}_large.webp`,
+                  `public/images/questions/${baseName}_medium.webp`,
+                  `public/images/questions/${baseName}_thumb.webp`,
+                  `public/images/questions/${baseName}_original.webp`
+                ];
+
+                const needsProcessing = expectedFiles.some(f => !fs.existsSync(f));
+
+                if (needsProcessing) {
+                  console.log(`📥 Processing: ${file.name}`);
+                  const localPath = `temp_${filename}`;
+
+                  await file.download({ destination: localPath });
+
+                  execSync(`convert "${localPath}" -resize 600x400^ -gravity center -extent 600x400 -quality 85 "public/images/questions/${baseName}_large.webp"`);
+                  execSync(`convert "${localPath}" -resize 300x200^ -gravity center -extent 300x200 -quality 80 "public/images/questions/${baseName}_medium.webp"`);
+                  execSync(`convert "${localPath}" -resize 150x100^ -gravity center -extent 150x100 -quality 75 "public/images/questions/${baseName}_thumb.webp"`);
+                  execSync(`convert "${localPath}" -quality 90 "public/images/questions/${baseName}_original.webp"`);
+
+                  fs.unlinkSync(localPath);
+                  processedCount++;
+                } else {
+                  console.log(`✅ Already processed: ${filename}`);
+                }
+              }
+            }
+
+            console.log(`🎉 Firebase Storage sync complete! Processed ${processedCount} new/updated images.`);
+          } catch (error) {
+            console.error('❌ Firebase Storage sync failed:', error);
+            process.exit(1);
+          }
+        }
+
+        downloadAndProcessImages();
+        EOF
+
+        # Run Firebase sync
+        node sync-firebase-storage.js
+
+        # Clean up
+        rm -f service-account.json
+
+    - name: Commit processed images
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+        git add public/images/
+
+        if ! git diff --staged --quiet; then
+          git commit -m "Auto-sync: Process new images from Firebase Storage
+
+          🤖 Generated with [Claude Code](https://claude.ai/code)
+
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+          git push
+          echo "✅ New processed images committed and pushed"
+        else
+          echo "ℹ️ No new images to commit"
+        fi
+
+    - name: Trigger deployment
+      if: success()
+      run: |
+        echo "🚀 Image sync complete! Regular deployment will pick up changes."

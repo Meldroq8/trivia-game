@@ -25,42 +25,165 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Process uploaded images
+    - name: Install image processing tools
       run: |
-        # Create media directories if they don't exist
+        sudo apt-get update
+        sudo apt-get install -y imagemagick webp
+
+    - name: Sync and process Firebase Storage images
+      env:
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}
+      run: |
+        # Create media directories
         mkdir -p public/images/categories
         mkdir -p public/images/questions
         mkdir -p public/audio
         mkdir -p public/video
 
-        # Process any media files in uploads/ folder (for future upload system)
+        # Install Firebase CLI
+        npm install -g firebase-tools
+
+        # Set up Firebase service account
+        echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
+        export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
+
+        # Create Firebase Storage sync script
+        cat > sync-firebase-storage.js << 'EOF'
+        const { Storage } = require('@google-cloud/storage');
+        const https = require('https');
+        const fs = require('fs');
+        const path = require('path');
+        const { execSync } = require('child_process');
+
+        const storage = new Storage();
+        const bucketName = 'lamah-357f3.appspot.com';
+
+        async function downloadAndProcessImages() {
+          try {
+            const [files] = await storage.bucket(bucketName).getFiles({
+              prefix: 'categories/'
+            });
+
+            for (const file of files) {
+              if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+                const filename = path.basename(file.name);
+                const localPath = `public/images/categories/${filename}`;
+
+                console.log(`Processing: ${file.name} -> ${localPath}`);
+
+                // Download file
+                await file.download({ destination: localPath });
+
+                // Process image (resize and optimize)
+                const baseName = path.parse(filename).name;
+                const ext = 'webp';
+
+                // Generate multiple sizes
+                execSync(`convert "${localPath}" -resize 800x600^ -gravity center -extent 800x600 -quality 85 "public/images/categories/${baseName}_large.${ext}"`);
+                execSync(`convert "${localPath}" -resize 400x300^ -gravity center -extent 400x300 -quality 80 "public/images/categories/${baseName}_medium.${ext}"`);
+                execSync(`convert "${localPath}" -resize 150x113^ -gravity center -extent 150x113 -quality 75 "public/images/categories/${baseName}_thumb.${ext}"`);
+
+                // Keep original as webp
+                execSync(`convert "${localPath}" -quality 90 "public/images/categories/${baseName}_original.${ext}"`);
+
+                // Remove the downloaded original
+                fs.unlinkSync(localPath);
+              }
+            }
+
+            // Process question images
+            const [questionFiles] = await storage.bucket(bucketName).getFiles({
+              prefix: 'questions/'
+            });
+
+            for (const file of questionFiles) {
+              if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+                const filename = path.basename(file.name);
+                const localPath = `public/images/questions/${filename}`;
+
+                console.log(`Processing: ${file.name} -> ${localPath}`);
+
+                await file.download({ destination: localPath });
+
+                const baseName = path.parse(filename).name;
+                const ext = 'webp';
+
+                // Generate sizes for questions
+                execSync(`convert "${localPath}" -resize 600x400^ -gravity center -extent 600x400 -quality 85 "public/images/questions/${baseName}_large.${ext}"`);
+                execSync(`convert "${localPath}" -resize 300x200^ -gravity center -extent 300x200 -quality 80 "public/images/questions/${baseName}_medium.${ext}"`);
+                execSync(`convert "${localPath}" -resize 150x100^ -gravity center -extent 150x100 -quality 75 "public/images/questions/${baseName}_thumb.${ext}"`);
+
+                execSync(`convert "${localPath}" -quality 90 "public/images/questions/${baseName}_original.${ext}"`);
+                fs.unlinkSync(localPath);
+              }
+            }
+
+            console.log('Firebase Storage sync and processing complete!');
+          } catch (error) {
+            console.log('Firebase Storage sync failed (non-critical):', error.message);
+          }
+        }
+
+        downloadAndProcessImages();
+        EOF
+
+        # Install Google Cloud Storage
+        npm install @google-cloud/storage
+
+        # Run Firebase sync
+        node sync-firebase-storage.js
+
+        # Process any manual uploads in uploads/ folder
         if [ -d "uploads" ]; then
-          echo "Processing uploaded media files..."
+          echo "Processing manual uploads..."
 
-          # Copy category images
+          # Process category uploads
           if [ -d "uploads/categories" ]; then
-            cp -r uploads/categories/* public/images/categories/ 2>/dev/null || true
+            for file in uploads/categories/*; do
+              if [[ -f "$file" ]]; then
+                filename=$(basename "$file")
+                baseName="${filename%.*}"
+
+                # Generate processed versions
+                convert "$file" -resize 800x600^ -gravity center -extent 800x600 -quality 85 "public/images/categories/${baseName}_large.webp"
+                convert "$file" -resize 400x300^ -gravity center -extent 400x300 -quality 80 "public/images/categories/${baseName}_medium.webp"
+                convert "$file" -resize 150x113^ -gravity center -extent 150x113 -quality 75 "public/images/categories/${baseName}_thumb.webp"
+                convert "$file" -quality 90 "public/images/categories/${baseName}_original.webp"
+              fi
+            done
           fi
 
-          # Copy question images
+          # Process question uploads
           if [ -d "uploads/questions" ]; then
-            cp -r uploads/questions/* public/images/questions/ 2>/dev/null || true
+            for file in uploads/questions/*; do
+              if [[ -f "$file" ]]; then
+                filename=$(basename "$file")
+                baseName="${filename%.*}"
+
+                convert "$file" -resize 600x400^ -gravity center -extent 600x400 -quality 85 "public/images/questions/${baseName}_large.webp"
+                convert "$file" -resize 300x200^ -gravity center -extent 300x200 -quality 80 "public/images/questions/${baseName}_medium.webp"
+                convert "$file" -resize 150x100^ -gravity center -extent 150x100 -quality 75 "public/images/questions/${baseName}_thumb.webp"
+                convert "$file" -quality 90 "public/images/questions/${baseName}_original.webp"
+              fi
+            done
           fi
 
-          # Copy audio files
+          # Copy audio and video files directly
           if [ -d "uploads/audio" ]; then
             cp -r uploads/audio/* public/audio/ 2>/dev/null || true
           fi
 
-          # Copy video files
           if [ -d "uploads/video" ]; then
             cp -r uploads/video/* public/video/ 2>/dev/null || true
           fi
 
-          echo "Media files processed and moved to public/ directories"
-        else
-          echo "No uploads folder found - skipping media processing"
+          echo "Manual uploads processed"
         fi
+
+        # Clean up
+        rm -f service-account.json
+
+        echo "Image processing pipeline complete!"
 
     - name: Build project
       run: npm run build

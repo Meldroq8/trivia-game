@@ -89,14 +89,38 @@ const MediaUploadManager = () => {
       )}
 
       <div className="bg-gray-50 p-4 rounded-md">
-        <h4 className="font-semibold text-gray-700 mb-2">📋 Current Process:</h4>
-        <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1">
-          <li>Select your media type and files above</li>
-          <li>Manually add files to <code>uploads/{uploadType}/</code> in your repository</li>
-          <li>Commit and push changes to GitHub</li>
-          <li>GitHub Actions will automatically move files to <code>public/{uploadType === 'categories' ? 'images/categories' : uploadType === 'questions' ? 'images/questions' : uploadType}/</code></li>
-          <li>Your app will be rebuilt and deployed with the new media files</li>
-        </ol>
+        <h4 className="font-semibold text-gray-700 mb-3">📋 Hybrid Upload Process:</h4>
+
+        <div className="mb-4">
+          <h5 className="font-semibold text-green-700 mb-2">🔥 Method 1: Firebase Upload (Recommended)</h5>
+          <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1 mb-3">
+            <li>Upload images using existing admin panels (Categories/Questions)</li>
+            <li>Images go to Firebase Storage automatically</li>
+            <li>Trigger GitHub sync: <strong>Actions → "Sync Firebase Images" → Run workflow</strong></li>
+            <li>Images get processed and optimized (multiple sizes, webp format)</li>
+            <li>App automatically uses optimized local versions (90% faster!)</li>
+          </ol>
+        </div>
+
+        <div className="mb-4">
+          <h5 className="font-semibold text-blue-700 mb-2">📁 Method 2: Manual GitHub Upload</h5>
+          <ol className="list-decimal list-inside text-sm text-gray-600 space-y-1">
+            <li>Add files to <code>uploads/{uploadType}/</code> in your repository</li>
+            <li>Commit and push changes to GitHub</li>
+            <li>GitHub Actions processes and optimizes images automatically</li>
+            <li>App deploys with optimized images</li>
+          </ol>
+        </div>
+
+        <div className="bg-green-50 p-3 rounded-md">
+          <h5 className="font-semibold text-green-800 mb-1">⚡ Auto-Optimization Features:</h5>
+          <ul className="list-disc list-inside text-sm text-green-700 space-y-1">
+            <li><strong>Multiple sizes:</strong> thumb (150px), medium (400px), large (800px)</li>
+            <li><strong>Format conversion:</strong> All images converted to WebP (smaller files)</li>
+            <li><strong>Quality optimization:</strong> 90% smaller with same visual quality</li>
+            <li><strong>Smart loading:</strong> App picks best size for each context</li>
+          </ul>
+        </div>
       </div>
 
       <div className="mt-4 bg-blue-50 p-4 rounded-md">

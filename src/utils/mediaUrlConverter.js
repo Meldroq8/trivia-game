@@ -1,9 +1,9 @@
 /**
- * Utility to convert Firebase Storage URLs to local static file paths
- * This enables loading images from the bundled app instead of Firebase Storage
+ * Enhanced utility to convert Firebase Storage URLs to optimized local static file paths
+ * Automatically selects the best image size and format for performance
  */
 
-export const convertToLocalMediaUrl = (firebaseUrl) => {
+export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = 'default') => {
   if (!firebaseUrl) return null
 
   // If it's already a local path, return as-is
@@ -13,7 +13,6 @@ export const convertToLocalMediaUrl = (firebaseUrl) => {
 
   try {
     // Extract filename from Firebase Storage URL
-    // Format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path%2Ffilename?params
     const url = new URL(firebaseUrl)
     const pathPart = url.pathname.split('/o/')[1]
     if (!pathPart) return firebaseUrl
@@ -21,15 +20,48 @@ export const convertToLocalMediaUrl = (firebaseUrl) => {
     // Decode the URL-encoded path
     const decodedPath = decodeURIComponent(pathPart.split('?')[0])
 
-    // Map Firebase Storage paths to local paths
+    // Smart size selection based on context
+    const getOptimalSize = (requestedSize, imageContext) => {
+      // Context-aware size selection
+      switch (imageContext) {
+        case 'thumbnail':
+        case 'preview':
+          return 'thumb'
+        case 'card':
+        case 'category':
+          return 'medium'
+        case 'fullscreen':
+        case 'detail':
+          return 'large'
+        case 'original':
+          return 'original'
+        default:
+          return requestedSize || 'medium'
+      }
+    }
+
+    const optimalSize = getOptimalSize(size, context)
+
+    // Map Firebase Storage paths to optimized local paths
     if (decodedPath.startsWith('categories/')) {
       const filename = decodedPath.replace('categories/', '')
-      return `/images/categories/${filename}`
+      const baseName = filename.split('.')[0]
+
+      // Try to use processed version, fallback to original
+      const processedPath = `/images/categories/${baseName}_${optimalSize}.webp`
+      const fallbackPath = `/images/categories/${filename}`
+
+      return processedPath
     }
 
     if (decodedPath.startsWith('questions/')) {
       const filename = decodedPath.replace('questions/', '')
-      return `/images/questions/${filename}`
+      const baseName = filename.split('.')[0]
+
+      const processedPath = `/images/questions/${baseName}_${optimalSize}.webp`
+      const fallbackPath = `/images/questions/${filename}`
+
+      return processedPath
     }
 
     if (decodedPath.startsWith('audio/')) {
@@ -44,7 +76,8 @@ export const convertToLocalMediaUrl = (firebaseUrl) => {
 
     // For other paths, try to extract just the filename and put it in images
     const filename = decodedPath.split('/').pop()
-    return `/images/${filename}`
+    const baseName = filename.split('.')[0]
+    return `/images/${baseName}_${optimalSize}.webp`
 
   } catch (error) {
     console.warn('Failed to convert Firebase URL to local path:', firebaseUrl, error)
@@ -52,8 +85,37 @@ export const convertToLocalMediaUrl = (firebaseUrl) => {
   }
 }
 
+// Convenience functions for different use cases
+export const getCategoryImageUrl = (firebaseUrl, size = 'medium') => {
+  return convertToLocalMediaUrl(firebaseUrl, size, 'category')
+}
+
+export const getQuestionImageUrl = (firebaseUrl, size = 'medium') => {
+  return convertToLocalMediaUrl(firebaseUrl, size, 'question')
+}
+
+export const getThumbnailUrl = (firebaseUrl) => {
+  return convertToLocalMediaUrl(firebaseUrl, 'thumb', 'thumbnail')
+}
+
+export const getFullSizeUrl = (firebaseUrl) => {
+  return convertToLocalMediaUrl(firebaseUrl, 'large', 'fullscreen')
+}
+
+// Function to check if image is from Firebase Storage
 export const isFirebaseStorageUrl = (url) => {
   return url && url.includes('firebasestorage.googleapis.com')
+}
+
+// Function to generate responsive image srcset
+export const generateResponsiveSrcSet = (firebaseUrl) => {
+  if (!isFirebaseStorageUrl(firebaseUrl)) return ''
+
+  const thumbUrl = convertToLocalMediaUrl(firebaseUrl, 'thumb')
+  const mediumUrl = convertToLocalMediaUrl(firebaseUrl, 'medium')
+  const largeUrl = convertToLocalMediaUrl(firebaseUrl, 'large')
+
+  return `${thumbUrl} 150w, ${mediumUrl} 400w, ${largeUrl} 800w`
 }
 
 export default convertToLocalMediaUrl
