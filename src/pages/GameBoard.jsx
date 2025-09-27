@@ -5,6 +5,7 @@ import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
+import SmartImage from '../components/SmartImage'
 import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
@@ -35,20 +36,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {
     if (!originalUrl) return null
 
-    // TEMPORARY: Use original Firebase URLs until images are properly synced
-    // The hybrid system is ready but images need to be downloaded first
-    console.log(`🔄 Using original Firebase URL: ${originalUrl}`)
-    return originalUrl
-
-    // When images are synced, uncomment this for local optimization:
-    // const localUrl = getCategoryImageUrl(originalUrl, size)
-    // if (localUrl !== originalUrl) {
-    //   console.log(`🚀 Using optimized static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
-    //   return localUrl
-    // } else {
-    //   console.log(`🔄 Fallback to Firebase URL: ${originalUrl}`)
-    //   return originalUrl
-    // }
+    // Use local optimization with Firebase fallback
+    const localUrl = getCategoryImageUrl(originalUrl, size)
+    if (localUrl !== originalUrl) {
+      console.log(`🚀 Using optimized local file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
+      return localUrl
+    } else {
+      console.log(`🔄 Using Firebase URL: ${originalUrl}`)
+      return originalUrl
+    }
   }
 
   // Set up automatic cache updates for React re-renders
@@ -1634,12 +1630,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                         backgroundRepeat: 'no-repeat'
                       }}
                     >
-                      {/* Hidden image element to track loading of background image */}
+                      {/* Hidden SmartImage element to track loading with local/Firebase fallback */}
                       {category.imageUrl && (
-                        <img
+                        <SmartImage
                           key={`${category.imageUrl}-hidden`}
-                          src={getOptimizedMediaUrl(category.imageUrl)}
+                          src={category.imageUrl}
                           alt=""
+                          context="category"
+                          size="medium"
                           style={{
                             display: 'none',
                             position: 'absolute',
@@ -1648,13 +1646,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                             opacity: 0
                           }}
                           onLoad={() => {
-                            console.log(`📸 Background image loaded via img element: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
-                            // Mark image as loaded when it finishes loading
+                            console.log(`📸 Category image loaded: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
                             setLoadedImages(prev => new Set([...prev, category.imageUrl]))
                           }}
                           onError={(e) => {
-                            console.warn(`❌ Background image failed to load: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
-                            // Mark as loaded even on error to prevent permanent loading state
+                            console.warn(`❌ Category image failed to load: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
                             setLoadedImages(prev => new Set([...prev, category.imageUrl]))
                           }}
                         />

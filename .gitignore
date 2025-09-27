@@ -39,3 +39,4 @@ __pycache__/
 *.tmp
 .cache/
 # Test deployment fix
+service-account.json

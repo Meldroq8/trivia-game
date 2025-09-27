@@ -25,6 +25,37 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Sync Firebase Storage images
+      env:
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}
+      run: |
+        # Create media directories
+        mkdir -p public/images/categories
+        mkdir -p public/images/questions
+
+        # Set up Firebase service account authentication
+        if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+          echo "🔑 Setting up Firebase authentication..."
+          echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
+          export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
+
+          # Run Firebase Storage sync
+          echo "🔄 Starting Firebase Storage image sync..."
+          if node scripts/simple-sync.js; then
+            echo "✅ Firebase Storage sync completed successfully!"
+            echo "📊 Downloaded images:"
+            find public/images -name "*.webp" -type f | wc -l
+          else
+            echo "⚠️ Firebase Storage sync failed, deployment will continue with Firebase URLs"
+          fi
+
+          # Clean up credentials
+          rm -f service-account.json
+        else
+          echo "⚠️ No Firebase service account found, skipping image sync"
+        fi
+      continue-on-error: true
+
     - name: Build project
       run: npm run build
 
