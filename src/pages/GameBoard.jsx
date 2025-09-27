@@ -105,15 +105,21 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       return
     }
 
+    // Check if we're on the GameBoard page (page refresh scenario)
+    if (location.pathname === '/game') {
+      console.log('🛡️ GameBoard: On GameBoard page after refresh - no redirects needed')
+      return
+    }
+
     // Only redirect if explicitly starting fresh (no game started, no route restoration)
     if (!gameState.selectedCategories.length && !hasGameStarted(gameState)) {
       // Give time for Firebase to load, then check again
       const timeout = setTimeout(() => {
-        if (!gameState.selectedCategories.length && !hasGameStarted(gameState) && !shouldStayOnCurrentPage(gameState, location.pathname)) {
+        if (!gameState.selectedCategories.length && !hasGameStarted(gameState) && !shouldStayOnCurrentPage(gameState, location.pathname) && location.pathname !== '/game') {
           console.log('🔄 GameBoard: Fresh start - redirecting to categories')
           navigate('/categories')
         }
-      }, 2000) // Extended timeout for Firebase
+      }, 3000) // Extended timeout for Firebase
 
       return () => clearTimeout(timeout)
     }
@@ -312,8 +318,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (hasGameStarted(gameState) || shouldStayOnCurrentPage(gameState, location.pathname)) {
       console.log('🛡️ GameBoard (dimensions): Game active or route restored - no redirects')
       // Continue with normal dimensions setup
-    } else if (!gameState.selectedCategories.length) {
-      // Only redirect if absolutely fresh start
+    } else if (!gameState.selectedCategories.length && location.pathname !== '/game') {
+      // Only redirect if absolutely fresh start AND not on GameBoard page
       console.log('🔄 GameBoard (dimensions): Fresh start - redirecting to categories')
       navigate('/categories')
       return
