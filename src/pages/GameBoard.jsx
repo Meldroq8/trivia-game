@@ -97,13 +97,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // BULLETPROOF: No redirects to categories after game starts
   useEffect(() => {
-    // Don't do ANYTHING until all core loading is complete
-    if (authLoading || !stateLoaded || !gameData) {
-      console.log('🔄 GameBoard: Waiting for loading to complete before redirect checks', {
-        authLoading,
-        stateLoaded,
-        hasGameData: !!gameData
-      })
+    // Only wait for critical loading - game data is most important
+    if (!gameData) {
+      console.log('🔄 GameBoard: Waiting for game data before redirect checks')
+      return
+    }
+
+    // If we're loading user data but have basic auth, proceed with some checks
+    if (authLoading && !user) {
+      console.log('🔄 GameBoard: Auth still loading, deferring redirect checks')
       return
     }
 
@@ -121,10 +123,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // Only redirect if explicitly starting fresh (no game started, no route restoration)
     if (!gameState.selectedCategories.length && !hasGameStarted(gameState)) {
+      // Wait for state to be loaded before redirecting away from game
+      if (!stateLoaded) {
+        console.log('🔄 GameBoard: State still loading, waiting before redirect')
+        return
+      }
       console.log('🔄 GameBoard: Fresh start - redirecting to categories')
       navigate('/categories')
     }
-  }, [authLoading, stateLoaded, gameData, gameState, location.pathname, navigate])
+  }, [gameData, authLoading, user, stateLoaded, gameState, location.pathname, navigate])
 
   // Load game data and prepare local media URLs
   useEffect(() => {
@@ -258,26 +265,25 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       try {
         setLoadingError(null)
 
-        console.log('🎮 GameBoard: Loading game data...')
-        const data = await GameDataLoader.loadGameData()
+        console.log('⚡ GameBoard: Loading game data immediately...')
+        const data = await GameDataLoader.loadGameData(false) // Use cache if available
 
         if (data) {
           setGameData(data)
           console.log('✅ GameBoard: Game data loaded successfully')
 
-          // Update question pool for global usage tracking (only if user is set)
-          if (user?.uid) {
-            questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
-            questionUsageTracker.updateQuestionPool(data)
-          } else {
-            console.log('⏳ GameBoard: Delaying questionUsageTracker until user is authenticated')
-          }
+          // Defer non-critical operations to avoid blocking UI
+          setTimeout(() => {
+            // Update question pool for global usage tracking (only if user is set)
+            if (user?.uid) {
+              questionUsageTracker.setUserId(user.uid)
+              questionUsageTracker.updateQuestionPool(data)
+            }
 
-          // Immediately preload category images for selected categories
-          preloadSelectedCategoryImages(data)
-
-          // Start smart preloading (6 questions per category in background)
-          startSmartPreloading(data)
+            // Start background preloading (non-blocking)
+            preloadSelectedCategoryImages(data)
+            startSmartPreloading(data)
+          }, 100) // Small delay to let UI render first
         } else {
           throw new Error('No game data received')
         }
@@ -299,8 +305,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             console.log('⏳ GameBoard: Delaying questionUsageTracker (fallback) until user is authenticated')
           }
 
-          // Start smart preloading with fallback data
-          startSmartPreloading(fallbackData)
+          // Start smart preloading with fallback data (deferred)
+          setTimeout(() => startSmartPreloading(fallbackData), 100)
         } catch (fallbackError) {
           console.error('❌ GameBoard: Fallback failed:', fallbackError)
           setLoadingError('Unable to load game data. Please refresh the page.')
@@ -312,15 +318,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   }, [])
 
   useEffect(() => {
-    // Wait for ALL loading to be complete before doing anything
-    if (authLoading || !stateLoaded || !gameData) return
+    // Only wait for essential data for dimensions - don't block on everything
+    if (!gameData) return
 
     // BULLETPROOF: Never redirect if game has started or should stay on page
     if (hasGameStarted(gameState) || shouldStayOnCurrentPage(gameState, location.pathname)) {
       console.log('🛡️ GameBoard (dimensions): Game active or route restored - no redirects')
       // Continue with normal dimensions setup
-    } else if (!gameState.selectedCategories.length && location.pathname !== '/game') {
-      // Only redirect if absolutely fresh start AND not on GameBoard page
+    } else if (!gameState.selectedCategories.length && location.pathname !== '/game' && stateLoaded) {
+      // Only redirect if absolutely fresh start AND not on GameBoard page AND state is loaded
       console.log('🔄 GameBoard (dimensions): Fresh start - redirecting to categories')
       navigate('/categories')
       return
@@ -346,7 +352,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     updateDimensions()
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
-  }, [authLoading, stateLoaded, gameData, gameState.selectedCategories.length, navigate])
+  }, [gameData, stateLoaded, gameState.selectedCategories.length, navigate])
 
   // Check if all questions are finished and navigate to results
   useEffect(() => {
@@ -1238,8 +1244,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     )
   }
 
-  // Show skeleton game board if no game data OR if core loading states aren't ready
-  const showSkeleton = !gameData || authLoading || !stateLoaded
+  // Show skeleton only for critical loading states - allow partial rendering
+  const showSkeleton = !gameData || (authLoading && !user) // Only block if auth is truly loading AND no user
 
   return (
     <div className="h-screen w-full bg-[#f7f2e6] flex flex-col overflow-hidden" ref={containerRef}>
