@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
 import questionUsageTracker from '../utils/questionUsageTracker'
+import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 
 function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [selectedCategories, setSelectedCategories] = useState(gameState.selectedCategories)
@@ -246,7 +247,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   }
                 `}
                 style={{
-                  backgroundImage: category.imageUrl ? `url(${category.imageUrl})` : 'none',
+                  backgroundImage: category.imageUrl ? `url(${getCategoryImageUrl(category.imageUrl, 'medium')})` : 'none',
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat'
