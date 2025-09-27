@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import AudioPlayer from '../components/AudioPlayer'
 import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
+import { getCategoryImageUrl, getQuestionImageUrl, getThumbnailUrl } from '../utils/mediaUrlConverter'
 import MediaUploadManager from '../components/MediaUploadManager'
 
 function Admin() {
@@ -464,7 +465,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
               {category.imageUrl ? (
                 <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden">
                   <img
-                    src={category.imageUrl}
+                    src={getThumbnailUrl(category.imageUrl)}
                     alt={category.name}
                     className="w-full h-full object-cover"
                     onError={(e) => {
@@ -597,7 +598,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
             {/* Preview */}
             <div className="text-center mb-4">
               <div className={`${category.color} text-white rounded-xl p-4 inline-block relative overflow-hidden`} style={{
-                backgroundImage: category.imageUrl ? `url(${category.imageUrl})` : 'none',
+                backgroundImage: category.imageUrl ? `url(${getCategoryImageUrl(category.imageUrl, 'medium')})` : 'none',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat'
@@ -710,7 +711,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                   <label className="block text-sm font-bold mb-2">معاينة الفئة</label>
                   <div className="text-center">
                     <div className="bg-gray-500 text-white rounded-xl p-4 inline-block relative overflow-hidden" style={{
-                      backgroundImage: newCategory.imageUrl ? `url(${newCategory.imageUrl})` : 'none',
+                      backgroundImage: newCategory.imageUrl ? `url(${getCategoryImageUrl(newCategory.imageUrl, 'medium')})` : 'none',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       backgroundRepeat: 'no-repeat'
@@ -1994,7 +1995,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               {singleQuestion.imageUrl && (
                 <div className="mt-3">
                   <img
-                    src={singleQuestion.imageUrl}
+                    src={getQuestionImageUrl(singleQuestion.imageUrl, 'medium')}
                     alt="معاينة السؤال"
                     className="w-32 h-32 object-cover rounded-lg border"
                   />
@@ -2270,7 +2271,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {question.imageUrl && (
                             <div className="mb-3">
                               <img
-                                src={question.imageUrl}
+                                src={getThumbnailUrl(question.imageUrl)}
                                 alt="صورة السؤال"
                                 className="max-w-32 max-h-32 rounded-lg object-cover border"
                                 onError={(e) => {
@@ -3355,7 +3356,7 @@ function PendingQuestionsManager() {
                   <div>
                     <strong className="text-gray-700">صورة السؤال:</strong>
                     <img
-                      src={question.imageUrl}
+                      src={getThumbnailUrl(question.imageUrl)}
                       alt="صورة السؤال"
                       className="mt-2 w-32 h-32 object-cover rounded-lg border"
                     />
