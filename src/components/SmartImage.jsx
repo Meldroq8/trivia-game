@@ -40,7 +40,13 @@ const SmartImage = ({
     // Try local version first
     const localUrl = convertToLocalMediaUrl(src, size, context);
 
-    // Test if local image exists
+    // Extract original filename as fallback
+    const url = new URL(src);
+    const pathPart = url.pathname.split('/o/')[1];
+    const decodedPath = decodeURIComponent(pathPart.split('?')[0]);
+    const fallbackLocalUrl = `/images/${decodedPath}`;
+
+    // Test if local image exists (try processed path first)
     const testImage = new Image();
     testImage.onload = () => {
       console.log(`✅ Local image loaded successfully: ${localUrl}`);
@@ -49,10 +55,24 @@ const SmartImage = ({
     };
 
     testImage.onerror = () => {
-      console.log(`⚠️ Local image not found, falling back to Firebase: ${localUrl} -> ${src}`);
-      setIsLocalFailed(true);
-      setCurrentSrc(src); // Fallback to original Firebase URL
-      setIsLoading(false);
+      console.log(`⚠️ Processed local image not found: ${localUrl}`);
+
+      // Try original filename as fallback
+      const fallbackImage = new Image();
+      fallbackImage.onload = () => {
+        console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
+        setCurrentSrc(fallbackLocalUrl);
+        setIsLoading(false);
+      };
+
+      fallbackImage.onerror = () => {
+        console.log(`⚠️ No local images found, falling back to Firebase: ${src}`);
+        setIsLocalFailed(true);
+        setCurrentSrc(src); // Final fallback to Firebase URL
+        setIsLoading(false);
+      };
+
+      fallbackImage.src = fallbackLocalUrl;
     };
 
     testImage.src = localUrl;
