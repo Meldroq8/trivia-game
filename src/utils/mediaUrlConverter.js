@@ -3,7 +3,7 @@
  * Automatically selects the best image size and format for performance
  */
 
-export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = 'default') => {
+export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = 'default', preferOriginal = false) => {
   if (!firebaseUrl) return null
 
   // If it's already a local path, return as-is
@@ -11,11 +11,20 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
     return firebaseUrl
   }
 
+  // Temporary: prefer original Firebase URLs until sync completes
+  if (preferOriginal) {
+    console.log(`🔄 Using original Firebase URL (preferOriginal=true): ${firebaseUrl}`)
+    return firebaseUrl
+  }
+
   try {
     // Extract filename from Firebase Storage URL
     const url = new URL(firebaseUrl)
     const pathPart = url.pathname.split('/o/')[1]
-    if (!pathPart) return firebaseUrl
+    if (!pathPart) {
+      console.warn('⚠️ Invalid Firebase Storage URL format:', firebaseUrl)
+      return firebaseUrl
+    }
 
     // Decode the URL-encoded path
     const decodedPath = decodeURIComponent(pathPart.split('?')[0])
@@ -47,9 +56,16 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
       const filename = decodedPath.replace('categories/', '')
       const baseName = filename.split('.')[0]
 
-      // Try to use processed version, fallback to original
+      // Try to use processed version, with better fallback handling
       const processedPath = `/images/categories/${baseName}_${optimalSize}.webp`
-      const fallbackPath = `/images/categories/${filename}`
+
+      console.log(`🔄 Converting Firebase URL to local path:`, {
+        original: firebaseUrl,
+        decodedPath,
+        filename,
+        baseName,
+        processedPath
+      })
 
       return processedPath
     }
@@ -59,7 +75,14 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
       const baseName = filename.split('.')[0]
 
       const processedPath = `/images/questions/${baseName}_${optimalSize}.webp`
-      const fallbackPath = `/images/questions/${filename}`
+
+      console.log(`🔄 Converting Firebase URL to local path:`, {
+        original: firebaseUrl,
+        decodedPath,
+        filename,
+        baseName,
+        processedPath
+      })
 
       return processedPath
     }
@@ -77,10 +100,18 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
     // For other paths, try to extract just the filename and put it in images
     const filename = decodedPath.split('/').pop()
     const baseName = filename.split('.')[0]
-    return `/images/${baseName}_${optimalSize}.webp`
+    const processedPath = `/images/${baseName}_${optimalSize}.webp`
+
+    console.warn('⚠️ Unknown path format, using generic conversion:', {
+      original: firebaseUrl,
+      decodedPath,
+      processedPath
+    })
+
+    return processedPath
 
   } catch (error) {
-    console.warn('Failed to convert Firebase URL to local path:', firebaseUrl, error)
+    console.warn('❌ Failed to convert Firebase URL to local path:', firebaseUrl, error)
     return firebaseUrl // Fallback to original URL
   }
 }

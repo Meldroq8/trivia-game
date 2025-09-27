@@ -35,14 +35,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {
     if (!originalUrl) return null
 
+    // TEMPORARY: Use original Firebase URLs until sync completes
+    // Remove this after images are processed by GitHub Actions
+    console.log(`🔄 Temporarily using original Firebase URL: ${originalUrl}`)
+    return originalUrl
+
     // Use the enhanced converter with context-aware sizing
-    const localUrl = getCategoryImageUrl(originalUrl, size)
-
-    if (localUrl !== originalUrl) {
-      console.log(`🚀 Using optimized static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
-    }
-
-    return localUrl
+    // const localUrl = getCategoryImageUrl(originalUrl, size)
+    // if (localUrl !== originalUrl) {
+    //   console.log(`🚀 Using optimized static file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
+    // }
+    // return localUrl
   }
 
   // Set up automatic cache updates for React re-renders

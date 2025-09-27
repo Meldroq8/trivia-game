@@ -39,7 +39,9 @@
       "Bash(git config:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:lamah-357f3.web.app)"
     ],
     "deny": [],
     "ask": []
