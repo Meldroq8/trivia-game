@@ -248,11 +248,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   }
                 `}
               >
+                {/* Main content area with background image */}
                 <BackgroundImage
                   src={category.imageUrl}
                   size="medium"
                   context="category"
-                  className={`absolute inset-0 rounded-lg ${
+                  className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
                     selected
                       ? 'bg-red-600'
                       : canSelect
@@ -267,8 +268,6 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       : 'from-gray-300 to-gray-400'
                   }
                 >
-                {/* Main content area with icon/image */}
-                <div className="flex-1 relative flex items-center justify-center">
                   {/* Overlay for better text readability when image is present */}
                   {category.imageUrl && (
                     <div className="absolute inset-0 bg-black/30 rounded-t-lg"></div>
@@ -290,7 +289,6 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       </div>
                     </div>
                   )}
-                </div>
                 </BackgroundImage>
 
                 {/* Bottom bar with category name */}
