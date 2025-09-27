@@ -253,6 +253,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   src={category.imageUrl}
                   size="medium"
                   context="category"
+                  categoryId={category.id}
                   className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
                     selected
                       ? 'bg-red-600'

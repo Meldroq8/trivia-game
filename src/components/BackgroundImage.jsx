@@ -13,9 +13,10 @@ const BackgroundImage = ({
   style = {},
   children,
   fallbackGradient = 'from-gray-200 to-gray-400',
+  categoryId = null,
   ...props
 }) => {
-  const { url: smartUrl, isLoading } = useSmartImageUrl(src, size, context);
+  const { url: smartUrl, isLoading } = useSmartImageUrl(src, size, context, categoryId);
 
   const backgroundStyle = {
     backgroundImage: smartUrl ? `url(${smartUrl})` : 'none',

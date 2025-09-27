@@ -598,6 +598,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                 src={category.imageUrl}
                 size="medium"
                 context="category"
+                categoryId={category.id}
                 className={`${category.color} text-white rounded-xl p-4 inline-block relative overflow-hidden`}
               >
                 {category.imageUrl && (
@@ -711,6 +712,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                       src={newCategory.imageUrl}
                       size="medium"
                       context="category"
+                      categoryId={newCategory.id}
                       className="bg-gray-500 text-white rounded-xl p-4 inline-block relative overflow-hidden"
                     >
                       {newCategory.imageUrl && (

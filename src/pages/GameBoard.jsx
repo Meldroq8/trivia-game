@@ -1626,6 +1626,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       src={category.imageUrl}
                       size="medium"
                       context="category"
+                      categoryId={category.id}
                       className="flex-1 relative"
                       fallbackGradient="from-gray-200 to-gray-400"
                     >

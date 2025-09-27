@@ -5,12 +5,32 @@ import { convertToLocalMediaUrl } from '../utils/mediaUrlConverter';
  * Hook that provides a smart image URL with local/Firebase fallback
  * Perfect for background images that can't use the SmartImage component
  */
-export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'default') => {
+export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'default', categoryId = null) => {
   const [currentUrl, setCurrentUrl] = useState(firebaseUrl);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    // Special handling for mystery category - try to find a mystery image
+    if (categoryId === 'mystery' && (!firebaseUrl || firebaseUrl === '')) {
+      console.log('🔍 Mystery category detected without Firebase URL, searching for local mystery images...');
+
+      // Try to find the latest mystery category image
+      const testMysteryImage = new Image();
+      testMysteryImage.onload = () => {
+        console.log('✅ Found mystery category image');
+        setCurrentUrl('/images/categories/category_mystery_1758939021986.webp'); // Use the latest one
+        setIsLoading(false);
+      };
+      testMysteryImage.onerror = () => {
+        console.log('⚠️ No mystery category image found, using fallback');
+        setCurrentUrl(null);
+        setIsLoading(false);
+      };
+      testMysteryImage.src = '/images/categories/category_mystery_1758939021986.webp';
+      return;
+    }
+
     if (!firebaseUrl) {
       setCurrentUrl(null);
       setIsLoading(false);
@@ -95,7 +115,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
       testImage.onload = null;
       testImage.onerror = null;
     };
-  }, [firebaseUrl, size, context]);
+  }, [firebaseUrl, size, context, categoryId]);
 
   return {
     url: currentUrl,
