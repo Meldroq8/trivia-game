@@ -31,19 +31,40 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
     // Try local version first
     const localUrl = convertToLocalMediaUrl(firebaseUrl, size, context);
 
-    // Test if local image exists
+    // Extract original filename as fallback
+    const url = new URL(firebaseUrl);
+    const pathPart = url.pathname.split('/o/')[1];
+    const decodedPath = decodeURIComponent(pathPart.split('?')[0]);
+    const originalFilename = decodedPath.split('/').pop();
+    const fallbackLocalUrl = `/images/${decodedPath.replace('categories/', 'categories/').replace('questions/', 'questions/')}`;
+
+    // Test if local image exists (try processed path first)
     const testImage = new Image();
 
     testImage.onload = () => {
-      console.log(`✅ Local image available for background: ${localUrl}`);
+      console.log(`✅ Local image available: ${localUrl}`);
       setCurrentUrl(localUrl);
       setIsLoading(false);
     };
 
     testImage.onerror = () => {
-      console.log(`⚠️ Local image not found, using Firebase URL: ${localUrl} -> ${firebaseUrl}`);
-      setCurrentUrl(firebaseUrl); // Fallback to original Firebase URL
-      setIsLoading(false);
+      console.log(`⚠️ Processed local image not found: ${localUrl}`);
+
+      // Try original filename as fallback
+      const fallbackImage = new Image();
+      fallbackImage.onload = () => {
+        console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
+        setCurrentUrl(fallbackLocalUrl);
+        setIsLoading(false);
+      };
+
+      fallbackImage.onerror = () => {
+        console.log(`⚠️ No local images found, using Firebase URL: ${firebaseUrl}`);
+        setCurrentUrl(firebaseUrl); // Final fallback to Firebase URL
+        setIsLoading(false);
+      };
+
+      fallbackImage.src = fallbackLocalUrl;
     };
 
     testImage.src = localUrl;
