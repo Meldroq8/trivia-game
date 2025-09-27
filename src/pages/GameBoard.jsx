@@ -97,7 +97,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // BULLETPROOF: No redirects to categories after game starts
   useEffect(() => {
-    if (!stateLoaded) return
+    // Don't do ANYTHING until all core loading is complete
+    if (authLoading || !stateLoaded || !gameData) {
+      console.log('🔄 GameBoard: Waiting for loading to complete before redirect checks', {
+        authLoading,
+        stateLoaded,
+        hasGameData: !!gameData
+      })
+      return
+    }
 
     // Check if we should stay on this page
     if (shouldStayOnCurrentPage(gameState, location.pathname)) {
@@ -113,17 +121,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // Only redirect if explicitly starting fresh (no game started, no route restoration)
     if (!gameState.selectedCategories.length && !hasGameStarted(gameState)) {
-      // Give time for Firebase to load, then check again
-      const timeout = setTimeout(() => {
-        if (!gameState.selectedCategories.length && !hasGameStarted(gameState) && !shouldStayOnCurrentPage(gameState, location.pathname) && location.pathname !== '/game') {
-          console.log('🔄 GameBoard: Fresh start - redirecting to categories')
-          navigate('/categories')
-        }
-      }, 3000) // Extended timeout for Firebase
-
-      return () => clearTimeout(timeout)
+      console.log('🔄 GameBoard: Fresh start - redirecting to categories')
+      navigate('/categories')
     }
-  }, [stateLoaded, gameState, location.pathname, navigate])
+  }, [authLoading, stateLoaded, gameData, gameState, location.pathname, navigate])
 
   // Load game data and prepare local media URLs
   useEffect(() => {
@@ -311,8 +312,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   }, [])
 
   useEffect(() => {
-    // Wait for state to be loaded before doing anything
-    if (!stateLoaded) return
+    // Wait for ALL loading to be complete before doing anything
+    if (authLoading || !stateLoaded || !gameData) return
 
     // BULLETPROOF: Never redirect if game has started or should stay on page
     if (hasGameStarted(gameState) || shouldStayOnCurrentPage(gameState, location.pathname)) {
@@ -345,7 +346,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     updateDimensions()
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
-  }, [gameState.selectedCategories.length, navigate, stateLoaded])
+  }, [authLoading, stateLoaded, gameData, gameState.selectedCategories.length, navigate])
 
   // Check if all questions are finished and navigate to results
   useEffect(() => {
@@ -1237,8 +1238,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     )
   }
 
-  // Show skeleton game board if no game data instead of loading screen
-  const showSkeleton = !gameData
+  // Show skeleton game board if no game data OR if core loading states aren't ready
+  const showSkeleton = !gameData || authLoading || !stateLoaded
 
   return (
     <div className="h-screen w-full bg-[#f7f2e6] flex flex-col overflow-hidden" ref={containerRef}>
