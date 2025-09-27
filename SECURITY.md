@@ -14,13 +14,13 @@ Set up the following secrets in your GitHub repository:
 2. Add these Repository Secrets:
 
 ```
-VITE_FIREBASE_API_KEY=AIzaSyCt9vd2uOISntPQ4EM6o1K9_iiaDeiFtJs
-VITE_FIREBASE_AUTH_DOMAIN=lamah-357f3.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=lamah-357f3
-VITE_FIREBASE_STORAGE_BUCKET=lamah-357f3.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=482087427045
-VITE_FIREBASE_APP_ID=1:482087427045:web:9120b8ed276c8b84ed6d0c
-VITE_FIREBASE_MEASUREMENT_ID=G-V3MBTTVH14
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 ```
 
 ## 🛡️ Security Best Practices
