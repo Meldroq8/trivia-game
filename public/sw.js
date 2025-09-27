@@ -2,10 +2,25 @@
 const CACHE_NAME = 'firebase-images-v1'
 const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days
 
+// Helper function to check if URL is video or audio (avoid CORS issues)
+function isVideoOrAudio(url) {
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv']
+  const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac']
+  const allExtensions = [...videoExtensions, ...audioExtensions]
+
+  // Check if URL contains video/audio file patterns
+  return allExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+         url.includes('question_video_') ||
+         url.includes('answer_video_') ||
+         url.includes('question_audio_') ||
+         url.includes('answer_audio_')
+}
+
 self.addEventListener('fetch', (event) => {
-  // Only cache Firebase Storage images
+  // Only cache Firebase Storage images (exclude video/audio to avoid CORS issues)
   if (event.request.url.includes('firebasestorage.googleapis.com') &&
-      event.request.method === 'GET') {
+      event.request.method === 'GET' &&
+      !isVideoOrAudio(event.request.url)) {
 
     event.respondWith(
       caches.open(CACHE_NAME).then(cache => {
@@ -39,6 +54,10 @@ self.addEventListener('fetch', (event) => {
             }
 
             return networkResponse
+          }).catch(error => {
+            console.warn('⚠️ Service Worker fetch failed (non-critical):', error)
+            // Let the browser handle the request normally
+            return fetch(event.request)
           })
         })
       })
