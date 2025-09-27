@@ -2,7 +2,7 @@
  * Utility to trigger GitHub Actions deployment from admin panel
  */
 
-const GITHUB_TOKEN = process.env.REACT_APP_GITHUB_TOKEN; // Set in .env
+const GITHUB_TOKEN = import.meta.env.VITE_GITHUB_TOKEN; // Set in .env
 const GITHUB_OWNER = 'Meldroq8';
 const GITHUB_REPO = 'trivia-game';
 
