@@ -81,25 +81,33 @@ async function simpleSyncFirebaseImages() {
 
     // Process question images
     console.log('📥 Downloading question images...');
-    const [questionFiles] = await storage.bucket(bucketName).getFiles({
-      prefix: 'questions/'
-    });
+    try {
+      const [questionFiles] = await storage.bucket(bucketName).getFiles({
+        prefix: 'questions/'
+      });
 
-    for (const file of questionFiles) {
-      if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
-        const filename = path.basename(file.name);
+      let questionCount = 0;
+      for (const file of questionFiles) {
+        if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
+          const filename = path.basename(file.name);
 
-        console.log(`🖼️ Downloading: ${filename}`);
+          console.log(`🖼️ Downloading question: ${filename}`);
 
-        const outputPath = `public/images/questions/${filename}`;
-        await file.download({ destination: outputPath });
+          const outputPath = `public/images/questions/${filename}`;
+          await file.download({ destination: outputPath });
 
-        console.log(`✅ Downloaded: ${filename}`);
-        processedCount++;
+          console.log(`✅ Downloaded question: ${filename}`);
+          questionCount++;
+        }
       }
+
+      console.log(`📊 Processed ${questionCount} question images`);
+      processedCount += questionCount;
+    } catch (questionError) {
+      console.error('❌ Failed to process question images:', questionError.message);
     }
 
-    console.log(`🎉 Simple Firebase Storage sync complete! Downloaded ${processedCount} images.`);
+    console.log(`🎉 Firebase Storage sync complete! Downloaded ${processedCount} total images.`);
 
   } catch (error) {
     console.error('❌ Firebase Storage sync failed:', error);
