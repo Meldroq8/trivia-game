@@ -39,20 +39,29 @@ jobs:
           echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
           export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
 
-          # Run Firebase Storage sync
-          echo "🔄 Starting Firebase Storage image sync..."
+          # Run comprehensive Firebase Storage sync
+          echo "🔄 Starting comprehensive Firebase Storage image sync..."
+          echo "📥 This will download ALL category and question images automatically"
+
           if node scripts/simple-sync.js; then
             echo "✅ Firebase Storage sync completed successfully!"
-            echo "📊 Downloaded images:"
-            find public/images -name "*.webp" -type f | wc -l
+            echo "📊 Downloaded images summary:"
+            echo "   Categories: $(find public/images/categories -name "*.webp" -o -name "*.jpg" -o -name "*.png" | wc -l) images"
+            echo "   Questions: $(find public/images/questions -name "*.webp" -o -name "*.jpg" -o -name "*.png" | wc -l) images"
+            echo "   Total: $(find public/images -name "*.webp" -o -name "*.jpg" -o -name "*.png" | wc -l) images"
+
+            echo "📋 Category images downloaded:"
+            ls -la public/images/categories/ | grep -E '\.(webp|jpg|png)$' || echo "   No images found"
           else
             echo "⚠️ Firebase Storage sync failed, deployment will continue with Firebase URLs"
+            echo "🔄 Fallback system will handle missing images automatically"
           fi
 
           # Clean up credentials
           rm -f service-account.json
         else
           echo "⚠️ No Firebase service account found, skipping image sync"
+          echo "🔄 Fallback system will load images from Firebase Storage during runtime"
         fi
       continue-on-error: true
 
