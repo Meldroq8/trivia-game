@@ -84,7 +84,11 @@ export class GameDataLoader {
         type: question.type || 'text',
         options: question.options || [],
         imageUrl: question.imageUrl || null,
+        answerImageUrl: question.answerImageUrl || null,
         audioUrl: question.audioUrl || null,
+        answerAudioUrl: question.answerAudioUrl || null,
+        videoUrl: question.videoUrl || null,
+        answerVideoUrl: question.answerVideoUrl || null,
         category: question.categoryName || question.categoryId || 'عام'
       })
     })

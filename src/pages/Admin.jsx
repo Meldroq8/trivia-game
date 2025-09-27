@@ -7,6 +7,7 @@ import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import AudioPlayer from '../components/AudioPlayer'
+import MediaPlayer from '../components/MediaPlayer'
 import SmartImage from '../components/SmartImage'
 import BackgroundImage from '../components/BackgroundImage'
 import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
@@ -800,8 +801,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     answer: '',
     choices: ['', '', '', ''],
     explanation: '',
-    image: null,
-    answerImage: null
+    imageUrl: null,
+    answerImageUrl: null,
+    audioUrl: null,         // For question audio (MP3)
+    answerAudioUrl: null,   // For answer audio (MP3)
+    videoUrl: null,         // For question video (MP4)
+    answerVideoUrl: null    // For answer video (MP4)
   })
   const [collapsedCategories, setCollapsedCategories] = useState(new Set())
   const [difficultyDropdowns, setDifficultyDropdowns] = useState({})
@@ -1153,7 +1158,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       // Refresh data from Firebase to show new questions immediately
       console.log('🔄 Refreshing data from Firebase...')
-      await loadData()
+      await loadDataForceRefresh()
 
     } catch (error) {
       console.error('❌ Firebase bulk add error:', error)
@@ -1601,14 +1606,41 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         explanation: singleQuestion.explanation || '',
         imageUrl: singleQuestion.imageUrl || null,
         answerImageUrl: singleQuestion.answerImageUrl || null,
+        audioUrl: singleQuestion.audioUrl || null,
+        answerAudioUrl: singleQuestion.answerAudioUrl || null,
+        videoUrl: singleQuestion.videoUrl || null,
+        answerVideoUrl: singleQuestion.answerVideoUrl || null,
         category: singleQuestion.categoryId,
         submittedBy: user?.uid || null
       }
 
+      console.log('🚀 Submitting question with media:', {
+        hasQuestionImage: !!newQuestion.imageUrl,
+        hasAnswerImage: !!newQuestion.answerImageUrl,
+        hasQuestionAudio: !!newQuestion.audioUrl,
+        hasAnswerAudio: !!newQuestion.answerAudioUrl,
+        hasQuestionVideo: !!newQuestion.videoUrl,
+        hasAnswerVideo: !!newQuestion.answerVideoUrl,
+        answerVideoUrl: newQuestion.answerVideoUrl,
+        audioUrl: newQuestion.audioUrl,
+        fullQuestion: newQuestion
+      })
+
       if (isAdmin) {
         // Admins can directly add questions
         await FirebaseQuestionsService.addSingleQuestion(singleQuestion.categoryId, newQuestion)
-        await loadData()
+
+        // Clear cache and force refresh to show new question immediately
+        GameDataLoader.clearCache()
+        await loadDataForceRefresh()
+
+        // Expand the category where the question was added to show it immediately
+        setCollapsedCategories(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(singleQuestion.categoryId)
+          return newSet
+        })
+
         alert('تم إضافة السؤال بنجاح!')
       } else if (isModerator) {
         // Moderators submit for approval
@@ -1624,8 +1656,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         answer: '',
         choices: ['', '', '', ''],
         explanation: '',
-        image: null,
-        answerImage: null
+        imageUrl: null,
+        answerImageUrl: null,
+        audioUrl: null,
+        answerAudioUrl: null,
+        videoUrl: null,
+        answerVideoUrl: null
       })
 
       setShowSingleAdd(false)
@@ -1696,6 +1732,68 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     } catch (error) {
       console.error('Error processing/uploading answer image:', error)
       alert('فشل في معالجة أو رفع صورة الجواب: ' + error.message)
+    }
+  }
+
+  // Media upload handlers
+  const handleSingleQuestionAudioUpload = async (file) => {
+    if (!file) return
+
+    try {
+      console.log('Uploading question audio...')
+      const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `question_audio_${Date.now()}`)
+      setSingleQuestion(prev => ({ ...prev, audioUrl: downloadURL }))
+      alert('تم رفع ملف الصوت بنجاح!')
+    } catch (error) {
+      console.error('Error uploading question audio:', error)
+      alert('حدث خطأ في رفع ملف الصوت: ' + error.message)
+    }
+  }
+
+  const handleSingleAnswerAudioUpload = async (file) => {
+    if (!file) return
+
+    try {
+      console.log('Uploading answer audio...')
+      const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `answer_audio_${Date.now()}`)
+      setSingleQuestion(prev => ({ ...prev, answerAudioUrl: downloadURL }))
+      alert('تم رفع ملف صوت الجواب بنجاح!')
+    } catch (error) {
+      console.error('Error uploading answer audio:', error)
+      alert('حدث خطأ في رفع ملف صوت الجواب: ' + error.message)
+    }
+  }
+
+  const handleSingleQuestionVideoUpload = async (file) => {
+    if (!file) return
+
+    try {
+      console.log('Uploading question video...')
+      const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `question_video_${Date.now()}`)
+      setSingleQuestion(prev => ({ ...prev, videoUrl: downloadURL }))
+      alert('تم رفع ملف الفيديو بنجاح!')
+    } catch (error) {
+      console.error('Error uploading question video:', error)
+      alert('حدث خطأ في رفع ملف الفيديو: ' + error.message)
+    }
+  }
+
+  const handleSingleAnswerVideoUpload = async (file) => {
+    if (!file) return
+
+    try {
+      console.log('🎬 Uploading answer video...', file.name)
+      const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `answer_video_${Date.now()}`)
+      console.log('✅ Answer video uploaded successfully:', downloadURL)
+      setSingleQuestion(prev => {
+        const newState = { ...prev, answerVideoUrl: downloadURL }
+        console.log('📝 Updated singleQuestion state with answerVideoUrl:', newState.answerVideoUrl)
+        return newState
+      })
+      alert('تم رفع فيديو الجواب بنجاح!')
+    } catch (error) {
+      console.error('❌ Error uploading answer video:', error)
+      alert('حدث خطأ في رفع فيديو الجواب: ' + error.message)
     }
   }
 
@@ -2030,6 +2128,114 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                 </div>
               )}
             </div>
+
+            {/* Question Audio Upload */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                صوت السؤال (اختياري) - MP3, WAV, OGG
+              </label>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  const file = e.target.files[0]
+                  if (file) {
+                    handleSingleQuestionAudioUpload(file)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              {singleQuestion.audioUrl && (
+                <div className="mt-3">
+                  <MediaPlayer
+                    src={singleQuestion.audioUrl}
+                    type="audio"
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Answer Audio Upload */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                صوت الجواب (اختياري) - MP3, WAV, OGG
+              </label>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => {
+                  const file = e.target.files[0]
+                  if (file) {
+                    handleSingleAnswerAudioUpload(file)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              {singleQuestion.answerAudioUrl && (
+                <div className="mt-3">
+                  <MediaPlayer
+                    src={singleQuestion.answerAudioUrl}
+                    type="audio"
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Question Video Upload */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                فيديو السؤال (اختياري) - MP4, WebM, MOV
+              </label>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(e) => {
+                  const file = e.target.files[0]
+                  if (file) {
+                    handleSingleQuestionVideoUpload(file)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              {singleQuestion.videoUrl && (
+                <div className="mt-3">
+                  <MediaPlayer
+                    src={singleQuestion.videoUrl}
+                    type="video"
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Answer Video Upload */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                فيديو الجواب (اختياري) - MP4, WebM, MOV
+              </label>
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(e) => {
+                  const file = e.target.files[0]
+                  if (file) {
+                    handleSingleAnswerVideoUpload(file)
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              />
+              {singleQuestion.answerVideoUrl && (
+                <div className="mt-3">
+                  <MediaPlayer
+                    src={singleQuestion.answerVideoUrl}
+                    type="video"
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Submit Button */}
@@ -2281,6 +2487,66 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                             </div>
                           )}
 
+                          {/* Question Audio Display */}
+                          {question.audioUrl && (
+                            <div className="mb-3">
+                              <label className="block text-xs font-bold mb-1 text-gray-600">صوت السؤال:</label>
+                              <MediaPlayer
+                                src={question.audioUrl}
+                                type="audio"
+                                className="w-full max-w-xs"
+                              />
+                            </div>
+                          )}
+
+                          {/* Question Video Display */}
+                          {question.videoUrl && (
+                            <div className="mb-3">
+                              <label className="block text-xs font-bold mb-1 text-gray-600">فيديو السؤال:</label>
+                              <MediaPlayer
+                                src={question.videoUrl}
+                                type="video"
+                                className="w-full max-w-xs"
+                              />
+                            </div>
+                          )}
+
+                          {/* Answer Image Display */}
+                          {question.answerImageUrl && (
+                            <div className="mb-3">
+                              <label className="block text-xs font-bold mb-1 text-gray-600">صورة الإجابة:</label>
+                              <img
+                                src={question.answerImageUrl}
+                                alt="صورة الإجابة"
+                                className="max-w-32 max-h-32 rounded-lg object-cover border"
+                              />
+                            </div>
+                          )}
+
+                          {/* Answer Audio Display */}
+                          {question.answerAudioUrl && (
+                            <div className="mb-3">
+                              <label className="block text-xs font-bold mb-1 text-gray-600">صوت الإجابة:</label>
+                              <MediaPlayer
+                                src={question.answerAudioUrl}
+                                type="audio"
+                                className="w-full max-w-xs"
+                              />
+                            </div>
+                          )}
+
+                          {/* Answer Video Display */}
+                          {question.answerVideoUrl && (
+                            <div className="mb-3">
+                              <label className="block text-xs font-bold mb-1 text-gray-600">فيديو الإجابة:</label>
+                              <MediaPlayer
+                                src={question.answerVideoUrl}
+                                type="video"
+                                className="w-full max-w-xs"
+                              />
+                            </div>
+                          )}
+
                           {/* Question Image Upload */}
                           <div className="mb-3">
                             <label className="block text-xs font-bold mb-1 text-gray-600">
@@ -2420,18 +2686,6 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                             </p>
                           )}
 
-                          {/* Audio Player */}
-                          {question.audioUrl && (
-                            <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">
-                                🎵 ملف صوتي:
-                              </label>
-                              <AudioPlayer src={question.audioUrl} className="text-xs" />
-                              <div className="text-xs text-gray-500 mt-1">
-                                {question.audioUrl}
-                              </div>
-                            </div>
-                          )}
 
                           <p className="text-green-600 mb-2">
                             ✓ {question.answer}
@@ -3349,30 +3603,102 @@ function PendingQuestionsManager() {
                 </div>
               )}
 
-              <div className="flex gap-4 mb-4">
-                {question.imageUrl && (
-                  <div>
-                    <strong className="text-gray-700">صورة السؤال:</strong>
-                    <SmartImage
-                      src={question.imageUrl}
-                      alt="صورة السؤال"
-                      size="thumb"
-                      context="thumbnail"
-                      className="mt-2 w-32 h-32 object-cover rounded-lg border"
-                    />
+              {/* Question Media Section */}
+              {(question.imageUrl || question.audioUrl || question.videoUrl) && (
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-1">🎯 وسائط السؤال</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {question.imageUrl && (
+                      <div>
+                        <strong className="text-gray-700">صورة السؤال:</strong>
+                        <SmartImage
+                          src={question.imageUrl}
+                          alt="صورة السؤال"
+                          size="thumb"
+                          context="thumbnail"
+                          className="mt-2 w-32 h-32 object-cover rounded-lg border"
+                        />
+                      </div>
+                    )}
+                    {question.audioUrl && (
+                      <div>
+                        <strong className="text-gray-700">صوت السؤال:</strong>
+                        <div className="mt-2 w-48">
+                          <MediaPlayer
+                            src={question.audioUrl}
+                            type="audio"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {question.videoUrl && (
+                      <div>
+                        <strong className="text-gray-700">فيديو السؤال:</strong>
+                        <div className="mt-2 w-48">
+                          <MediaPlayer
+                            src={question.videoUrl}
+                            type="video"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-                {question.answerImageUrl && (
-                  <div>
-                    <strong className="text-gray-700">صورة الإجابة:</strong>
-                    <img
-                      src={question.answerImageUrl}
-                      alt="صورة الإجابة"
-                      className="mt-2 w-32 h-32 object-cover rounded-lg border"
-                    />
+                </div>
+              )}
+
+              {/* Answer Media Section */}
+              {(() => {
+                console.log('🔍 Question Media Debug:', {
+                  questionId: question.id,
+                  answerImageUrl: question.answerImageUrl,
+                  answerAudioUrl: question.answerAudioUrl,
+                  answerVideoUrl: question.answerVideoUrl,
+                  hasAnyAnswerMedia: !!(question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl)
+                })
+                return (question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl)
+              })() && (
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-1">✅ وسائط الإجابة</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {question.answerImageUrl && (
+                      <div>
+                        <strong className="text-gray-700">صورة الإجابة:</strong>
+                        <img
+                          src={question.answerImageUrl}
+                          alt="صورة الإجابة"
+                          className="mt-2 w-32 h-32 object-cover rounded-lg border"
+                        />
+                      </div>
+                    )}
+                    {question.answerAudioUrl && (
+                      <div>
+                        <strong className="text-gray-700">صوت الإجابة:</strong>
+                        <div className="mt-2 w-48">
+                          <MediaPlayer
+                            src={question.answerAudioUrl}
+                            type="audio"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {question.answerVideoUrl && (
+                      <div>
+                        <strong className="text-gray-700">فيديو الإجابة:</strong>
+                        <div className="mt-2 w-48">
+                          <MediaPlayer
+                            src={question.answerVideoUrl}
+                            type="video"
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button

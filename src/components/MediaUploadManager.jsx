@@ -115,10 +115,10 @@ const MediaUploadManager = () => {
         <div className="bg-green-50 p-3 rounded-md">
           <h5 className="font-semibold text-green-800 mb-1">⚡ Auto-Optimization Features:</h5>
           <ul className="list-disc list-inside text-sm text-green-700 space-y-1">
-            <li><strong>Multiple sizes:</strong> thumb (150px), medium (400px), large (800px)</li>
-            <li><strong>Format conversion:</strong> All images converted to WebP (smaller files)</li>
-            <li><strong>Quality optimization:</strong> 90% smaller with same visual quality</li>
-            <li><strong>Smart loading:</strong> App picks best size for each context</li>
+            <li><strong>Images:</strong> Multiple sizes (thumb/medium/large), WebP conversion, 90% smaller</li>
+            <li><strong>Audio:</strong> MP3, WAV, OGG support for questions and answers</li>
+            <li><strong>Video:</strong> MP4, WebM, MOV support with built-in player controls</li>
+            <li><strong>Smart loading:</strong> App picks best format for each context</li>
           </ul>
         </div>
       </div>

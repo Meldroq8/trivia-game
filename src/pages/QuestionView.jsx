@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
+import MediaPlayer from '../components/MediaPlayer'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import PerkModal from '../components/PerkModal'
 import gamePreloader from '../utils/preloader'
@@ -13,6 +14,25 @@ import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
+
+  // Debug: Log current question with video URLs
+  useEffect(() => {
+    if (gameState?.currentQuestion) {
+      console.log('🎬 Current question data:', {
+        text: gameState.currentQuestion.text?.substring(0, 50) + '...',
+        hasVideoUrl: !!gameState.currentQuestion.videoUrl,
+        hasAnswerVideoUrl: !!gameState.currentQuestion.answerVideoUrl,
+        videoUrl: gameState.currentQuestion.videoUrl,
+        answerVideoUrl: gameState.currentQuestion.answerVideoUrl,
+        allKeys: Object.keys(gameState.currentQuestion)
+      })
+
+      // Check if this is a question that has video but is missing video URLs
+      if (!gameState.currentQuestion.videoUrl && !gameState.currentQuestion.answerVideoUrl) {
+        console.log('⚠️ Question has no video URLs - cache might need clearing!')
+      }
+    }
+  }, [gameState?.currentQuestion])
 
   // Responsive scaling system - viewport-aware scaling to prevent scrolling
   const getResponsiveStyles = () => {
@@ -345,6 +365,36 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Audio not cached, using original (debug removed)
     }
     return cachedUrl
+  }
+
+  // Helper function to get cached media URL (for video files)
+  const getCachedMediaUrl = (originalUrl) => {
+    if (!originalUrl) return null
+    // Use cached video URL from game preloader
+    const cachedUrl = window.gamePreloader?.getCachedVideoUrl(originalUrl) || originalUrl
+    console.log('🎥 Loading video URL:', cachedUrl)
+    return cachedUrl
+  }
+
+  // Force clear cache and reload data
+  const forceClearCacheAndReload = async () => {
+    console.log('🔄 Force clearing cache and reloading data...')
+
+    // Clear localStorage cache
+    localStorage.removeItem('triviaData')
+    localStorage.removeItem('triviaDataTimestamp')
+
+    // Force reload game data
+    try {
+      const { GameDataLoader } = await import('../utils/gameDataLoader')
+      const freshData = await GameDataLoader.loadGameData(true) // Force refresh
+      console.log('✅ Fresh data loaded:', freshData)
+
+      // Reload the page to get fresh data
+      window.location.reload()
+    } catch (error) {
+      console.error('❌ Error force refreshing data:', error)
+    }
   }
 
   // Persist current question and restore on refresh
@@ -1131,11 +1181,37 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         </h2>
                       </div>
 
-                      {/* Audio Player */}
-                      {currentQuestion && (currentQuestion.question?.audioUrl || currentQuestion.audioUrl) && (
+                      {/* Media Player - Audio and Video */}
+                      {(() => {
+                        const hasQuestionAudio = currentQuestion?.question?.audioUrl || currentQuestion?.audioUrl
+                        const hasQuestionVideo = currentQuestion?.question?.videoUrl || currentQuestion?.videoUrl
+                        console.log('🎵 Question Media Check:', {
+                          hasQuestionAudio: !!hasQuestionAudio,
+                          hasQuestionVideo: !!hasQuestionVideo,
+                          audioUrl1: currentQuestion?.question?.audioUrl,
+                          audioUrl2: currentQuestion?.audioUrl,
+                          videoUrl1: currentQuestion?.question?.videoUrl,
+                          videoUrl2: currentQuestion?.videoUrl
+                        })
+                        return currentQuestion && (hasQuestionAudio || hasQuestionVideo)
+                      })() && (
                         <div className="flex justify-center" style={{ padding: '30px 2px' }}>
-                          <div style={{ maxWidth: '400px', width: '100%' }}>
-                            <AudioPlayer src={getCachedAudioUrl(currentQuestion.question?.audioUrl || currentQuestion.audioUrl)} />
+                          <div style={{ maxWidth: '500px', width: '100%' }}>
+                            {/* Video Player - Show if video exists */}
+                            {(currentQuestion.question?.videoUrl || currentQuestion.videoUrl) ? (
+                              <MediaPlayer
+                                src={getCachedMediaUrl(currentQuestion.question?.videoUrl || currentQuestion.videoUrl)}
+                                type="video"
+                                className="w-full"
+                              />
+                            ) : (
+                              /* Audio Player - Show if only audio exists */
+                              <MediaPlayer
+                                src={getCachedAudioUrl(currentQuestion.question?.audioUrl || currentQuestion.audioUrl)}
+                                type="audio"
+                                className="w-full"
+                              />
+                            )}
                           </div>
                         </div>
                       )}
@@ -1234,6 +1310,43 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           {currentQuestion ? (currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
                         </h2>
                       </div>
+
+                      {/* Answer Media Player - Audio and Video */}
+                      {(() => {
+                        const hasAnswerAudio = currentQuestion?.question?.answerAudioUrl || currentQuestion?.answerAudioUrl
+                        const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
+                        console.log('🎬 Answer Media Check:', {
+                          hasAnswerAudio: !!hasAnswerAudio,
+                          hasAnswerVideo: !!hasAnswerVideo,
+                          answerAudioUrl1: currentQuestion?.question?.answerAudioUrl,
+                          answerAudioUrl2: currentQuestion?.answerAudioUrl,
+                          answerVideoUrl1: currentQuestion?.question?.answerVideoUrl,
+                          answerVideoUrl2: currentQuestion?.answerVideoUrl
+                        })
+                        return currentQuestion && (hasAnswerAudio || hasAnswerVideo)
+                      })() && (
+                        <div className="flex justify-center" style={{ padding: '20px 2px' }}>
+                          <div style={{ maxWidth: '500px', width: '100%' }}>
+                            {/* Answer Video Player - Show if video exists */}
+                            {(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl) ? (
+                              <MediaPlayer
+                                src={getCachedMediaUrl(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl)}
+                                type="video"
+                                className="w-full"
+                                autoPlay={true}
+                              />
+                            ) : (
+                              /* Answer Audio Player - Show if only audio exists */
+                              <MediaPlayer
+                                src={getCachedAudioUrl(currentQuestion.question?.answerAudioUrl || currentQuestion.answerAudioUrl)}
+                                type="audio"
+                                className="w-full"
+                                autoPlay={true}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Answer Image Area - Fixed Height */}
                       <div className="flex-1 flex items-center justify-center pt-1" style={{
