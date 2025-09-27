@@ -51,7 +51,9 @@
       "Bash(export GOOGLE_APPLICATION_CREDENTIALS=\"service-account.json\")",
       "Bash(npm ls:*)",
       "Bash(gh repo view:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm audit:*)"
     ],
     "deny": [],
     "ask": []

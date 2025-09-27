@@ -55,8 +55,13 @@ export const shouldStayOnCurrentPage = (gameState, currentRoute) => {
     return true
   }
 
+  // ALWAYS stay on GameBoard page during refresh/reload
+  if (currentRoute === '/game') {
+    return true
+  }
+
   // Stay if we're on a game-related route (route restoration scenario)
-  const gameRoutes = ['/categories', '/game', '/question']
+  const gameRoutes = ['/categories', '/question']
   if (gameRoutes.includes(currentRoute)) {
     return true
   }
