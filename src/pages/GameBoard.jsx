@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
 import SmartImage from '../components/SmartImage'
+import BackgroundImage from '../components/BackgroundImage'
 import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
@@ -1621,53 +1622,20 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     }}
                   >
                     {/* Image section */}
-                    <div
-                      className="flex-1 relative bg-gradient-to-br from-gray-200 to-gray-400"
-                      style={{
-                        backgroundImage: category.imageUrl ? `url(${getOptimizedMediaUrl(category.imageUrl)})` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat'
-                      }}
+                    <BackgroundImage
+                      src={category.imageUrl}
+                      size="medium"
+                      context="category"
+                      className="flex-1 relative"
+                      fallbackGradient="from-gray-200 to-gray-400"
                     >
-                      {/* Hidden SmartImage element to track loading with local/Firebase fallback */}
-                      {category.imageUrl && (
-                        <SmartImage
-                          key={`${category.imageUrl}-hidden`}
-                          src={category.imageUrl}
-                          alt=""
-                          context="category"
-                          size="medium"
-                          style={{
-                            display: 'none',
-                            position: 'absolute',
-                            width: '1px',
-                            height: '1px',
-                            opacity: 0
-                          }}
-                          onLoad={() => {
-                            console.log(`📸 Category image loaded: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
-                            setLoadedImages(prev => new Set([...prev, category.imageUrl]))
-                          }}
-                          onError={(e) => {
-                            console.warn(`❌ Category image failed to load: ${category.imageUrl.split('/').pop()?.split('?')[0]}`)
-                            setLoadedImages(prev => new Set([...prev, category.imageUrl]))
-                          }}
-                        />
-                      )}
-                      {/* Loading indicator for images that haven't loaded yet */}
-                      {category.imageUrl && !loadedImages.has(category.imageUrl) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-300 bg-opacity-75">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
-                        </div>
-                      )}
                       {!category.imageUrl && category.image && (
                         <div className="absolute inset-0 flex items-center justify-center"
                              style={{ fontSize: `${styles.cardWidth * 0.3}px` }}>
                           {category.image}
                         </div>
                       )}
-                    </div>
+                    </BackgroundImage>
 
                     {/* Text section inside card - single line */}
                     <div

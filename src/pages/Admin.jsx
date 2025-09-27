@@ -7,6 +7,8 @@ import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import AudioPlayer from '../components/AudioPlayer'
+import SmartImage from '../components/SmartImage'
+import BackgroundImage from '../components/BackgroundImage'
 import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
 import { getCategoryImageUrl, getQuestionImageUrl, getThumbnailUrl } from '../utils/mediaUrlConverter'
 import MediaUploadManager from '../components/MediaUploadManager'
@@ -464,18 +466,13 @@ function CategoriesManager({ isAdmin, isModerator }) {
             <div className="text-center mb-4">
               {category.imageUrl ? (
                 <div className="w-16 h-16 mx-auto mb-2 rounded-lg overflow-hidden">
-                  <img
-                    src={getThumbnailUrl(category.imageUrl)}
+                  <SmartImage
+                    src={category.imageUrl}
                     alt={category.name}
+                    size="thumb"
+                    context="thumbnail"
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                    loading="lazy"
-                    decoding="async"
                   />
-                  <div className="text-4xl hidden">{category.image}</div>
                 </div>
               ) : (
                 <div className="text-4xl mb-2">{category.image}</div>
@@ -597,12 +594,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
 
             {/* Preview */}
             <div className="text-center mb-4">
-              <div className={`${category.color} text-white rounded-xl p-4 inline-block relative overflow-hidden`} style={{
-                backgroundImage: category.imageUrl ? `url(${getCategoryImageUrl(category.imageUrl, 'medium')})` : 'none',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }}>
+              <BackgroundImage
+                src={category.imageUrl}
+                size="medium"
+                context="category"
+                className={`${category.color} text-white rounded-xl p-4 inline-block relative overflow-hidden`}
+              >
                 {category.imageUrl && (
                   <div className="absolute inset-0 bg-black/30 rounded-xl"></div>
                 )}
@@ -610,7 +607,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                   {!category.imageUrl && <div className="text-2xl mb-1">{category.image}</div>}
                   <div className="font-bold">{category.name}</div>
                 </div>
-              </div>
+              </BackgroundImage>
             </div>
 
             {/* Delete Button */}
@@ -710,12 +707,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
                 <div className="mt-6">
                   <label className="block text-sm font-bold mb-2">معاينة الفئة</label>
                   <div className="text-center">
-                    <div className="bg-gray-500 text-white rounded-xl p-4 inline-block relative overflow-hidden" style={{
-                      backgroundImage: newCategory.imageUrl ? `url(${getCategoryImageUrl(newCategory.imageUrl, 'medium')})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat'
-                    }}>
+                    <BackgroundImage
+                      src={newCategory.imageUrl}
+                      size="medium"
+                      context="category"
+                      className="bg-gray-500 text-white rounded-xl p-4 inline-block relative overflow-hidden"
+                    >
                       {newCategory.imageUrl && (
                         <div className="absolute inset-0 bg-black/30 rounded-xl"></div>
                       )}
@@ -723,7 +720,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                         {!newCategory.imageUrl && <div className="text-2xl mb-1">{newCategory.image || '🧠'}</div>}
                         <div className="font-bold">{newCategory.name || 'اسم الفئة'}</div>
                       </div>
-                    </div>
+                    </BackgroundImage>
                   </div>
                 </div>
               )}
@@ -1994,9 +1991,11 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               />
               {singleQuestion.imageUrl && (
                 <div className="mt-3">
-                  <img
-                    src={getQuestionImageUrl(singleQuestion.imageUrl, 'medium')}
+                  <SmartImage
+                    src={singleQuestion.imageUrl}
                     alt="معاينة السؤال"
+                    size="medium"
+                    context="question"
                     className="w-32 h-32 object-cover rounded-lg border"
                   />
                 </div>
@@ -2270,15 +2269,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                         <div className="flex-1">
                           {question.imageUrl && (
                             <div className="mb-3">
-                              <img
-                                src={getThumbnailUrl(question.imageUrl)}
+                              <SmartImage
+                                src={question.imageUrl}
                                 alt="صورة السؤال"
+                                size="thumb"
+                                context="thumbnail"
                                 className="max-w-32 max-h-32 rounded-lg object-cover border"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                }}
-                                loading="lazy"
-                                decoding="async"
                               />
                             </div>
                           )}
@@ -3355,9 +3351,11 @@ function PendingQuestionsManager() {
                 {question.imageUrl && (
                   <div>
                     <strong className="text-gray-700">صورة السؤال:</strong>
-                    <img
-                      src={getThumbnailUrl(question.imageUrl)}
+                    <SmartImage
+                      src={question.imageUrl}
                       alt="صورة السؤال"
+                      size="thumb"
+                      context="thumbnail"
                       className="mt-2 w-32 h-32 object-cover rounded-lg border"
                     />
                   </div>
