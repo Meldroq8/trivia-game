@@ -91,7 +91,7 @@ export const resizeImage = (file, width = 400, height = 300, format = 'webp', qu
 export const processCategoryImage = async (file) => {
   try {
     const originalSize = (file.size / 1024).toFixed(1) // KB
-    const blob = await resizeImage(file, 400, 300, 'webp', 0.8)
+    const blob = await resizeImage(file, 400, 300, 'webp', 0.92) // Increased quality from 0.8 to 0.92
     const newSize = (blob.size / 1024).toFixed(1) // KB
 
     return {

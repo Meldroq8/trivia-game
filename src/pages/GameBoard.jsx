@@ -25,6 +25,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const [footerHeight, setFooterHeight] = useState(0)
   const [gameData, setGameData] = useState(null)
   const [loadingError, setLoadingError] = useState(null)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [loadedImages, setLoadedImages] = useState(new Set())
 
   // Perk system state
@@ -310,6 +311,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
         if (data) {
           setGameData(data)
+          setInitialLoadComplete(true)
           console.log('✅ GameBoard: Game data loaded successfully')
 
           // Defer non-critical operations to avoid blocking UI
@@ -338,6 +340,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         try {
           const fallbackData = await GameDataLoader.loadSampleData()
           setGameData(fallbackData)
+          setInitialLoadComplete(true)
           console.log('🔄 GameBoard: Using fallback data')
 
           // Update question pool for global usage tracking with fallback data (only if user is set)
@@ -1288,7 +1291,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   }
 
   // Show skeleton only for critical loading states - allow partial rendering
-  const showSkeleton = !gameData || (authLoading && !user) // Only block if auth is truly loading AND no user
+  // Fixed: Don't show skeleton if we have basic gameState data, even during auth loading
+  const showSkeleton = !initialLoadComplete && !gameData && (!stateLoaded || (authLoading && !user && !gameState.selectedCategories.length))
 
   return (
     <div className="h-screen w-full bg-[#f7f2e6] flex flex-col overflow-hidden" ref={containerRef}>

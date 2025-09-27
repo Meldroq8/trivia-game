@@ -34,10 +34,22 @@ const SmartImage = ({
     // If it's already a local path, use it directly
     if (!src.includes('firebasestorage.googleapis.com')) {
       setCurrentSrc(src);
+      setIsLoading(false);
       return;
     }
 
-    // Try local version first
+    // For Firebase URLs, use original quality by default to avoid sharp-to-blurry transition
+    // Only try local compressed versions for specific contexts that need optimization
+    const shouldUseCompressed = context === 'thumbnail' || size === 'thumb';
+
+    if (!shouldUseCompressed) {
+      console.log(`🎯 Using original quality for better visual experience: ${src}`);
+      setCurrentSrc(src);
+      setIsLoading(false);
+      return;
+    }
+
+    // Try local version only for thumbnails and specific small contexts
     const localUrl = convertToLocalMediaUrl(src, size, context);
 
     // Extract original filename as fallback
@@ -49,7 +61,7 @@ const SmartImage = ({
     // Test if local image exists (try processed path first)
     const testImage = new Image();
     testImage.onload = () => {
-      console.log(`✅ Local image loaded successfully: ${localUrl}`);
+      console.log(`✅ Local compressed image loaded for thumbnail: ${localUrl}`);
       setCurrentSrc(localUrl);
       setIsLoading(false);
     };
@@ -66,9 +78,9 @@ const SmartImage = ({
       };
 
       fallbackImage.onerror = () => {
-        console.log(`⚠️ No local images found, falling back to Firebase: ${src}`);
+        console.log(`⚠️ No local images found, using original Firebase quality: ${src}`);
         setIsLocalFailed(true);
-        setCurrentSrc(src); // Final fallback to Firebase URL
+        setCurrentSrc(src); // Fallback to original Firebase URL
         setIsLoading(false);
       };
 
@@ -120,9 +132,15 @@ const SmartImage = ({
       src={currentSrc}
       alt={alt}
       className={className}
-      style={style}
+      style={{
+        ...style,
+        transition: 'opacity 0.3s ease-in-out',
+        opacity: isLoading ? 0.7 : 1
+      }}
       onLoad={handleImageLoad}
       onError={handleImageError}
+      loading="lazy"
+      decoding="async"
       {...props}
     />
   );
