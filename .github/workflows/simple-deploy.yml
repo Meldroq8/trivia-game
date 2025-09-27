@@ -25,6 +25,26 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
+    - name: Sync Firebase Storage images
+      env:
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}
+      run: |
+        # Create media directories
+        mkdir -p public/images/categories
+        mkdir -p public/images/questions
+
+        # Set up Firebase service account
+        echo "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
+        export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
+
+        # Run Firebase sync using our script
+        node scripts/simple-sync.js
+
+        # Clean up
+        rm -f service-account.json
+
+        echo "Firebase Storage sync complete!"
+
     - name: Build project
       run: npm run build
 
