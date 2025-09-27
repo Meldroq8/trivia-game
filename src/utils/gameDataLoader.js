@@ -7,7 +7,7 @@ import { FirebaseQuestionsService } from './firebaseQuestions'
 export class GameDataLoader {
   static CACHE_KEY = 'triviaData'
   static CACHE_TIMESTAMP_KEY = 'triviaDataTimestamp'
-  static CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
+  static CACHE_DURATION = 30 * 60 * 1000 // 30 minutes in milliseconds - longer cache for faster loading
 
   /**
    * Load questions and categories with Firebase-first approach
@@ -15,17 +15,17 @@ export class GameDataLoader {
    * @returns {Promise<Object>} Game data with questions and categories
    */
   static async loadGameData(forceRefresh = false) {
-    console.log('🎮 Loading game data...')
+    console.log('⚡ Loading game data with performance optimizations...')
 
     try {
-      // Check if we should use cache
+      // FAST PATH: Check if we should use cache (instant loading)
       if (!forceRefresh && this.isCacheValid()) {
-        console.log('📦 Using cached data')
+        console.log('📦 Using cached data for instant loading')
         return this.getFromCache()
       }
 
-      // Load from Firebase
-      console.log('🔥 Loading from Firebase...')
+      // BACKGROUND LOADING: Load from Firebase
+      console.log('🔥 Loading fresh data from Firebase...')
       const [questions, categories] = await Promise.all([
         FirebaseQuestionsService.getAllQuestions(),
         FirebaseQuestionsService.getAllCategories()
@@ -34,7 +34,7 @@ export class GameDataLoader {
       // Transform Firebase data to expected format
       const gameData = this.transformFirebaseData(questions, categories)
 
-      // Cache the data
+      // Cache the data for next time
       this.saveToCache(gameData)
 
       console.log('✅ Game data loaded from Firebase:', {
@@ -47,10 +47,10 @@ export class GameDataLoader {
     } catch (error) {
       console.error('❌ Error loading from Firebase:', error)
 
-      // Fallback to cache even if expired
+      // Fallback to cache even if expired (better than nothing)
       const cachedData = this.getFromCache()
       if (cachedData) {
-        console.log('🔄 Using cached data as fallback')
+        console.log('🔄 Using expired cached data as fallback')
         return cachedData
       }
 
