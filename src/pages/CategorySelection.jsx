@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
 import questionUsageTracker from '../utils/questionUsageTracker'
+import BackgroundImage from '../components/BackgroundImage'
 import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 
 function CategorySelection({ gameState, setGameState, stateLoaded }) {
@@ -240,19 +241,32 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 className={`
                   relative p-0 rounded-lg font-bold text-sm md:text-xl transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 min-h-[150px] md:min-h-[180px] flex flex-col
                   ${selected
-                    ? 'bg-red-600 text-white shadow-lg scale-105 border-red-600'
+                    ? 'text-white shadow-lg scale-105 border-red-600'
                     : canSelect
-                    ? 'bg-white hover:bg-gray-50 text-red-600 border-gray-300 hover:border-red-300 hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed border-gray-400 opacity-50'
+                    ? 'text-red-600 border-gray-300 hover:border-red-300 hover:shadow-lg'
+                    : 'text-gray-500 cursor-not-allowed border-gray-400 opacity-50'
                   }
                 `}
-                style={{
-                  backgroundImage: category.imageUrl ? `url(${getCategoryImageUrl(category.imageUrl, 'medium')})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  backgroundRepeat: 'no-repeat'
-                }}
               >
+                <BackgroundImage
+                  src={category.imageUrl}
+                  size="medium"
+                  context="category"
+                  className={`absolute inset-0 rounded-lg ${
+                    selected
+                      ? 'bg-red-600'
+                      : canSelect
+                      ? 'bg-white hover:bg-gray-50'
+                      : 'bg-gray-300'
+                  }`}
+                  fallbackGradient={
+                    selected
+                      ? 'from-red-600 to-red-700'
+                      : canSelect
+                      ? 'from-white to-gray-50'
+                      : 'from-gray-300 to-gray-400'
+                  }
+                >
                 {/* Main content area with icon/image */}
                 <div className="flex-1 relative flex items-center justify-center">
                   {/* Overlay for better text readability when image is present */}
@@ -277,9 +291,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     </div>
                   )}
                 </div>
+                </BackgroundImage>
 
                 {/* Bottom bar with category name */}
-                <div className={`p-2 md:p-3 border-t-2 ${
+                <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
                   selected
                     ? 'bg-red-700 border-red-800'
                     : canSelect
