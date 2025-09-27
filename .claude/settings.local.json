@@ -41,7 +41,13 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:lamah-357f3.web.app)"
+      "WebFetch(domain:lamah-357f3.web.app)",
+      "Bash(set GOOGLE_APPLICATION_CREDENTIALS=service-account.json)",
+      "Bash(gh run list:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(firebase hosting:channel:deploy:*)",
+      "Bash(echo \"$GOOGLE_APPLICATION_CREDENTIALS\")",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

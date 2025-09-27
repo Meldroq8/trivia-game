@@ -54,37 +54,42 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
     // Map Firebase Storage paths to optimized local paths
     if (decodedPath.startsWith('categories/')) {
       const filename = decodedPath.replace('categories/', '')
-      const baseName = filename.split('.')[0]
 
-      // Try to use processed version, with better fallback handling
-      const processedPath = `/images/categories/${baseName}_${optimalSize}.webp`
+      // Check if filename already has size suffix (like category_name_1234_medium.webp)
+      const hasExistingSuffix = filename.includes('_medium.webp') || filename.includes('_large.webp') || filename.includes('_thumb.webp')
 
-      console.log(`🔄 Converting Firebase URL to local path:`, {
-        original: firebaseUrl,
-        decodedPath,
-        filename,
-        baseName,
-        processedPath
-      })
-
-      return processedPath
+      if (hasExistingSuffix) {
+        // Use the downloaded filename as-is, since it already has the size
+        const localPath = `/images/categories/${filename}`
+        console.log(`✅ Using downloaded file: ${localPath}`)
+        return localPath
+      } else {
+        // Generate processed path for files without size suffix
+        const baseName = filename.split('.')[0]
+        const processedPath = `/images/categories/${baseName}_${optimalSize}.webp`
+        console.log(`🔄 Generated processed path: ${processedPath}`)
+        return processedPath
+      }
     }
 
     if (decodedPath.startsWith('questions/')) {
       const filename = decodedPath.replace('questions/', '')
-      const baseName = filename.split('.')[0]
 
-      const processedPath = `/images/questions/${baseName}_${optimalSize}.webp`
+      // Check if filename already has size suffix
+      const hasExistingSuffix = filename.includes('_medium.webp') || filename.includes('_large.webp') || filename.includes('_thumb.webp')
 
-      console.log(`🔄 Converting Firebase URL to local path:`, {
-        original: firebaseUrl,
-        decodedPath,
-        filename,
-        baseName,
-        processedPath
-      })
-
-      return processedPath
+      if (hasExistingSuffix) {
+        // Use the downloaded filename as-is
+        const localPath = `/images/questions/${filename}`
+        console.log(`✅ Using downloaded file: ${localPath}`)
+        return localPath
+      } else {
+        // Generate processed path for files without size suffix
+        const baseName = filename.split('.')[0]
+        const processedPath = `/images/questions/${baseName}_${optimalSize}.webp`
+        console.log(`🔄 Generated processed path: ${processedPath}`)
+        return processedPath
+      }
     }
 
     if (decodedPath.startsWith('audio/')) {
