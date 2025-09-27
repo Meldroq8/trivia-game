@@ -45,14 +45,17 @@ async function simpleSyncFirebaseImages() {
         if (file.name.match(/\.(jpg|jpeg|png|webp)$/i)) {
           const filename = path.basename(file.name);
 
-          console.log(`🖼️ Downloading: ${filename}`);
+          // Use URL-encoded filename to avoid Arabic character issues in file systems
+          const safeFilename = encodeURIComponent(filename).replace(/%/g, '_');
 
-          // Download directly to public folder
-          const outputPath = `public/images/categories/${filename}`;
+          console.log(`🖼️ Downloading: ${filename} -> ${safeFilename}`);
+
+          // Download with URL-encoded filename for compatibility
+          const outputPath = `public/images/categories/${safeFilename}`;
 
           try {
             await file.download({ destination: outputPath });
-            console.log(`✅ Downloaded: ${filename}`);
+            console.log(`✅ Downloaded: ${filename} as ${safeFilename}`);
             processedCount++;
           } catch (downloadError) {
             console.error(`❌ Failed to download ${filename}:`, downloadError.message);

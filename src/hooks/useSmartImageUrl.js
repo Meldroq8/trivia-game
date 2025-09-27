@@ -36,7 +36,11 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
     const pathPart = url.pathname.split('/o/')[1];
     const decodedPath = decodeURIComponent(pathPart.split('?')[0]);
     const originalFilename = decodedPath.split('/').pop();
-    const fallbackLocalUrl = `/images/${decodedPath.replace('categories/', 'categories/').replace('questions/', 'questions/')}`;
+    const fallbackLocalUrl = `/images/${decodedPath}`;
+
+    // Create URL-encoded filename for Arabic character compatibility
+    const encodedFilename = encodeURIComponent(originalFilename).replace(/%/g, '_');
+    const encodedLocalUrl = `/images/categories/${encodedFilename}`;
 
     // Test if local image exists (try processed path first)
     const testImage = new Image();
@@ -49,6 +53,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
 
     testImage.onerror = () => {
       console.log(`⚠️ Processed local image not found: ${localUrl}`);
+      console.log(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
 
       // Try original filename as fallback
       const fallbackImage = new Image();
@@ -59,9 +64,25 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
       };
 
       fallbackImage.onerror = () => {
-        console.log(`⚠️ No local images found, using Firebase URL: ${firebaseUrl}`);
-        setCurrentUrl(firebaseUrl); // Final fallback to Firebase URL
-        setIsLoading(false);
+        console.log(`⚠️ Original filename not found: ${fallbackLocalUrl}`);
+        console.log(`🔄 Trying URL-encoded filename: ${encodedLocalUrl}`);
+
+        // Try URL-encoded filename for Arabic compatibility
+        const encodedImage = new Image();
+        encodedImage.onload = () => {
+          console.log(`✅ URL-encoded filename found: ${encodedLocalUrl}`);
+          setCurrentUrl(encodedLocalUrl);
+          setIsLoading(false);
+        };
+
+        encodedImage.onerror = () => {
+          console.log(`⚠️ URL-encoded filename also not found: ${encodedLocalUrl}`);
+          console.log(`🔄 Final fallback to Firebase URL: ${firebaseUrl}`);
+          setCurrentUrl(firebaseUrl); // Final fallback to Firebase URL
+          setIsLoading(false);
+        };
+
+        encodedImage.src = encodedLocalUrl;
       };
 
       fallbackImage.src = fallbackLocalUrl;
