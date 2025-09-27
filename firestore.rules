@@ -69,9 +69,9 @@ service cloud.firestore {
     }
 
     // ===== MODERATOR AND ADMIN COLLECTIONS =====
-    // Questions collection - allow authenticated users to read, only admins to write
+    // Questions collection - allow public read access for the trivia game, only admins to write
     match /questions/{questionId} {
-      allow read: if request.auth != null;
+      allow read: if true; // Public read access for trivia game
       allow write: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
@@ -88,9 +88,9 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
-    // Categories collection - allow authenticated users to read, admins and moderators to write
+    // Categories collection - allow public read access for the trivia game, admins and moderators to write
     match /categories/{categoryId} {
-      allow read: if request.auth != null;
+      allow read: if true; // Public read access for trivia game
       allow write: if request.auth != null &&
         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true);
