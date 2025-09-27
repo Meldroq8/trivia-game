@@ -55,6 +55,15 @@ export const convertToLocalMediaUrl = (firebaseUrl, size = 'medium', context = '
     if (decodedPath.startsWith('categories/')) {
       const filename = decodedPath.replace('categories/', '')
 
+      // Special handling for mystery category (الفئة الغامضة)
+      // Mystery category files are stored as "category_mystery_*" but displayed as "الفئة الغامضة"
+      if (filename.includes('mystery')) {
+        console.log(`🔍 Mystery category detected: ${filename}`)
+        const localPath = `/images/categories/${filename}`
+        console.log(`✅ Using mystery category file: ${localPath}`)
+        return localPath
+      }
+
       // Check if filename already has size suffix (like category_name_1234_medium.webp)
       const hasExistingSuffix = filename.includes('_medium.webp') || filename.includes('_large.webp') || filename.includes('_thumb.webp')
 

@@ -47,7 +47,9 @@
       "Bash(firebase projects:list:*)",
       "Bash(firebase hosting:channel:deploy:*)",
       "Bash(echo \"$GOOGLE_APPLICATION_CREDENTIALS\")",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(export GOOGLE_APPLICATION_CREDENTIALS=\"service-account.json\")",
+      "Bash(npm ls:*)"
     ],
     "deny": [],
     "ask": []
