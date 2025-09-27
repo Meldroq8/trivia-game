@@ -11,6 +11,7 @@ import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet }
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
+import gamePreloader from '../utils/preloader'
 
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -259,6 +260,45 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
   }
 
+  // Preload media for current GameBoard questions only
+  const preloadGameBoardMedia = async (data) => {
+    if (!data || !gameState.selectedCategories.length) return
+
+    try {
+      // Collect only the questions actually displayed on the GameBoard
+      const gameBoardQuestions = []
+
+      // For each selected category, get exactly 6 questions (2 easy, 2 medium, 2 hard)
+      for (const categoryId of gameState.selectedCategories) {
+        const categoryQuestions = data.questions[categoryId] || []
+
+        // Get 2 questions for each difficulty level (200=easy, 400=medium, 600=hard)
+        const difficulties = ['easy', 'medium', 'hard']
+
+        difficulties.forEach(difficulty => {
+          const questionsWithDifficulty = categoryQuestions.filter(q => q.difficulty === difficulty)
+
+          // Take the first 2 questions for this difficulty (if available)
+          const selectedQuestions = questionsWithDifficulty.slice(0, 2)
+          gameBoardQuestions.push(...selectedQuestions)
+        })
+      }
+
+      const expectedQuestions = gameState.selectedCategories.length * 6 // 6 questions per category
+      console.log(`🚀 Preloading media for ${gameBoardQuestions.length}/${expectedQuestions} GameBoard questions...`)
+
+      // Use the gamePreloader to preload all media for these questions
+      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 2, (completed, total) => {
+        console.log(`📦 GameBoard media preload progress: ${completed}/${total}`)
+      })
+
+      console.log('✅ GameBoard media preloading completed!')
+
+    } catch (error) {
+      console.warn('⚠️ GameBoard media preloading failed (non-critical):', error)
+    }
+  }
+
   // Load game data from Firebase
   useEffect(() => {
     const loadGameData = async () => {
@@ -283,6 +323,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             // Start background preloading (non-blocking)
             preloadSelectedCategoryImages(data)
             startSmartPreloading(data)
+
+            // Preload media for current gameboard questions
+            preloadGameBoardMedia(data)
           }, 100) // Small delay to let UI render first
         } else {
           throw new Error('No game data received')

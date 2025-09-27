@@ -38,5 +38,13 @@ __pycache__/
 # Temporary files
 *.tmp
 .cache/
-# Test deployment fix
+
+# Backup files - SECURITY: Never commit backup files
+*.backup
+*.old
+*.bak
+*.orig
+
+# Service account files - SECURITY: Never commit credentials
 service-account.json
+*service-account*.json

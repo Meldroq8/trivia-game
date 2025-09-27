@@ -411,6 +411,35 @@ export class FirebaseQuestionsService {
   }
 
   /**
+   * Create a new category
+   * @param {Object} categoryData - The category data
+   * @returns {Promise<string>} The document ID of the created category
+   */
+  static async createCategory(categoryData) {
+    try {
+      console.log('Creating new category:', categoryData)
+
+      const categoryWithTimestamp = {
+        ...categoryData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        showImageInQuestion: categoryData.showImageInQuestion !== false, // Default to true
+        showImageInAnswer: categoryData.showImageInAnswer !== false       // Default to true
+      }
+
+      // Remove any categoryId from the data to avoid storing it as a field
+      delete categoryWithTimestamp.categoryId
+
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.CATEGORIES), categoryWithTimestamp)
+      console.log(`✅ Category created with ID: ${docRef.id}`)
+      return docRef.id
+    } catch (error) {
+      console.error('Error creating category:', error)
+      throw error
+    }
+  }
+
+  /**
    * Create or update a category
    * @param {Object} categoryData - The category data
    * @param {string} categoryId - Optional specific document ID for the category

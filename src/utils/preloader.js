@@ -5,10 +5,13 @@ class GamePreloader {
   constructor() {
     this.preloadedImages = new Set()
     this.preloadedAudio = new Set()
+    this.preloadedVideos = new Set()
     this.imageCache = new Map() // URL -> blob URL (for session)
     this.audioCache = new Map() // URL -> blob URL
+    this.videoCache = new Map() // URL -> blob URL
     this.imageBlobCache = new Map() // URL -> blob
     this.audioBlobCache = new Map() // URL -> blob
+    this.videoBlobCache = new Map() // URL -> blob
     this.persistentCache = persistentImageCache
   }
 
@@ -45,6 +48,7 @@ class GamePreloader {
     }
 
     return new Promise((resolve, reject) => {
+      // Try fetch first, fallback to audio element if CORS issues
       fetch(audioUrl)
         .then(response => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -55,13 +59,59 @@ class GamePreloader {
           this.preloadedAudio.add(audioUrl)
           this.audioCache.set(audioUrl, blobUrl)
           this.audioBlobCache.set(audioUrl, blob)
-          // Preloaded audio (debug removed)
+          console.log(`✅ Audio cached: ${audioUrl.split('/').pop()?.split('?')[0]}`)
           resolve(blobUrl)
         })
         .catch(error => {
-          console.warn(`❌ Failed to preload audio: ${audioUrl}`, error)
-          reject(error)
+          // Fallback: Use audio element for preloading
+          console.warn(`⚠️ CORS issue, using audio element preload: ${audioUrl.split('/').pop()?.split('?')[0]}`)
+
+          const audio = new Audio()
+          audio.preload = 'metadata'
+
+          audio.onloadedmetadata = () => {
+            this.preloadedAudio.add(audioUrl)
+            this.audioCache.set(audioUrl, audioUrl) // Store original URL
+            resolve(audioUrl)
+          }
+
+          audio.onerror = () => {
+            console.warn(`⚠️ Audio will load on-demand: ${audioUrl.split('/').pop()?.split('?')[0]}`)
+            resolve(audioUrl) // Still resolve with original URL
+          }
+
+          audio.src = audioUrl
         })
+    })
+  }
+
+  // Preload a video file and create blob URL
+  preloadVideo(videoUrl) {
+    if (!videoUrl || this.preloadedVideos.has(videoUrl)) {
+      return Promise.resolve(this.videoCache.get(videoUrl))
+    }
+
+    return new Promise((resolve, reject) => {
+      // Use video element for preloading to avoid CORS issues
+      const video = document.createElement('video')
+      video.preload = 'metadata'
+      video.crossOrigin = 'anonymous'
+
+      video.onloadedmetadata = () => {
+        // Mark as preloaded but don't create blob URL (CORS limitation)
+        this.preloadedVideos.add(videoUrl)
+        this.videoCache.set(videoUrl, videoUrl) // Store original URL
+        console.log(`✅ Video preloaded: ${videoUrl.split('/').pop()?.split('?')[0]}`)
+        resolve(videoUrl)
+      }
+
+      video.onerror = (error) => {
+        console.warn(`⚠️ Video will load on-demand: ${videoUrl.split('/').pop()?.split('?')[0]}`)
+        // Still resolve with original URL as fallback
+        resolve(videoUrl)
+      }
+
+      video.src = videoUrl
     })
   }
 
@@ -96,7 +146,12 @@ class GamePreloader {
     return this.audioCache.get(originalUrl) || originalUrl
   }
 
-  // Preload all questions' assets (images and audio)
+  // Get cached video URL (blob URL if cached, original URL if not)
+  getCachedVideoUrl(originalUrl) {
+    return this.videoCache.get(originalUrl) || originalUrl
+  }
+
+  // Preload all questions' assets (images, audio, and video)
   async preloadQuestionAssets(questions, maxConcurrent = 3, onProgress = null) {
     if (!questions || questions.length === 0) return
 
@@ -121,9 +176,34 @@ class GamePreloader {
         allAssets.push({ type: 'image', url: question.answerImageUrl })
       }
 
-      // Cache audio files
+      // Cache question audio files
       if (q.audioUrl && !this.preloadedAudio.has(q.audioUrl)) {
         allAssets.push({ type: 'audio', url: q.audioUrl })
+      }
+
+      // Cache answer audio files (answerAudioUrl field)
+      if (q.answerAudioUrl && !this.preloadedAudio.has(q.answerAudioUrl)) {
+        allAssets.push({ type: 'audio', url: q.answerAudioUrl })
+      }
+
+      // Also check nested answer audio (some questions might have this structure)
+      if (question.answerAudioUrl && !this.preloadedAudio.has(question.answerAudioUrl)) {
+        allAssets.push({ type: 'audio', url: question.answerAudioUrl })
+      }
+
+      // Cache question video files
+      if (q.videoUrl && !this.preloadedVideos.has(q.videoUrl)) {
+        allAssets.push({ type: 'video', url: q.videoUrl })
+      }
+
+      // Cache answer video files (answerVideoUrl field)
+      if (q.answerVideoUrl && !this.preloadedVideos.has(q.answerVideoUrl)) {
+        allAssets.push({ type: 'video', url: q.answerVideoUrl })
+      }
+
+      // Also check nested answer video (some questions might have this structure)
+      if (question.answerVideoUrl && !this.preloadedVideos.has(question.answerVideoUrl)) {
+        allAssets.push({ type: 'video', url: question.answerVideoUrl })
       }
     })
 
@@ -139,9 +219,16 @@ class GamePreloader {
 
     for (const batch of batches) {
       const promises = batch.map(asset => {
-        const promise = asset.type === 'image'
-          ? this.preloadImage(asset.url).catch(() => null)
-          : this.preloadAudio(asset.url).catch(() => null)
+        let promise
+        if (asset.type === 'image') {
+          promise = this.preloadImage(asset.url).catch(() => null)
+        } else if (asset.type === 'audio') {
+          promise = this.preloadAudio(asset.url).catch(() => null)
+        } else if (asset.type === 'video') {
+          promise = this.preloadVideo(asset.url).catch(() => null)
+        } else {
+          promise = Promise.resolve(null)
+        }
 
         return promise.finally(() => {
           completed++
