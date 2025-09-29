@@ -904,6 +904,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     loadData()
   }, [])
 
+
   // Collapse all categories when categories are loaded (but not during editing or after editing)
   useEffect(() => {
     if (categories.length > 0 && !editingQuestion && !lastEditedCategory) {
@@ -1213,6 +1214,10 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       points: question.points,
       audioUrl: question.audioUrl || '',
       imageUrl: question.imageUrl || '',
+      videoUrl: question.videoUrl || '',
+      answerAudioUrl: question.answerAudioUrl || '',
+      answerImageUrl: question.answerImageUrl || '',
+      answerVideoUrl: question.answerVideoUrl || '',
       options: question.options || []
     })
 
@@ -1275,6 +1280,18 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       }
       if (editingData.imageUrl && editingData.imageUrl.trim()) {
         updatedQuestion.imageUrl = editingData.imageUrl.trim()
+      }
+      if (editingData.videoUrl && editingData.videoUrl.trim()) {
+        updatedQuestion.videoUrl = editingData.videoUrl.trim()
+      }
+      if (editingData.answerAudioUrl && editingData.answerAudioUrl.trim()) {
+        updatedQuestion.answerAudioUrl = editingData.answerAudioUrl.trim()
+      }
+      if (editingData.answerImageUrl && editingData.answerImageUrl.trim()) {
+        updatedQuestion.answerImageUrl = editingData.answerImageUrl.trim()
+      }
+      if (editingData.answerVideoUrl && editingData.answerVideoUrl.trim()) {
+        updatedQuestion.answerVideoUrl = editingData.answerVideoUrl.trim()
       }
       if (editingData.options && editingData.options.length > 0) {
         updatedQuestion.options = editingData.options
@@ -2315,20 +2332,50 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
             {/* Example */}
             <div className="bg-green-50 p-4 rounded-lg mb-4">
-              <h4 className="font-bold text-green-800 mb-2">أمثلة:</h4>
+              <h4 className="font-bold text-green-800 mb-2">🎯 أمثلة التنسيق الجديد المبسط (باستخدام البادئات):</h4>
+              <pre className="text-green-700 text-sm whitespace-pre-line" style={{ direction: 'ltr', textAlign: 'left' }}>{`ما اسم هذا الحيوان؟؛أسد؛أسد؛نمر؛فهد؛ذئب؛حيوانات؛Q:lion.jpg|QA:lion_roar.mp3|AV:lion_facts.mp4؛سهل
+
+من غنى هذه الأغنية؟؛Adele - Skyfall؛Taylor Swift؛Harry Styles؛Adele؛The Weeknd؛اغاني اجنبية؛QA:skyfall.mp3|Q:adele.jpg|AA:skyfall_answer.mp3|A:album.jpg؛متوسط
+
+شاهد الفيديو واجب على السؤال؟؛باريس؛باريس؛لندن؛روما؛برلين؛سفر؛QV:paris_tour.mp4|A:paris_answer.jpg|AV:paris_facts.mp4؛صعب
+
+سؤال بصورة فقط؛جواب؛؛؛؛؛فئة؛Q:question_image.jpg؛سهل
+
+سؤال بصوت فقط؛جواب؛؛؛؛؛فئة؛QA:question_audio.mp3؛سهل`}</pre>
+
+              <h4 className="font-bold text-green-800 mb-2 mt-4">📱 أمثلة التنسيق القديم (مدعوم):</h4>
               <pre className="text-green-700 text-sm whitespace-pre-line" style={{ direction: 'ltr', textAlign: 'left' }}>{`من غنى هذه الأغنية؟؛Adele - Skyfall؛Taylor Swift؛Harry Styles؛Adele؛The Weeknd؛اغاني اجنبية؛images/songseng/Skyfall_Adele.mp3؛images/songsimg/Skyfall_Adele.jpg؛سهل
 
 ما هي الدولة الملونة بالأحمر في الخريطة؟؛هنغاريا؛هنغاريا؛هولندا؛الهند؛هايتي؛خرائط؛؛images/Flags/countries/Hungary_map.svg؛متوسط
 
-ما هو أطول نهر في العالم؟؛نهر النيل؛نهر النيل؛نهر الأمازون؛نهر الميسيسيبي؛نهر اليانغتسي؛جغرافيا؛؛images/rivers.jpg؛سهل
-
 من اكتشف الجاذبية؟؛إسحاق نيوتن؛؛؛؛؛علوم؛؛؛متوسط`}</pre>
               <div className="text-green-600 text-xs mt-2">
-                <p><strong>التنسيق:</strong> السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة</p>
-                <p>• أسئلة متعددة الخيارات: تملأ جميع الخيارات الأربعة</p>
-                <p>• أسئلة نصية: تترك الخيارات فارغة (؛؛؛؛)</p>
-                <p>• <strong>الفئة مطلوبة:</strong> كل سؤال يجب أن يحدد فئته في العمود السابع</p>
-                <p>• فئات جديدة سيتم إنشاؤها تلقائياً عند عدم وجودها</p>
+                <p><strong>🎯 التنسيق الجديد المبسط (مع دعم الفيديو والصوت):</strong></p>
+                <p className="bg-green-50 p-2 rounded mt-1 mb-2 font-mono text-xs">
+                  السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
+                </p>
+                <p><strong>📱 التنسيق القديم المدعوم:</strong> السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة</p>
+
+                <div className="mt-3 space-y-1">
+                  <p><strong>📝 قواعد الأسئلة:</strong></p>
+                  <p>• أسئلة متعددة الخيارات: املأ جميع الخيارات الأربعة</p>
+                  <p>• أسئلة نصية: اترك الخيارات فارغة (؛؛؛؛)</p>
+                  <p>• <strong>الفئة مطلوبة:</strong> كل سؤال يجب أن يحدد فئته</p>
+
+                  <p><strong>🎥 قواعد الوسائط الجديدة (باستخدام البادئات):</strong></p>
+                  <p>• <strong>للسؤال:</strong> Q:صورة.jpg | QA:صوت.mp3 | QV:فيديو.mp4</p>
+                  <p>• <strong>للجواب:</strong> A:صورة.jpg | AA:صوت.mp3 | AV:فيديو.mp4</p>
+                  <p>• <strong>مثال كامل:</strong> Q:lion.jpg|QA:roar.mp3|AV:facts.mp4</p>
+                  <p>• اترك الوسائط فارغة إذا لم تكن هناك وسائط</p>
+
+                  <p><strong>🏷️ البادئات المدعومة:</strong></p>
+                  <p>• Q, QI, Q_IMG → صورة السؤال | QA, Q_AUDIO → صوت السؤال | QV, Q_VIDEO → فيديو السؤال</p>
+                  <p>• A, AI, A_IMG → صورة الجواب | AA, A_AUDIO → صوت الجواب | AV, A_VIDEO → فيديو الجواب</p>
+
+                  <p><strong>⚙️ إعدادات أخرى:</strong></p>
+                  <p>• مستوى الصعوبة: سهل / متوسط / صعب</p>
+                  <p>• فئات جديدة سيتم إنشاؤها تلقائياً</p>
+                </div>
               </div>
             </div>
 
@@ -2629,26 +2676,78 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                 </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-4 mb-3">
-                                <div>
-                                  <label className="block text-sm font-bold mb-2 text-yellow-800">رابط الصوت (اختياري):</label>
-                                  <input
-                                    type="text"
-                                    value={editingData.audioUrl || ''}
-                                    onChange={(e) => updateEditingData('audioUrl', e.target.value)}
-                                    className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
-                                    placeholder="images/audio/file.mp3"
-                                  />
+
+                              {/* Question Media Section */}
+                              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h4 className="text-sm font-bold mb-3 text-blue-800">🎯 وسائط السؤال</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-blue-700">صورة السؤال:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.imageUrl || ''}
+                                      onChange={(e) => updateEditingData('imageUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/..."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-blue-700">صوت السؤال:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.audioUrl || ''}
+                                      onChange={(e) => updateEditingData('audioUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/.../audio/..."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-blue-700">فيديو السؤال:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.videoUrl || ''}
+                                      onChange={(e) => updateEditingData('videoUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/.../video/..."
+                                    />
+                                  </div>
                                 </div>
-                                <div>
-                                  <label className="block text-sm font-bold mb-2 text-yellow-800">رابط الصورة (اختياري):</label>
-                                  <input
-                                    type="text"
-                                    value={editingData.imageUrl || ''}
-                                    onChange={(e) => updateEditingData('imageUrl', e.target.value)}
-                                    className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
-                                    placeholder="images/pictures/file.jpg"
-                                  />
+                              </div>
+
+                              {/* Answer Media Section */}
+                              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <h4 className="text-sm font-bold mb-3 text-green-800">✅ وسائط الإجابة</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-green-700">صورة الإجابة:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.answerImageUrl || ''}
+                                      onChange={(e) => updateEditingData('answerImageUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/..."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-green-700">صوت الإجابة:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.answerAudioUrl || ''}
+                                      onChange={(e) => updateEditingData('answerAudioUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/.../audio/..."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-green-700">فيديو الإجابة:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.answerVideoUrl || ''}
+                                      onChange={(e) => updateEditingData('answerVideoUrl', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
+                                      placeholder="/images/questions/.../video/..."
+                                    />
+                                  </div>
                                 </div>
                               </div>
 
@@ -3649,16 +3748,7 @@ function PendingQuestionsManager() {
               )}
 
               {/* Answer Media Section */}
-              {(() => {
-                console.log('🔍 Question Media Debug:', {
-                  questionId: question.id,
-                  answerImageUrl: question.answerImageUrl,
-                  answerAudioUrl: question.answerAudioUrl,
-                  answerVideoUrl: question.answerVideoUrl,
-                  hasAnyAnswerMedia: !!(question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl)
-                })
-                return (question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl)
-              })() && (
+              {(question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl) && (
                 <div className="mb-4">
                   <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-1">✅ وسائط الإجابة</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

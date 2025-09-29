@@ -31,8 +31,10 @@ export class GameDataLoader {
         FirebaseQuestionsService.getAllCategories()
       ])
 
+
       // Transform Firebase data to expected format
       const gameData = this.transformFirebaseData(questions, categories)
+
 
       // Cache the data for next time
       this.saveToCache(gameData)

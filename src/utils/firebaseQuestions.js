@@ -138,6 +138,7 @@ export class FirebaseQuestionsService {
    */
   static async addQuestion(questionData) {
     try {
+
       // Add timestamp and default fields
       const questionWithTimestamp = {
         ...questionData,
@@ -316,6 +317,11 @@ export class FirebaseQuestionsService {
               categoryId: question.categoryId || question.category || 'general',
               categoryName: question.categoryName || question.category || 'عام',
               imageUrl: question.imageUrl || null,
+              audioUrl: question.audioUrl || null,
+              videoUrl: question.videoUrl || null,
+              answerImageUrl: question.answerImageUrl || null,
+              answerAudioUrl: question.answerAudioUrl || null,
+              answerVideoUrl: question.answerVideoUrl || null,
               options: question.options || [],
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp()
