@@ -412,9 +412,9 @@ function Index() {
                     ⚡ القوى الخاصة
                   </h4>
                   <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, styles.buttonFontSize * 0.8)}px` }}>
-                    <li>• <span className="font-bold">×2:</span> مضاعفة النقاط للسؤال التالي</li>
-                    <li>• <span className="font-bold">📞:</span> اتصال بصديق للمساعدة</li>
-                    <li>• <span className="font-bold">🔍:</span> البحث عن معلومات إضافية</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/><text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text></svg>:</span> مضاعفة النقاط للسؤال التالي</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>:</span> اتصال بصديق للمساعدة</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>:</span> البحث عن معلومات إضافية</li>
                     <li className="text-red-600">• كل قوة تُستخدم مرة واحدة فقط</li>
                   </ul>
                 </div>
@@ -430,7 +430,7 @@ function Index() {
                   <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, styles.buttonFontSize * 0.8)}px` }}>
                     <li>• <span className="font-bold text-green-600">إجابة صحيحة:</span> تكسب النقاط المحددة</li>
                     <li>• <span className="font-bold text-red-600">إجابة خاطئة:</span> تخسر نصف النقاط</li>
-                    <li>• <span className="font-bold text-purple-600">مع قوة ×2:</span> مضاعفة النقاط</li>
+                    <li>• <span className="font-bold text-purple-600 inline-flex items-center gap-1">مع قوة <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/><text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text></svg>:</span> مضاعفة النقاط</li>
                     <li>• النقاط لا تقل عن الصفر أبداً</li>
                   </ul>
                 </div>

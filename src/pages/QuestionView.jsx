@@ -1167,7 +1167,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         : styles.isMobileLayout
                         ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
                         : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                      paddingBottom: `${Math.max(1, styles.buttonPadding * 0.03125)}px`
+                      paddingBottom: styles.isUltraNarrow
+                        ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                        : styles.isMobileLayout
+                        ? `${Math.max(16, styles.buttonPadding * 1.0)}px`
+                        : `${Math.max(20, styles.buttonPadding * 1.25)}px`
                     }}>
                       <div className="relative">
                         {/* Simple Oval Timer */}
@@ -1189,7 +1193,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               ? `${Math.max(45, styles.timerSize * 0.3)}px`
                               : styles.isMobileLayout
                               ? `${Math.max(50, styles.timerSize * 0.35)}px`
-                              : `${Math.max(60, styles.timerSize * 0.4)}px`,
+                              : `${Math.max(40, styles.timerSize * 0.4)}px`,
                             borderRadius: styles.isUltraNarrow
                               ? `${Math.max(22, styles.timerSize * 0.15)}px`
                               : styles.isMobileLayout
@@ -1309,7 +1313,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     {/* Content area without padding to prevent overlap */}
                     <div className="flex-1 relative">
 
-                      <div className="flex items-center justify-center" style={{ padding: `${Math.max(1, styles.buttonPadding * 0.03125)}px ${Math.max(2, styles.buttonPadding * 0.0625)}px` }}>
+                      <div className="flex items-center justify-center" style={{
+                        paddingTop: `${Math.max(5, styles.buttonPadding * 0.03125 + 5)}px`,
+                        paddingLeft: `${Math.max(2, styles.buttonPadding * 0.0625)}px`,
+                        paddingRight: `${Math.max(2, styles.buttonPadding * 0.0625)}px`,
+                        paddingBottom: styles.isUltraNarrow
+                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                          : styles.isMobileLayout
+                          ? `${Math.max(16, styles.buttonPadding * 1.0)}px`
+                          : `${Math.max(20, styles.buttonPadding * 1.25)}px`
+                      }}>
                         <h2 className="font-bold text-gray-800 text-center" dir="rtl" style={{ fontSize: `${styles.questionFontSize}px` }}>
                           {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
                         </h2>
@@ -1329,7 +1342,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         })
                         return currentQuestion && (hasQuestionAudio || hasQuestionVideo)
                       })() && (
-                        <div className="flex justify-center" style={{ padding: '30px 2px' }}>
+                        <div className="flex justify-center" style={{
+                          paddingTop: styles.isUltraNarrow
+                            ? `${Math.max(10, styles.buttonPadding * 0.625)}px`
+                            : styles.isMobileLayout
+                            ? `${Math.max(15, styles.buttonPadding * 0.9375)}px`
+                            : `${Math.max(20, styles.buttonPadding * 1.25)}px`,
+                          paddingBottom: styles.isUltraNarrow
+                            ? `${Math.max(10, styles.buttonPadding * 0.625)}px`
+                            : styles.isMobileLayout
+                            ? `${Math.max(15, styles.buttonPadding * 0.9375)}px`
+                            : `${Math.max(20, styles.buttonPadding * 1.25)}px`,
+                          paddingLeft: '2px',
+                          paddingRight: '2px'
+                        }}>
                           <div style={{ maxWidth: '500px', width: '100%' }}>
                             {/* Video Player - Show if video exists */}
                             {(currentQuestion.question?.videoUrl || currentQuestion.videoUrl) ? (
@@ -1357,7 +1383,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         overflow: 'hidden',
                         paddingLeft: styles.isUltraNarrow ? '1.8px' : `${Math.max(1, styles.buttonPadding * 0.125)}px`,
                         paddingRight: styles.isUltraNarrow ? '1.8px' : `${Math.max(1, styles.buttonPadding * 0.125)}px`,
-                        paddingTop: styles.isUltraNarrow ? '1px' : `${Math.max(1, styles.buttonPadding * 0.03125)}px`
+                        paddingTop: styles.isUltraNarrow
+                          ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
+                          : styles.isMobileLayout
+                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                          : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
+                        paddingBottom: styles.isUltraNarrow
+                          ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
+                          : styles.isMobileLayout
+                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                          : `${Math.max(16, styles.buttonPadding * 1.0)}px`
                       }}>
                         {(() => {
                           const showImage = currentQuestion && currentQuestion.question?.imageUrl && shouldShowImageInQuestion(currentQuestion.categoryId);
@@ -1391,10 +1426,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                     objectFit: 'contain',
                                     zIndex: 9999
                                   } : {
-                                    maxWidth: styles.isUltraNarrow ? '80%' : '100%',
-                                    maxHeight: styles.isUltraNarrow ? '80%' : '100%',
-                                    width: styles.isUltraNarrow ? 'auto' : ((currentQuestion.question.imageUrl.endsWith('.svg') && styles.isPC) ? '400px' : 'auto'),
-                                    height: styles.isUltraNarrow ? 'auto' : ((currentQuestion.question.imageUrl.endsWith('.svg') && styles.isPC) ? '300px' : 'auto'),
+                                    maxWidth: '100%',
+                                    maxHeight: '100%',
+                                    width: styles.isPC
+                                      ? ((currentQuestion.question.imageUrl.endsWith('.svg')) ? '400px' : 'auto')
+                                      : styles.isUltraNarrow
+                                        ? '95%'
+                                        : '90%',
+                                    height: styles.isPC
+                                      ? ((currentQuestion.question.imageUrl.endsWith('.svg')) ? '300px' : 'auto')
+                                      : 'auto',
                                     objectFit: 'contain',
                                     touchAction: styles.isPC ? 'auto' : 'manipulation',
                                     userSelect: 'none',
@@ -1459,7 +1500,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         })
                         return currentQuestion && (hasAnswerAudio || hasAnswerVideo)
                       })() && (
-                        <div className="flex justify-center" style={{ padding: '20px 2px' }}>
+                        <div className="flex justify-center" style={{
+                          paddingTop: styles.isUltraNarrow
+                            ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
+                            : styles.isMobileLayout
+                            ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                            : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
+                          paddingBottom: styles.isUltraNarrow
+                            ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
+                            : styles.isMobileLayout
+                            ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                            : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
+                          paddingLeft: '2px',
+                          paddingRight: '2px'
+                        }}>
                           <div style={{ maxWidth: '500px', width: '100%' }}>
                             {/* Answer Video Player - Show if video exists */}
                             {(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl) ? (
@@ -1513,10 +1567,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                   objectFit: 'contain',
                                   zIndex: 9999
                                 } : {
-                                  maxWidth: styles.isUltraNarrow ? '80%' : '100%',
-                                  maxHeight: styles.isUltraNarrow ? '80%' : '100%',
-                                  width: styles.isUltraNarrow ? 'auto' : ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg') && styles.isPC) ? '400px' : 'auto'),
-                                  height: styles.isUltraNarrow ? 'auto' : ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg') && styles.isPC) ? '300px' : 'auto'),
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  width: styles.isPC
+                                    ? ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg')) ? '400px' : 'auto')
+                                    : styles.isUltraNarrow
+                                      ? '95%'
+                                      : '90%',
+                                  height: styles.isPC
+                                    ? ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg')) ? '300px' : 'auto')
+                                    : 'auto',
                                   objectFit: 'contain',
                                   touchAction: styles.isPC ? 'auto' : 'manipulation',
                                   userSelect: 'none',
