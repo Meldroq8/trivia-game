@@ -907,7 +907,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       title="متاح فقط في لوحة اللعبة"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
                         <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                       </svg>
@@ -927,7 +927,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       onClick={() => handlePerkClick('phone', 'team1')}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
                       </svg>
                     </div>
@@ -946,7 +946,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       onClick={() => handlePerkClick('search', 'team1')}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                       </svg>
                     </div>
@@ -983,7 +983,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       title="متاح فقط في لوحة اللعبة"
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
                         <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                       </svg>
@@ -1003,7 +1003,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       onClick={() => handlePerkClick('phone', 'team2')}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
                       </svg>
                     </div>
@@ -1022,7 +1022,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }}
                       onClick={() => handlePerkClick('search', 'team2')}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                       </svg>
                     </div>
