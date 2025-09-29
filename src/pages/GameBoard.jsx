@@ -1171,7 +1171,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       // Height constraints - match the actual smaller text section height (scale for PC)
       const baseTextSectionHeight = Math.max(18, Math.min(30, cardHeight * 0.06))
       const textSectionHeight = baseTextSectionHeight * pcScaleFactor
-      const maxFontSizeForHeight = textSectionHeight * 0.85 // Leave some margin
+
+      // More conservative height constraint for single words and long text
+      // Single words need extra room for vertical rendering
+      const isLikelySingleWord = !categoryName.includes(' ') && textLength > 6
+      const heightSafetyMargin = isLikelySingleWord ? 0.65 : 0.75 // More conservative for single words
+      const maxFontSizeForHeight = textSectionHeight * heightSafetyMargin
 
       // Much more conservative character width estimation for Arabic text
       // Arabic characters are generally wider and need more space
@@ -1206,11 +1211,53 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
       // Very short text (<=8 chars) keeps full calculated size
 
-      // Set reasonable bounds
+      // Set reasonable bounds first
       const maxAllowedSize = Math.min(buttonFontSize, isUltraNarrow ? 14 : isMobileLayout ? 18 : 24)
-      const finalSize = Math.max(minFontSize, Math.min(maxAllowedSize, scaledFontSize))
+      let candidateSize = Math.max(minFontSize, Math.min(maxAllowedSize, scaledFontSize))
 
-      return finalSize * pcScaleFactor
+      // Canvas-based text measurement for overflow detection
+      // This works for all device types (PC, narrow phones, normal phones, tablets)
+      const measureTextHeight = (text, fontSize, fontFamily) => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        ctx.font = `${fontSize}px ${fontFamily}`
+
+        // Get text metrics including ascenders and descenders
+        const metrics = ctx.measureText(text)
+
+        // Calculate actual height including ascenders and descenders
+        const actualHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+
+        return actualHeight || fontSize * 1.2 // Fallback for older browsers
+      }
+
+      // Font family matching the CSS (from index.html)
+      const fontFamily = 'Tajawal, Cairo, Tahoma, Arial, sans-serif'
+
+      // Iteratively reduce font size until text fits within container height
+      const maxIterations = 10
+      let iterations = 0
+
+      while (iterations < maxIterations) {
+        const actualTextHeight = measureTextHeight(categoryName, candidateSize * pcScaleFactor, fontFamily)
+
+        if (actualTextHeight <= textSectionHeight) {
+          break // Text fits!
+        }
+
+        // Reduce font size by 10% and try again
+        candidateSize *= 0.9
+
+        // Don't go below minimum
+        if (candidateSize < minFontSize) {
+          candidateSize = minFontSize
+          break
+        }
+
+        iterations++
+      }
+
+      return candidateSize * pcScaleFactor
     }
 
     // Header and footer scaling (apply PC scale factor)
