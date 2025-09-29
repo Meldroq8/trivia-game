@@ -1134,41 +1134,63 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                 {!showAnswer ? (
                   <>
-                    {/* Timer Section */}
+                    {/* Compact Oval Timer Section */}
                     <div className="flex justify-center" style={{ paddingTop: `${Math.max(1, styles.buttonPadding * 0.0625)}px`, paddingBottom: `${Math.max(1, styles.buttonPadding * 0.03125)}px` }}>
-                      <div className={`${getTimerBg()} hover:opacity-90 text-white font-bold rounded-full shadow-lg flex items-center justify-between`} style={{
-                        width: `${styles.timerSize}px`,
-                        minWidth: `${styles.timerSize}px`,
-                        padding: `${Math.max(4, styles.buttonPadding * 0.3)}px`,
-                        gap: `${Math.max(2, styles.buttonPadding * 0.1)}px`
-                      }}>
-                        <button
-                          onClick={() => setTimerActive(!timerActive)}
-                          className="hover:bg-transparent rounded transition-colors flex-shrink-0 flex items-center justify-center"
+                      <div className="relative">
+                        {/* Simple Oval Timer */}
+                        <div
+                          className={`shadow-xl flex items-center justify-between backdrop-blur-sm border-2 transition-all duration-300 ${
+                            timeElapsed >= 50
+                              ? 'bg-red-600/90 border-red-400 shadow-red-500/20'
+                              : timeElapsed >= 30
+                              ? 'bg-amber-600/90 border-amber-400 shadow-amber-500/20'
+                              : 'bg-emerald-600/90 border-emerald-400 shadow-emerald-500/20'
+                          }`}
                           style={{
-                            fontSize: `${styles.timerEmojiSize}px`,
-                            width: `${styles.timerEmojiSize + 4}px`,
-                            height: `${styles.timerEmojiSize + 4}px`,
-                            lineHeight: '1'
+                            width: `${Math.max(180, styles.timerSize * 1.2)}px`,
+                            height: `${Math.max(60, styles.timerSize * 0.4)}px`,
+                            borderRadius: `${Math.max(30, styles.timerSize * 0.2)}px`,
+                            padding: `${Math.max(2, styles.buttonPadding * 0.15)}px ${Math.max(8, styles.buttonPadding * 0.5)}px`,
+                            gap: `${Math.max(4, styles.buttonPadding * 0.25)}px`
                           }}
                         >
-                          {timerActive ? '❚❚' : '▶'}
-                        </button>
-                        <div className="font-bold text-center flex-1" style={{ fontSize: `${styles.timerFontSize}px` }}>
-                          {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
+                          {/* Simple Play/Pause Button */}
+                          <button
+                            onClick={() => setTimerActive(!timerActive)}
+                            className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
+                            style={{
+                              width: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              height: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              fontSize: `${Math.max(14, styles.timerEmojiSize * 0.7)}px`
+                            }}
+                          >
+                            {timerActive ? '⏸' : '▶'}
+                          </button>
+
+                          {/* Time Display */}
+                          <div className="flex-1 flex items-center justify-center">
+                            <div className="font-bold text-white text-center leading-none" style={{
+                              fontSize: `${Math.max(18, styles.timerFontSize * 1.0)}px`,
+                              textShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                              fontFamily: 'monospace'
+                            }}>
+                              {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
+                            </div>
+                          </div>
+
+                          {/* Simple Reset Button */}
+                          <button
+                            onClick={() => setTimeElapsed(0)}
+                            className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
+                            style={{
+                              width: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              height: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              fontSize: `${Math.max(14, styles.timerEmojiSize * 0.7)}px`
+                            }}
+                          >
+                            ↻
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setTimeElapsed(0)}
-                          className="hover:bg-transparent rounded transition-colors flex-shrink-0 flex items-center justify-center"
-                          style={{
-                            fontSize: `${styles.timerEmojiSize}px`,
-                            width: `${styles.timerEmojiSize + 4}px`,
-                            height: `${styles.timerEmojiSize + 4}px`,
-                            lineHeight: '1'
-                          }}
-                        >
-                          ⟳
-                        </button>
                       </div>
                     </div>
 
