@@ -906,7 +906,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       title="متاح فقط في لوحة اللعبة"
-                    >×2</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                        <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
+                      </svg>
+                    </div>
                     <div
                       className={`rounded-full flex items-center justify-center transition-all duration-200 ${
                         (gameState.perkUsage?.team1?.phone || 0) >= 1
@@ -921,7 +926,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       onClick={() => handlePerkClick('phone', 'team1')}
-                    >📞</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                      </svg>
+                    </div>
                     <div
                       className={`rounded-full flex items-center justify-center transition-all duration-200 ${
                         (gameState.perkUsage?.team1?.search || 0) >= 1
@@ -936,7 +945,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       onClick={() => handlePerkClick('search', 'team1')}
-                    >🔍</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -969,7 +982,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       title="متاح فقط في لوحة اللعبة"
-                    >×2</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                        <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
+                      </svg>
+                    </div>
                     <div
                       className={`rounded-full flex items-center justify-center transition-all duration-200 ${
                         (gameState.perkUsage?.team2?.phone || 0) >= 1
@@ -984,7 +1002,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       onClick={() => handlePerkClick('phone', 'team2')}
-                    >📞</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                      </svg>
+                    </div>
                     <div
                       className={`rounded-full flex items-center justify-center transition-all duration-200 ${
                         (gameState.perkUsage?.team2?.search || 0) >= 1
@@ -999,7 +1021,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
                       }}
                       onClick={() => handlePerkClick('search', 'team2')}
-                    >🔍</div>
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1135,7 +1161,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {!showAnswer ? (
                   <>
                     {/* Compact Oval Timer Section */}
-                    <div className="flex justify-center" style={{ paddingTop: `${Math.max(1, styles.buttonPadding * 0.0625)}px`, paddingBottom: `${Math.max(1, styles.buttonPadding * 0.03125)}px` }}>
+                    <div className="flex justify-center" style={{
+                      paddingTop: styles.isUltraNarrow
+                        ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
+                        : styles.isMobileLayout
+                        ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
+                        : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
+                      paddingBottom: `${Math.max(1, styles.buttonPadding * 0.03125)}px`
+                    }}>
                       <div className="relative">
                         {/* Simple Oval Timer */}
                         <div
@@ -1147,30 +1180,80 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               : 'bg-emerald-600/90 border-emerald-400 shadow-emerald-500/20'
                           }`}
                           style={{
-                            width: `${Math.max(180, styles.timerSize * 1.2)}px`,
-                            height: `${Math.max(60, styles.timerSize * 0.4)}px`,
-                            borderRadius: `${Math.max(30, styles.timerSize * 0.2)}px`,
-                            padding: `${Math.max(2, styles.buttonPadding * 0.15)}px ${Math.max(8, styles.buttonPadding * 0.5)}px`,
-                            gap: `${Math.max(4, styles.buttonPadding * 0.25)}px`
+                            width: styles.isUltraNarrow
+                              ? `${Math.max(140, styles.timerSize * 0.9)}px`
+                              : styles.isMobileLayout
+                              ? `${Math.max(160, styles.timerSize * 1.0)}px`
+                              : `${Math.max(180, styles.timerSize * 1.2)}px`,
+                            height: styles.isUltraNarrow
+                              ? `${Math.max(45, styles.timerSize * 0.3)}px`
+                              : styles.isMobileLayout
+                              ? `${Math.max(50, styles.timerSize * 0.35)}px`
+                              : `${Math.max(60, styles.timerSize * 0.4)}px`,
+                            borderRadius: styles.isUltraNarrow
+                              ? `${Math.max(22, styles.timerSize * 0.15)}px`
+                              : styles.isMobileLayout
+                              ? `${Math.max(25, styles.timerSize * 0.175)}px`
+                              : `${Math.max(30, styles.timerSize * 0.2)}px`,
+                            padding: `${Math.max(2, styles.buttonPadding * 0.15)}px ${Math.max(6, styles.buttonPadding * 0.4)}px`,
+                            gap: `${Math.max(3, styles.buttonPadding * 0.2)}px`
                           }}
                         >
-                          {/* Simple Play/Pause Button */}
+                          {/* SVG Play/Pause Button */}
                           <button
                             onClick={() => setTimerActive(!timerActive)}
                             className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
                             style={{
-                              width: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              height: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              fontSize: `${Math.max(14, styles.timerEmojiSize * 0.7)}px`
+                              width: styles.isUltraNarrow
+                                ? `${Math.max(26, styles.timerEmojiSize)}px`
+                                : styles.isMobileLayout
+                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
+                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              height: styles.isUltraNarrow
+                                ? `${Math.max(26, styles.timerEmojiSize)}px`
+                                : styles.isMobileLayout
+                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
+                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`
                             }}
                           >
-                            {timerActive ? '⏸' : '▶'}
+                            {timerActive ? (
+                              // Pause Icon
+                              <svg
+                                width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                                height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <rect x="2" y="1" width="2.5" height="10" rx="1" fill="white" />
+                                <rect x="7.5" y="1" width="2.5" height="10" rx="1" fill="white" />
+                              </svg>
+                            ) : (
+                              // Play Icon
+                              <svg
+                                width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                                height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                                viewBox="0 0 12 12"
+                                fill="none"
+                              >
+                                <path
+                                  d="M3 1.5L10 6L3 10.5V1.5Z"
+                                  fill="white"
+                                  stroke="white"
+                                  strokeWidth="0.5"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
                           </button>
 
                           {/* Time Display */}
                           <div className="flex-1 flex items-center justify-center">
                             <div className="font-bold text-white text-center leading-none" style={{
-                              fontSize: `${Math.max(18, styles.timerFontSize * 1.0)}px`,
+                              fontSize: styles.isUltraNarrow
+                                ? `${Math.max(14, styles.timerFontSize * 0.8)}px`
+                                : styles.isMobileLayout
+                                ? `${Math.max(16, styles.timerFontSize * 0.9)}px`
+                                : `${Math.max(18, styles.timerFontSize * 1.0)}px`,
                               textShadow: '0 2px 4px rgba(0,0,0,0.4)',
                               fontFamily: 'monospace'
                             }}>
@@ -1178,17 +1261,46 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             </div>
                           </div>
 
-                          {/* Simple Reset Button */}
+                          {/* SVG Reset Button */}
                           <button
                             onClick={() => setTimeElapsed(0)}
                             className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
                             style={{
-                              width: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              height: `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              fontSize: `${Math.max(14, styles.timerEmojiSize * 0.7)}px`
+                              width: styles.isUltraNarrow
+                                ? `${Math.max(26, styles.timerEmojiSize)}px`
+                                : styles.isMobileLayout
+                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
+                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`,
+                              height: styles.isUltraNarrow
+                                ? `${Math.max(26, styles.timerEmojiSize)}px`
+                                : styles.isMobileLayout
+                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
+                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`
                             }}
                           >
-                            ↻
+                            {/* Reset/Refresh Icon */}
+                            <svg
+                              width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                              height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
+                              viewBox="0 0 12 12"
+                              fill="none"
+                            >
+                              <path
+                                d="M3 2.5C4.5 1 7.5 1 9 2.5C10.5 4 10.5 7 9 8.5C7.5 10 4.5 10 3 8.5L3.5 8"
+                                stroke="white"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                fill="none"
+                              />
+                              <path
+                                d="M2.5 7.5L3.5 8.5L4.5 7.5"
+                                stroke="white"
+                                strokeWidth="1.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                              />
+                            </svg>
                           </button>
                         </div>
                       </div>
