@@ -1,5 +1,91 @@
 import { FirebaseQuestionsService } from './firebaseQuestions'
 
+/**
+ * Parse media string with Q: and A: prefixes
+ * Format: "Q:image.jpg|A:answer.mp3|Q:video.mp4"
+ * Supports: QI/Q_IMG (question image), QA/Q_AUDIO (question audio), QV/Q_VIDEO (question video)
+ *          AI/A_IMG (answer image), AA/A_AUDIO (answer audio), AV/A_VIDEO (answer video)
+ */
+function parseMediaString(mediaString) {
+  const result = {
+    questionImage: '',
+    questionAudio: '',
+    questionVideo: '',
+    answerImage: '',
+    answerAudio: '',
+    answerVideo: ''
+  }
+
+  if (!mediaString || !mediaString.trim()) {
+    return result
+  }
+
+  // Split by | to get individual media items
+  const mediaItems = mediaString.split('|').filter(item => item.trim())
+
+  mediaItems.forEach((item) => {
+    const trimmedItem = item.trim()
+    if (!trimmedItem.includes(':')) return
+
+    const [prefix, url] = trimmedItem.split(':', 2)
+    const cleanPrefix = prefix.trim().toUpperCase()
+    const cleanUrl = url.trim()
+
+    if (!cleanUrl) return
+
+    // Question media prefixes
+    if (cleanPrefix === 'Q' || cleanPrefix === 'QI' || cleanPrefix === 'Q_IMG') {
+      // Smart detection: if URL contains video extensions, it's video; audio extensions, it's audio; otherwise image
+      if (isVideoUrl(cleanUrl)) {
+        result.questionVideo = cleanUrl
+      } else if (isAudioUrl(cleanUrl)) {
+        result.questionAudio = cleanUrl
+      } else {
+        result.questionImage = cleanUrl
+      }
+    } else if (cleanPrefix === 'QA' || cleanPrefix === 'Q_AUDIO') {
+      result.questionAudio = cleanUrl
+    } else if (cleanPrefix === 'QV' || cleanPrefix === 'Q_VIDEO') {
+      result.questionVideo = cleanUrl
+    }
+    // Answer media prefixes
+    else if (cleanPrefix === 'A' || cleanPrefix === 'AI' || cleanPrefix === 'A_IMG') {
+      // Smart detection for answer media
+      if (isVideoUrl(cleanUrl)) {
+        result.answerVideo = cleanUrl
+      } else if (isAudioUrl(cleanUrl)) {
+        result.answerAudio = cleanUrl
+      } else {
+        result.answerImage = cleanUrl
+      }
+    } else if (cleanPrefix === 'AA' || cleanPrefix === 'A_AUDIO') {
+      result.answerAudio = cleanUrl
+    } else if (cleanPrefix === 'AV' || cleanPrefix === 'A_VIDEO') {
+      result.answerVideo = cleanUrl
+    }
+  })
+
+  return result
+}
+
+/**
+ * Check if URL is a video file
+ */
+function isVideoUrl(url) {
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.flv', '.wmv']
+  const lowerUrl = url.toLowerCase()
+  return videoExtensions.some(ext => lowerUrl.includes(ext)) || lowerUrl.includes('video')
+}
+
+/**
+ * Check if URL is an audio file
+ */
+function isAudioUrl(url) {
+  const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac']
+  const lowerUrl = url.toLowerCase()
+  return audioExtensions.some(ext => lowerUrl.includes(ext)) || lowerUrl.includes('audio')
+}
+
 // Parse bulk questions from text input and import to Firebase
 export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
   console.log('Starting bulk question import to Firebase...')
@@ -17,7 +103,8 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
       // Split by semicolon
       const parts = line.split('؛').map(part => (part || '').trim())
 
-      // Expected format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة
+      // Prefix Notation Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
+      // Legacy Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة
       if (parts.length >= 2) {
         const questionText = parts[0] || ''
         const correctAnswer = parts[1] || ''
@@ -26,9 +113,36 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
         const option3 = parts[4] || ''
         const option4 = parts[5] || ''
         const questionCategory = parts[6] || ''
-        const audioUrl = parts[7] || ''
-        const imageUrl = parts[8] || ''
-        const difficultyText = parts[9] || 'سهل'
+
+        // Parse media based on format
+        let audioUrl = '', imageUrl = '', videoUrl = ''
+        let answerAudioUrl = '', answerImageUrl = '', answerVideoUrl = ''
+        let difficultyText = 'سهل'
+
+        if (parts.length === 9) {
+          // New Prefix Notation Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
+          const mediaString = parts[7] || ''
+          difficultyText = parts[8] || 'سهل'
+
+          // Parse media string with Q: and A: prefixes
+          const mediaUrls = parseMediaString(mediaString)
+          audioUrl = mediaUrls.questionAudio
+          imageUrl = mediaUrls.questionImage
+          videoUrl = mediaUrls.questionVideo
+          answerAudioUrl = mediaUrls.answerAudio
+          answerImageUrl = mediaUrls.answerImage
+          answerVideoUrl = mediaUrls.answerVideo
+
+
+        } else if (parts.length >= 10) {
+          // Legacy format - audio and image for questions only
+          audioUrl = parts[7] || ''
+          imageUrl = parts[8] || ''
+          difficultyText = parts[9] || 'سهل'
+        } else {
+          // Basic format - no media
+          difficultyText = parts[7] || 'سهل'
+        }
 
         // Parse difficulty
         let difficulty = 'easy'
@@ -56,11 +170,18 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
           answer: correctAnswer,
           difficulty: difficulty,
           points: points,
-          audioUrl: audioUrl || undefined,
-          imageUrl: imageUrl || undefined,
           categoryId: categoryId,
           categoryName: questionCategory || 'عام'
         }
+
+        // Only add media fields if they have values (Firebase doesn't accept undefined)
+        if (audioUrl && audioUrl.trim()) questionObj.audioUrl = audioUrl.trim()
+        if (imageUrl && imageUrl.trim()) questionObj.imageUrl = imageUrl.trim()
+        if (videoUrl && videoUrl.trim()) questionObj.videoUrl = videoUrl.trim()
+        if (answerAudioUrl && answerAudioUrl.trim()) questionObj.answerAudioUrl = answerAudioUrl.trim()
+        if (answerImageUrl && answerImageUrl.trim()) questionObj.answerImageUrl = answerImageUrl.trim()
+        if (answerVideoUrl && answerVideoUrl.trim()) questionObj.answerVideoUrl = answerVideoUrl.trim()
+
 
         // Add multiple choice options if more than just the correct answer
         if (options.length > 1) {
@@ -71,14 +192,24 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
         }
 
         if (questionText && correctAnswer) {
-          // Debug log for audio questions
-          if (audioUrl) {
-            console.log('🎵 Importing question with audio:', {
-              text: questionText,
-              audioUrl: audioUrl,
-              imageUrl: imageUrl
+          // Debug log for media questions
+          if (audioUrl || videoUrl || answerAudioUrl || answerImageUrl || answerVideoUrl) {
+            console.log('🎵🎬 Importing question with media:', {
+              text: questionText.substring(0, 50) + '...',
+              questionMedia: {
+                audio: audioUrl || 'none',
+                image: imageUrl || 'none',
+                video: videoUrl || 'none'
+              },
+              answerMedia: {
+                audio: answerAudioUrl || 'none',
+                image: answerImageUrl || 'none',
+                video: answerVideoUrl || 'none'
+              }
             })
           }
+
+
           parsedQuestions.push(questionObj)
         }
       }
@@ -395,7 +526,8 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
       // Split by semicolon
       const parts = line.split('؛').map(part => (part || '').trim())
 
-      // Expected format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة
+      // Prefix Notation Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
+      // Legacy Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة
       if (parts.length >= 2) {
         const questionText = parts[0] || ''
         const correctAnswer = parts[1] || ''
@@ -404,9 +536,35 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
         const option3 = parts[4] || ''
         const option4 = parts[5] || ''
         const questionCategory = parts[6] || ''
-        const audioUrl = parts[7] || ''
-        const imageUrl = parts[8] || ''
-        const difficultyText = parts[9] || 'سهل'
+
+        // Parse media based on format
+        let audioUrl = '', imageUrl = '', videoUrl = ''
+        let answerAudioUrl = '', answerImageUrl = '', answerVideoUrl = ''
+        let difficultyText = 'سهل'
+
+        if (parts.length === 9) {
+          // New Prefix Notation Format: السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
+          const mediaString = parts[7] || ''
+          difficultyText = parts[8] || 'سهل'
+
+          // Parse media string with Q: and A: prefixes
+          const mediaUrls = parseMediaString(mediaString)
+          audioUrl = mediaUrls.questionAudio
+          imageUrl = mediaUrls.questionImage
+          videoUrl = mediaUrls.questionVideo
+          answerAudioUrl = mediaUrls.answerAudio
+          answerImageUrl = mediaUrls.answerImage
+          answerVideoUrl = mediaUrls.answerVideo
+
+        } else if (parts.length >= 10) {
+          // Legacy format - audio and image for questions only
+          audioUrl = parts[7] || ''
+          imageUrl = parts[8] || ''
+          difficultyText = parts[9] || 'سهل'
+        } else {
+          // Basic format - no media
+          difficultyText = parts[7] || 'سهل'
+        }
 
         // Parse difficulty
         let difficulty = 'easy'
@@ -434,11 +592,17 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
           answer: correctAnswer,
           difficulty: difficulty,
           points: points,
-          audioUrl: audioUrl || undefined,
-          imageUrl: imageUrl || undefined,
           categoryId: categoryId,
           categoryName: questionCategory || 'عام'
         }
+
+        // Only add media fields if they have values (Firebase doesn't accept undefined)
+        if (audioUrl && audioUrl.trim()) questionObj.audioUrl = audioUrl.trim()
+        if (imageUrl && imageUrl.trim()) questionObj.imageUrl = imageUrl.trim()
+        if (videoUrl && videoUrl.trim()) questionObj.videoUrl = videoUrl.trim()
+        if (answerAudioUrl && answerAudioUrl.trim()) questionObj.answerAudioUrl = answerAudioUrl.trim()
+        if (answerImageUrl && answerImageUrl.trim()) questionObj.answerImageUrl = answerImageUrl.trim()
+        if (answerVideoUrl && answerVideoUrl.trim()) questionObj.answerVideoUrl = answerVideoUrl.trim()
 
         // Add multiple choice options if more than just the correct answer
         if (options.length > 1) {
