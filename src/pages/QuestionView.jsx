@@ -1353,16 +1353,24 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             : styles.isMobileLayout
                             ? `${Math.max(15, styles.buttonPadding * 0.9375)}px`
                             : `${Math.max(20, styles.buttonPadding * 1.25)}px`,
-                          paddingLeft: '2px',
-                          paddingRight: '2px'
+                          // Responsive horizontal padding for mobile overflow prevention
+                          paddingLeft: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px',
+                          paddingRight: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px'
                         }}>
-                          <div style={{ maxWidth: '500px', width: '100%' }}>
+                          <div style={{
+                            // Responsive scaling with natural width limits for different devices
+                            maxWidth: `${Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}px`,
+                            width: '100%'
+                          }}>
                             {/* Video Player - Show if video exists */}
                             {(currentQuestion.question?.videoUrl || currentQuestion.videoUrl) ? (
                               <MediaPlayer
                                 src={getCachedMediaUrl(currentQuestion.question?.videoUrl || currentQuestion.videoUrl)}
                                 type="video"
                                 className="w-full"
+                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
+                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
+                                maxHeight={styles.isUltraNarrow ? 200 : styles.isMobileLayout ? 250 : 300}
                               />
                             ) : (
                               /* Audio Player - Show if only audio exists */
@@ -1370,6 +1378,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 src={getCachedAudioUrl(currentQuestion.question?.audioUrl || currentQuestion.audioUrl)}
                                 type="audio"
                                 className="w-full"
+                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
+                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
+                                maxHeight={styles.isUltraNarrow ? 120 : styles.isMobileLayout ? 150 : 180}
                               />
                             )}
                           </div>
@@ -1511,10 +1522,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             : styles.isMobileLayout
                             ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
                             : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                          paddingLeft: '2px',
-                          paddingRight: '2px'
+                          // Responsive horizontal padding for mobile overflow prevention
+                          paddingLeft: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px',
+                          paddingRight: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px'
                         }}>
-                          <div style={{ maxWidth: '500px', width: '100%' }}>
+                          <div style={{
+                            // Responsive scaling with natural width limits for different devices
+                            maxWidth: `${Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}px`,
+                            width: '100%'
+                          }}>
                             {/* Answer Video Player - Show if video exists */}
                             {(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl) ? (
                               <MediaPlayer
@@ -1522,6 +1538,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 type="video"
                                 className="w-full"
                                 autoPlay={true}
+                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
+                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
+                                maxHeight={styles.isUltraNarrow ? 200 : styles.isMobileLayout ? 250 : 300}
                               />
                             ) : (
                               /* Answer Audio Player - Show if only audio exists */
@@ -1530,6 +1549,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 type="audio"
                                 className="w-full"
                                 autoPlay={true}
+                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
+                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
+                                maxHeight={styles.isUltraNarrow ? 120 : styles.isMobileLayout ? 150 : 180}
                               />
                             )}
                           </div>
