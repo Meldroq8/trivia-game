@@ -4,6 +4,15 @@ import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 function AudioPlayer({ src, className = '' }) {
   // Convert URL to optimized CloudFront URL
   const optimizedSrc = src ? getOptimizedMediaUrl(src, 'medium', 'audio') : null
+
+  // Log CloudFront configuration on first load
+  useEffect(() => {
+    console.log('🔧 CloudFront Config Check:', {
+      enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED,
+      domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN,
+      baseUrl: import.meta.env.VITE_CDN_BASE_URL
+    })
+  }, [])
   const audioRef = useRef(null)
   const progressRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
