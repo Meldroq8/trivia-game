@@ -261,31 +261,21 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (!data || !gameState.selectedCategories.length) return
 
     try {
-      // Collect only the questions actually displayed on the GameBoard
+      // Collect ALL questions for selected categories (not just first 2 per difficulty)
       const gameBoardQuestions = []
 
-      // For each selected category, get exactly 6 questions (2 easy, 2 medium, 2 hard)
       for (const categoryId of gameState.selectedCategories) {
         const categoryQuestions = data.questions[categoryId] || []
 
-        // Get 2 questions for each difficulty level (200=easy, 400=medium, 600=hard)
-        const difficulties = ['easy', 'medium', 'hard']
-
-        difficulties.forEach(difficulty => {
-          const questionsWithDifficulty = categoryQuestions.filter(q => q.difficulty === difficulty)
-
-          // Take the first 2 questions for this difficulty (if available)
-          const selectedQuestions = questionsWithDifficulty.slice(0, 2)
-          gameBoardQuestions.push(...selectedQuestions)
-        })
+        // Add ALL questions from this category for comprehensive preloading
+        gameBoardQuestions.push(...categoryQuestions)
       }
 
-      const expectedQuestions = gameState.selectedCategories.length * 6 // 6 questions per category
-      console.log(`🚀 Preloading media for ${gameBoardQuestions.length}/${expectedQuestions} GameBoard questions...`)
+      console.log(`🚀 Preloading media for ${gameBoardQuestions.length} questions from selected categories...`)
 
       // Use the gamePreloader to preload all media for these questions
-      // Increased concurrency from 2 to 6 for faster preloading
-      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 6, (completed, total) => {
+      // Increased concurrency to 8 for faster preloading of all questions
+      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 8, (completed, total) => {
         console.log(`📦 GameBoard media preload progress: ${completed}/${total}`)
       })
 
@@ -631,15 +621,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
     }))
 
-    // Preload mystery question media before navigation
-    console.log('⚡ Pre-loading mystery question media...')
-    try {
-      await gamePreloader.preloadQuestionAssets([randomQuestion], 3)
-      console.log('✅ Mystery question media preloaded')
-    } catch (error) {
-      console.warn('⚠️ Mystery question media preload failed, will load on-demand:', error)
-    }
-
     navigate('/question')
   }
 
@@ -702,15 +683,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           ...prev,
           currentQuestion: questionData
         }))
-
-        // Preload question media before navigation for instant display
-        console.log('⚡ Pre-loading previously assigned question media...')
-        try {
-          await gamePreloader.preloadQuestionAssets([question], 3)
-          console.log('✅ Previously assigned question media preloaded')
-        } catch (error) {
-          console.warn('⚠️ Question media preload failed, will load on-demand:', error)
-        }
 
         navigate('/question')
         return
@@ -902,18 +874,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         assignedQuestions: newAssignedQuestions
       }
     })
-
-    // Preload question media before navigation for instant display
-    const questionToPreload = selectedQuestion || question
-    if (questionToPreload) {
-      console.log('⚡ Pre-loading question media before navigation...')
-      try {
-        await gamePreloader.preloadQuestionAssets([questionToPreload], 3)
-        console.log('✅ Question media preloaded')
-      } catch (error) {
-        console.warn('⚠️ Question media preload failed, will load on-demand:', error)
-      }
-    }
 
     navigate('/question')
   }
