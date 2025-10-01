@@ -972,7 +972,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       {/* Fullscreen Image Overlay */}
       {imageZoomed && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-90 z-[10000] flex items-center justify-center"
+          className="fixed inset-0 bg-black bg-opacity-90 z-[10000] flex items-center justify-center p-4"
           onClick={handleBackdropClick}
         >
           <SmartImage
@@ -1001,7 +1001,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               }
             })()}
             alt={currentQuestion ? (showAnswer ? (currentQuestion.question?.answer || currentQuestion.answer) : (currentQuestion.question?.text || currentQuestion.text)) : ''}
-            className="max-w-full max-h-full object-contain cursor-pointer"
+            className="cursor-pointer"
+            style={{
+              maxWidth: '95vw',
+              maxHeight: '95vh',
+              minWidth: '70vw',
+              minHeight: '70vh',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain'
+            }}
             context={showAnswer ? "answer" : "question"}
             size="original"
             onClick={handleImageClick}
