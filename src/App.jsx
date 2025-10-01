@@ -221,7 +221,10 @@ function App() {
 
   const [gameState, setGameState] = useState(getDefaultGameState)
   const [stateLoaded, setStateLoaded] = useState(false)
-  const [migrationComplete, setMigrationComplete] = useState(false)
+  // Check if migration was already completed (persists across page refreshes)
+  const [migrationComplete, setMigrationComplete] = useState(() => {
+    return localStorage.getItem('migration_complete') === 'true'
+  })
 
   // Load game state from Firebase when user is authenticated
   useEffect(() => {
@@ -240,6 +243,10 @@ function App() {
           console.log('🔄 Migrating localStorage to Firebase...')
           await migrateFromLocalStorage()
           setMigrationComplete(true)
+          localStorage.setItem('migration_complete', 'true')
+          console.log('✅ Migration complete flag saved to localStorage')
+        } else if (migrationComplete) {
+          console.log('✅ Migration already completed, skipping...')
         }
 
         // Load saved game state from Firebase
@@ -295,6 +302,13 @@ function App() {
           usedQuestions: Array.from(gameState.usedQuestions || []),
           usedPointValues: Array.from(gameState.usedPointValues || [])
         }
+
+        console.log('💾 App: Saving game state to Firebase:', {
+          gameName: stateToSave.gameName,
+          categoriesCount: stateToSave.selectedCategories?.length || 0,
+          team1Name: stateToSave.team1?.name,
+          team2Name: stateToSave.team2?.name
+        })
 
         await saveGameState(stateToSave)
         // Game state saved to Firebase (debug reduced)
