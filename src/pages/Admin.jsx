@@ -340,18 +340,36 @@ function CategoriesManager({ isAdmin, isModerator }) {
       return
     }
 
-    // Prepare export data
-    const exportData = categoryQuestions.map((q, index) => ({
-      'الرقم': index + 1,
-      'السؤال': q.question,
-      'الإجابة الصحيحة': q.answer,
-      'الإجابة الخاطئة 1': q.options?.[0] || '',
-      'الإجابة الخاطئة 2': q.options?.[1] || '',
-      'الإجابة الخاطئة 3': q.options?.[2] || '',
-      'الصعوبة': q.difficulty || 'متوسط',
-      'النقاط': q.points || 100,
-      'نوع السؤال': q.type || 'text'
-    }))
+    // Prepare export data - handle different question structures
+    const exportData = categoryQuestions.map((q, index) => {
+      // Get question text from different possible sources
+      const questionText = q.question || q.text || q.questionText || ''
+
+      // Get answer from different possible sources
+      const answerText = q.answer || q.correctAnswer || q.correct || ''
+
+      // Get wrong options - handle both array and object formats
+      let wrongOptions = []
+      if (q.options && Array.isArray(q.options)) {
+        wrongOptions = q.options
+      } else if (q.wrongOptions && Array.isArray(q.wrongOptions)) {
+        wrongOptions = q.wrongOptions
+      } else if (q.incorrect && Array.isArray(q.incorrect)) {
+        wrongOptions = q.incorrect
+      }
+
+      return {
+        'الرقم': index + 1,
+        'السؤال': questionText,
+        'الإجابة الصحيحة': answerText,
+        'الإجابة الخاطئة 1': wrongOptions[0] || '',
+        'الإجابة الخاطئة 2': wrongOptions[1] || '',
+        'الإجابة الخاطئة 3': wrongOptions[2] || '',
+        'الصعوبة': q.difficulty || 'متوسط',
+        'النقاط': q.points || q.value || 100,
+        'نوع السؤال': q.type || 'text'
+      }
+    })
 
     // Convert to CSV
     const headers = Object.keys(exportData[0])
