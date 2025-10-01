@@ -284,7 +284,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       console.log(`🚀 Preloading media for ${gameBoardQuestions.length}/${expectedQuestions} GameBoard questions...`)
 
       // Use the gamePreloader to preload all media for these questions
-      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 2, (completed, total) => {
+      // Increased concurrency from 2 to 6 for faster preloading
+      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 6, (completed, total) => {
         console.log(`📦 GameBoard media preload progress: ${completed}/${total}`)
       })
 
@@ -630,6 +631,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
     }))
 
+    // Preload mystery question media before navigation
+    console.log('⚡ Pre-loading mystery question media...')
+    try {
+      await gamePreloader.preloadQuestionAssets([randomQuestion], 3)
+      console.log('✅ Mystery question media preloaded')
+    } catch (error) {
+      console.warn('⚠️ Mystery question media preload failed, will load on-demand:', error)
+    }
+
     navigate('/question')
   }
 
@@ -692,6 +702,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           ...prev,
           currentQuestion: questionData
         }))
+
+        // Preload question media before navigation for instant display
+        console.log('⚡ Pre-loading previously assigned question media...')
+        try {
+          await gamePreloader.preloadQuestionAssets([question], 3)
+          console.log('✅ Previously assigned question media preloaded')
+        } catch (error) {
+          console.warn('⚠️ Question media preload failed, will load on-demand:', error)
+        }
 
         navigate('/question')
         return
@@ -883,6 +902,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         assignedQuestions: newAssignedQuestions
       }
     })
+
+    // Preload question media before navigation for instant display
+    const questionToPreload = selectedQuestion || question
+    if (questionToPreload) {
+      console.log('⚡ Pre-loading question media before navigation...')
+      try {
+        await gamePreloader.preloadQuestionAssets([questionToPreload], 3)
+        console.log('✅ Question media preloaded')
+      } catch (error) {
+        console.warn('⚠️ Question media preload failed, will load on-demand:', error)
+      }
+    }
 
     navigate('/question')
   }
