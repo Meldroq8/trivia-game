@@ -5,11 +5,11 @@
  */
 
 // CloudFront configuration with hardcoded fallback
-// Using S3 directly due to CloudFront CORS caching issue
+// CloudFront CORS issue fixed with Origin Request Policy
 const CLOUDFRONT_CONFIG = {
   enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED === 'true' || true, // Force enable
-  domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN || 'trivia-game-media-cdn.s3.me-south-1.amazonaws.com',
-  baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://trivia-game-media-cdn.s3.me-south-1.amazonaws.com'
+  domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net',
+  baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://drcqcbq3desis.cloudfront.net'
 }
 
 console.log('🌐 CloudFront config:', CLOUDFRONT_CONFIG)
