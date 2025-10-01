@@ -1306,6 +1306,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   const styles = getResponsiveStyles()
 
+  // Wait for state to load before checking categories
+  // This prevents false "no categories" state during Firebase loading
+  if (!stateLoaded) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800">جاري تحميل حالة اللعبة...</h1>
+        </div>
+      </div>
+    )
+  }
 
   if (!gameState.selectedCategories.length) {
     return (
