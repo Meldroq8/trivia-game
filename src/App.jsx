@@ -64,26 +64,34 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
 
   // BULLETPROOF Route Restoration
   useEffect(() => {
-    if (stateLoaded && gameState.currentRoute && location.pathname === '/' && gameState.currentRoute !== '/') {
-      // Check immediate localStorage flag for explicit exit
-      const userExplicitlyExited = localStorage.getItem('trivia_user_exited') === 'true'
-      if (userExplicitlyExited) {
-        console.log('🚫 BULLETPROOF: User explicitly exited (localStorage check) - skipping route restoration')
-        return
-      }
+    if (!stateLoaded) return
 
-      // Don't restore routes if user explicitly exited the game (gameState check)
-      if (gameState.userExplicitlyExited) {
-        console.log('🚫 BULLETPROOF: User explicitly exited (gameState check) - skipping route restoration')
-        return
-      }
+    // Check immediate localStorage flag for explicit exit
+    const userExplicitlyExited = localStorage.getItem('trivia_user_exited') === 'true'
+    if (userExplicitlyExited) {
+      console.log('🚫 BULLETPROOF: User explicitly exited (localStorage check) - skipping route restoration')
+      return
+    }
 
-      // All game-related routes should be restored
-      const validRoutesToRestore = ['/game', '/question', '/categories', '/game-setup']
+    // Don't restore routes if user explicitly exited the game (gameState check)
+    if (gameState.userExplicitlyExited) {
+      console.log('🚫 BULLETPROOF: User explicitly exited (gameState check) - skipping route restoration')
+      return
+    }
 
+    // All game-related routes should be restored
+    const validRoutesToRestore = ['/game', '/question', '/categories', '/game-setup']
+
+    // Restore route if:
+    // 1. We're on index (/) but should be on a game route, OR
+    // 2. We're on a game route but it doesn't match the saved route (e.g., refreshed on /question)
+    if (gameState.currentRoute && gameState.currentRoute !== location.pathname) {
       if (validRoutesToRestore.includes(gameState.currentRoute)) {
-        console.log(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
-        navigate(gameState.currentRoute, { replace: true })
+        // Only restore if we're coming from index OR if we're on a different game route
+        if (location.pathname === '/' || validRoutesToRestore.includes(location.pathname)) {
+          console.log(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
+          navigate(gameState.currentRoute, { replace: true })
+        }
       }
     }
   }, [stateLoaded, gameState.currentRoute, gameState.userExplicitlyExited, location.pathname, navigate])
