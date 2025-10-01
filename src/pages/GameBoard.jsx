@@ -294,13 +294,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
   }
 
-  // Load game data from Firebase
+  // Load game data from Firebase - runs once per mount
   useEffect(() => {
-    // If we already have game data, don't reload (avoid unnecessary fetches)
-    if (gameData) {
-      console.log('✅ GameBoard: Game data already loaded, skipping reload')
-      return
-    }
+    console.log('🔄 GameBoard: useEffect triggered. gameData:', gameData ? 'Loaded' : 'Null')
 
     const loadGameData = async () => {
       try {
@@ -310,6 +306,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         const data = await GameDataLoader.loadGameData(false) // Use cache if available
 
         if (data) {
+          console.log('✅ GameBoard: Received game data, setting state...')
           setGameData(data)
           setInitialLoadComplete(true)
           console.log('✅ GameBoard: Game data loaded successfully')
@@ -330,6 +327,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             preloadGameBoardMedia(data)
           }, 100) // Small delay to let UI render first
         } else {
+          console.error('❌ GameBoard: No data received from loadGameData')
           throw new Error('No game data received')
         }
       } catch (error) {
@@ -338,6 +336,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
         // Try fallback
         try {
+          console.log('🔄 GameBoard: Attempting fallback to sample data...')
           const fallbackData = await GameDataLoader.loadSampleData()
           setGameData(fallbackData)
           setInitialLoadComplete(true)
@@ -361,7 +360,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
 
     loadGameData()
-  }, [location.pathname]) // Re-run when route changes (e.g., coming back from /question)
+  }, []) // Run once on mount - component fully unmounts when switching routes
 
   useEffect(() => {
     // Only wait for essential data for dimensions - don't block on everything
