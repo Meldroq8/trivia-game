@@ -226,7 +226,13 @@ function App() {
   // Load game state from Firebase when user is authenticated
   useEffect(() => {
     const loadGameState = async () => {
-      if (authLoading) return // Wait for auth to complete
+      // Wait for auth to complete before loading state
+      if (authLoading) {
+        console.log('⏳ App: Waiting for auth to complete...')
+        return
+      }
+
+      console.log('🔄 App: Auth complete, loading game state...', { isAuthenticated })
 
       try {
         // Migrate localStorage data first (one-time operation)
@@ -240,6 +246,11 @@ function App() {
         if (isAuthenticated) {
           const savedState = await getGameState()
           if (savedState) {
+            console.log('✅ App: Loaded game state from Firebase:', {
+              gameName: savedState.gameName,
+              categoriesCount: savedState.selectedCategories?.length || 0
+            })
+
             // Convert arrays back to Sets
             if (savedState.usedQuestions && Array.isArray(savedState.usedQuestions)) {
               savedState.usedQuestions = new Set(savedState.usedQuestions)
@@ -255,12 +266,16 @@ function App() {
             }
 
             setGameState(completeState)
-            // Game state loaded from Firebase (debug reduced)
+          } else {
+            console.log('ℹ️ App: No saved game state found in Firebase')
           }
+        } else {
+          console.log('ℹ️ App: User not authenticated, using default state')
         }
       } catch (error) {
         console.error('❌ Error loading game state:', error)
       } finally {
+        console.log('✅ App: Setting stateLoaded = true')
         setStateLoaded(true)
       }
     }
