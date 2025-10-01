@@ -18,6 +18,12 @@ function AudioPlayer({ src, className = '' }) {
     const audio = audioRef.current
     if (!audio) return
 
+    // Log URL conversion for debugging
+    console.log('🎵 AudioPlayer URL conversion:', {
+      original: src,
+      optimized: optimizedSrc
+    })
+
     const handleLoadedData = () => {
       setDuration(audio.duration)
       setIsLoading(false)
@@ -33,8 +39,8 @@ function AudioPlayer({ src, className = '' }) {
     }
 
     const handleError = (e) => {
-      console.error('Audio loading error:', e, 'Source:', src)
-      setError('الملف الصوتي غير موجود: ' + src)
+      console.error('Audio loading error:', e, 'Original Source:', src, 'Optimized Source:', optimizedSrc)
+      setError('الملف الصوتي غير موجود: ' + optimizedSrc)
       setIsLoading(false)
     }
 
@@ -49,7 +55,7 @@ function AudioPlayer({ src, className = '' }) {
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('error', handleError)
     }
-  }, [src])
+  }, [src, optimizedSrc])
 
   const togglePlay = () => {
     const audio = audioRef.current
