@@ -261,21 +261,29 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (!data || !gameState.selectedCategories.length) return
 
     try {
-      // Collect ALL questions for selected categories (not just first 2 per difficulty)
-      const gameBoardQuestions = []
+      // Only preload questions that are already assigned (from gameState.assignedQuestions)
+      const assignedQuestions = []
 
-      for (const categoryId of gameState.selectedCategories) {
-        const categoryQuestions = data.questions[categoryId] || []
-
-        // Add ALL questions from this category for comprehensive preloading
-        gameBoardQuestions.push(...categoryQuestions)
+      if (gameState.assignedQuestions) {
+        Object.values(gameState.assignedQuestions).forEach(assignment => {
+          const categoryQuestions = data.questions[assignment.categoryId] || []
+          const question = categoryQuestions.find(q => q.id === assignment.questionId)
+          if (question) {
+            assignedQuestions.push(question)
+          }
+        })
       }
 
-      console.log(`🚀 Preloading media for ${gameBoardQuestions.length} questions from selected categories...`)
+      // If no questions assigned yet, don't preload anything
+      if (assignedQuestions.length === 0) {
+        console.log('⏭️ No questions assigned yet, skipping preload')
+        return
+      }
 
-      // Use the gamePreloader to preload all media for these questions
-      // Increased concurrency to 8 for faster preloading of all questions
-      await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 8, (completed, total) => {
+      console.log(`🚀 Preloading media for ${assignedQuestions.length} assigned questions...`)
+
+      // Use the gamePreloader to preload only assigned questions
+      await gamePreloader.preloadQuestionAssets(assignedQuestions, 8, (completed, total) => {
         console.log(`📦 GameBoard media preload progress: ${completed}/${total}`)
       })
 
