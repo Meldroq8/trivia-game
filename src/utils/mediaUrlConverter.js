@@ -4,14 +4,19 @@
  * Automatically selects the best image size and format for performance
  */
 
-// CloudFront configuration
+// CloudFront configuration with hardcoded fallback
 const CLOUDFRONT_CONFIG = {
-  enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED === 'true',
-  domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN,
-  baseUrl: import.meta.env.VITE_CDN_BASE_URL || `https://${import.meta.env.VITE_CLOUDFRONT_DOMAIN}`
+  enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED === 'true' || true, // Force enable
+  domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net',
+  baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://drcqcbq3desis.cloudfront.net'
 }
 
 console.log('🌐 CloudFront config:', CLOUDFRONT_CONFIG)
+console.log('🌐 Raw env vars:', {
+  enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED,
+  domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN,
+  baseUrl: import.meta.env.VITE_CDN_BASE_URL
+})
 
 export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'default', preferOriginal = false) => {
   if (!mediaUrl) return null
