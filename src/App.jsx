@@ -333,6 +333,18 @@ function App() {
     }
   }, [isPresentationMode])
 
+  // Show loading screen while auth and state are initializing (only on first load)
+  if (authLoading || !stateLoaded) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
+          <h1 className="text-xl font-bold text-red-800">جاري التحميل...</h1>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <Router>
