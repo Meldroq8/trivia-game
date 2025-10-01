@@ -1306,9 +1306,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   const styles = getResponsiveStyles()
 
+  // Debug logging for loading states
+  console.log('🔍 GameBoard render check:', {
+    stateLoaded,
+    categoriesLength: gameState.selectedCategories.length,
+    hasGameData: !!gameData,
+    initialLoadComplete
+  })
+
   // Wait for state to load before checking categories
   // This prevents false "no categories" state during Firebase loading
   if (!stateLoaded) {
+    console.log('⏳ GameBoard: Waiting for stateLoaded...')
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
@@ -1320,6 +1329,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   }
 
   if (!gameState.selectedCategories.length) {
+    console.log('⏳ GameBoard: No categories selected, showing loading...')
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
@@ -1329,6 +1339,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       </div>
     )
   }
+
+  console.log('✅ GameBoard: All checks passed, rendering game board')
 
   // Never show loading screen - use skeleton instead
 
