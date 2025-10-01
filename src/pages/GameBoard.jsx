@@ -296,20 +296,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Load game data from Firebase - runs once per mount
   useEffect(() => {
-    console.log('🔄 GameBoard: useEffect triggered. gameData:', gameData ? 'Loaded' : 'Null')
-
     const loadGameData = async () => {
       try {
         setLoadingError(null)
-
-        console.log('⚡ GameBoard: Loading game data immediately...')
         const data = await GameDataLoader.loadGameData(false) // Use cache if available
 
         if (data) {
-          console.log('✅ GameBoard: Received game data, setting state...')
           setGameData(data)
           setInitialLoadComplete(true)
-          console.log('✅ GameBoard: Game data loaded successfully')
 
           // Defer non-critical operations to avoid blocking UI
           setTimeout(() => {
@@ -327,7 +321,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             preloadGameBoardMedia(data)
           }, 100) // Small delay to let UI render first
         } else {
-          console.error('❌ GameBoard: No data received from loadGameData')
           throw new Error('No game data received')
         }
       } catch (error) {
@@ -336,18 +329,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
         // Try fallback
         try {
-          console.log('🔄 GameBoard: Attempting fallback to sample data...')
           const fallbackData = await GameDataLoader.loadSampleData()
           setGameData(fallbackData)
           setInitialLoadComplete(true)
-          console.log('🔄 GameBoard: Using fallback data')
 
           // Update question pool for global usage tracking with fallback data (only if user is set)
           if (user?.uid) {
-            questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
+            questionUsageTracker.setUserId(user.uid)
             questionUsageTracker.updateQuestionPool(fallbackData)
-          } else {
-            console.log('⏳ GameBoard: Delaying questionUsageTracker (fallback) until user is authenticated')
           }
 
           // Start smart preloading with fallback data (deferred)
@@ -1306,18 +1295,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   const styles = getResponsiveStyles()
 
-  // Debug logging for loading states
-  console.log('🔍 GameBoard render check:', {
-    stateLoaded,
-    categoriesLength: gameState.selectedCategories.length,
-    hasGameData: !!gameData,
-    initialLoadComplete
-  })
-
   // Wait for state to load before checking categories
   // This prevents false "no categories" state during Firebase loading
   if (!stateLoaded) {
-    console.log('⏳ GameBoard: Waiting for stateLoaded...')
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
@@ -1329,7 +1309,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   }
 
   if (!gameState.selectedCategories.length) {
-    console.log('⏳ GameBoard: No categories selected, showing loading...')
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
@@ -1339,8 +1318,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       </div>
     )
   }
-
-  console.log('✅ GameBoard: All checks passed, rendering game board')
 
   // Never show loading screen - use skeleton instead
 

@@ -230,34 +230,20 @@ function App() {
   useEffect(() => {
     const loadGameState = async () => {
       // Wait for auth to complete before loading state
-      if (authLoading) {
-        console.log('⏳ App: Waiting for auth to complete...')
-        return
-      }
-
-      console.log('🔄 App: Auth complete, loading game state...', { isAuthenticated })
+      if (authLoading) return
 
       try {
         // Migrate localStorage data first (one-time operation)
         if (!migrationComplete && isAuthenticated) {
-          console.log('🔄 Migrating localStorage to Firebase...')
           await migrateFromLocalStorage()
           setMigrationComplete(true)
           localStorage.setItem('migration_complete', 'true')
-          console.log('✅ Migration complete flag saved to localStorage')
-        } else if (migrationComplete) {
-          console.log('✅ Migration already completed, skipping...')
         }
 
         // Load saved game state from Firebase
         if (isAuthenticated) {
           const savedState = await getGameState()
           if (savedState) {
-            console.log('✅ App: Loaded game state from Firebase:', {
-              gameName: savedState.gameName,
-              categoriesCount: savedState.selectedCategories?.length || 0
-            })
-
             // Convert arrays back to Sets
             if (savedState.usedQuestions && Array.isArray(savedState.usedQuestions)) {
               savedState.usedQuestions = new Set(savedState.usedQuestions)
@@ -273,16 +259,11 @@ function App() {
             }
 
             setGameState(completeState)
-          } else {
-            console.log('ℹ️ App: No saved game state found in Firebase')
           }
-        } else {
-          console.log('ℹ️ App: User not authenticated, using default state')
         }
       } catch (error) {
         console.error('❌ Error loading game state:', error)
       } finally {
-        console.log('✅ App: Setting stateLoaded = true')
         setStateLoaded(true)
       }
     }
@@ -303,15 +284,7 @@ function App() {
           usedPointValues: Array.from(gameState.usedPointValues || [])
         }
 
-        console.log('💾 App: Saving game state to Firebase:', {
-          gameName: stateToSave.gameName,
-          categoriesCount: stateToSave.selectedCategories?.length || 0,
-          team1Name: stateToSave.team1?.name,
-          team2Name: stateToSave.team2?.name
-        })
-
         await saveGameState(stateToSave)
-        // Game state saved to Firebase (debug reduced)
       } catch (error) {
         console.error('❌ Error saving game state:', error)
       }
