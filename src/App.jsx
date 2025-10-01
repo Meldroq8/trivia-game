@@ -62,7 +62,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     }
   }, [location.pathname, stateLoaded])
 
-  // BULLETPROOF Route Restoration
+  // BULLETPROOF Route Restoration (run only once when state loads)
   useEffect(() => {
     if (!stateLoaded) return
 
@@ -82,19 +82,14 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     // All game-related routes should be restored
     const validRoutesToRestore = ['/game', '/question', '/categories', '/game-setup']
 
-    // Restore route if:
-    // 1. We're on index (/) but should be on a game route, OR
-    // 2. We're on a game route but it doesn't match the saved route (e.g., refreshed on /question)
-    if (gameState.currentRoute && gameState.currentRoute !== location.pathname) {
+    // Only restore if we have a saved route AND we're currently on index
+    if (gameState.currentRoute && location.pathname === '/' && gameState.currentRoute !== '/') {
       if (validRoutesToRestore.includes(gameState.currentRoute)) {
-        // Only restore if we're coming from index OR if we're on a different game route
-        if (location.pathname === '/' || validRoutesToRestore.includes(location.pathname)) {
-          console.log(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
-          navigate(gameState.currentRoute, { replace: true })
-        }
+        console.log(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
+        navigate(gameState.currentRoute, { replace: true })
       }
     }
-  }, [stateLoaded, gameState.currentRoute, gameState.userExplicitlyExited, location.pathname, navigate])
+  }, [stateLoaded]) // Only run when stateLoaded changes from false to true
 
   // Browser Back Button Control with Warning System
   useEffect(() => {
