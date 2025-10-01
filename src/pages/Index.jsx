@@ -59,6 +59,30 @@ function Index() {
     loadSettings()
   }, [getAppSettings])
 
+  // Refresh leaderboard when page becomes visible (user returns from game)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page visible - refreshing leaderboard')
+        loadLeaderboard()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
+  // Also refresh leaderboard when navigating back to this page
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Page focused - refreshing leaderboard')
+      loadLeaderboard()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
   const loadLeaderboard = async () => {
     setLeaderboardLoading(true)
     try {

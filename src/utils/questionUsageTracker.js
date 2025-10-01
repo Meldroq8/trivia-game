@@ -15,6 +15,12 @@ class QuestionUsageTracker {
     this.POOL_SIZE_KEY = 'trivia-question-pool-size'
     this.currentUserId = null
     this.localCache = null
+
+    // Rate limiting and batching
+    this.pendingWrites = new Set()
+    this.lastWriteTime = 0
+    this.WRITE_THROTTLE_MS = 2000 // Minimum 2 seconds between Firebase writes
+    this.saveTimeout = null
   }
 
   /**
@@ -81,14 +87,54 @@ class QuestionUsageTracker {
   }
 
   /**
-   * Save usage data to Firestore for the current user
+   * Save usage data to Firestore for the current user (throttled)
    * @param {Object} usageData - Usage data to save
+   * @param {boolean} immediate - Force immediate save (bypass throttling)
    */
-  async saveUsageData(usageData) {
+  async saveUsageData(usageData, immediate = false) {
     if (!this.currentUserId) {
       console.warn('⚠️ No user ID set, falling back to localStorage')
       return this.saveLocalUsageData(usageData)
     }
+
+    // Update local cache immediately
+    this.localCache = usageData
+
+    if (immediate) {
+      return this.performFirestoreWrite(usageData)
+    }
+
+    // Use throttled save for regular updates
+    return this.scheduleThrottledSave(usageData)
+  }
+
+  /**
+   * Schedule a throttled save to prevent rapid Firebase writes
+   * @param {Object} usageData - Usage data to save
+   */
+  scheduleThrottledSave(usageData) {
+    // Clear existing timeout
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout)
+    }
+
+    const now = Date.now()
+    const timeSinceLastWrite = now - this.lastWriteTime
+    const delay = Math.max(0, this.WRITE_THROTTLE_MS - timeSinceLastWrite)
+
+    console.log(`⏱️ Scheduling Firebase write in ${delay}ms`)
+
+    this.saveTimeout = setTimeout(async () => {
+      await this.performFirestoreWrite(usageData)
+    }, delay)
+  }
+
+  /**
+   * Perform actual Firestore write
+   * @param {Object} usageData - Usage data to save
+   */
+  async performFirestoreWrite(usageData) {
+    if (!this.currentUserId) return
 
     try {
       const userDoc = doc(db, 'questionUsage', this.currentUserId)
@@ -100,9 +146,8 @@ class QuestionUsageTracker {
         lastUpdated: Date.now()
       })
 
-      // Update local cache
-      this.localCache = usageData
-      console.log('💾 Saved question usage data to Firestore')
+      this.lastWriteTime = Date.now()
+      console.log('💾 Saved question usage data to Firestore (throttled)')
     } catch (error) {
       console.error('❌ Error saving question usage to Firestore:', error)
       // Fallback to localStorage
@@ -220,7 +265,7 @@ class QuestionUsageTracker {
   }
 
   /**
-   * Mark a question as used for the current user (optimized for performance)
+   * Mark a question as used for the current user (optimized with throttling)
    * @param {Object} question - Question object that was used
    */
   async markQuestionAsUsed(question) {
@@ -234,13 +279,15 @@ class QuestionUsageTracker {
     // Update local cache immediately for instant UI response
     this.localCache = usageData
 
-    // Save to Firestore and check reset in background (non-blocking)
-    this.saveUsageData(usageData).then(() => {
-      // Check if we need to reset the usage cycle after saving
-      return this.checkAndResetIfAllUsed()
-    }).catch(error => {
-      console.error('Background save failed:', error)
-    })
+    // Use throttled save to prevent Firebase write exhaustion
+    this.saveUsageData(usageData, false) // false = use throttling
+
+    // Check reset in background with additional throttling
+    setTimeout(() => {
+      this.checkAndResetIfAllUsed().catch(error => {
+        console.error('Background reset check failed:', error)
+      })
+    }, 5000) // Delay reset check by 5 seconds
 
     // Return immediately for instant UI response
     return Promise.resolve()
@@ -270,7 +317,8 @@ class QuestionUsageTracker {
         resetData[questionId] = 0
       })
 
-      await this.saveUsageData(resetData)
+      // Use immediate save for reset (important operation)
+      await this.saveUsageData(resetData, true)
 
       // Show notification to user
       this.showResetNotification()

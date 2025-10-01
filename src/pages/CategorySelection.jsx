@@ -47,6 +47,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         const gameData = await GameDataLoader.loadGameData()
 
         if (gameData && gameData.categories) {
+          console.log('🔍 CategorySelection: All categories loaded:', gameData.categories)
+          const mysteryCategory = gameData.categories.find(cat => cat.id === 'mystery')
+          if (mysteryCategory) {
+            console.log('🔍 CategorySelection: Mystery category found:', mysteryCategory)
+            console.log('🔍 CategorySelection: Mystery imageUrl:', mysteryCategory.imageUrl)
+          }
           setAvailableCategories(gameData.categories)
           setGameData(gameData)
           console.log('✅ CategorySelection: Loaded', gameData.categories.length, 'categories')
@@ -145,9 +151,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       }
     }
 
-    // Special handling for Mystery Category
+    // Special handling for Mystery Category - keep ? for question count only
     if (gameData.categories && gameData.categories.some(cat => cat.id === 'mystery')) {
-      counts['mystery'] = '?' // Show question mark for mystery category
+      counts['mystery'] = '?' // Show question mark for mystery category count
     }
 
     setQuestionCounts(counts)

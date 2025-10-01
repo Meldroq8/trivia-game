@@ -262,6 +262,7 @@ export class AuthService {
       console.log(JSON.stringify(documentToSave, null, 2))
       console.log('🔄 Is game continuation:', isGameContinuation)
       console.log('🆔 Game ID:', gameId)
+      console.log('📊 Will increment gamesPlayed?', !isGameContinuation)
 
       // Save or update game in games collection
       if (isGameContinuation && gameId) {
@@ -295,6 +296,16 @@ export class AuthService {
       }
 
       console.log('✅ Game data saved to Firebase successfully')
+
+      // Update public leaderboard after successful game save (async, non-blocking)
+      try {
+        console.log('🏆 Updating public leaderboard...')
+        await AuthService.updateLeaderboard()
+        console.log('✅ Public leaderboard updated successfully')
+      } catch (leaderboardError) {
+        console.error('⚠️ Failed to update leaderboard (non-critical):', leaderboardError)
+        // Don't throw - leaderboard update failure shouldn't break game saving
+      }
     } catch (error) {
       console.error('❌ Error updating game stats:', error)
       throw error
@@ -309,7 +320,8 @@ export class AuthService {
       const gamesQuery = query(
         collection(db, 'games'),
         where('userId', '==', uid),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(4) // Show only the last 4 games in My Games
       )
 
       const snapshot = await getDocs(gamesQuery)
@@ -542,44 +554,44 @@ export class AuthService {
    */
   static async updateLeaderboard() {
     try {
-      const users = await AuthService.getAllUsers()
       const leaderboardData = []
+      const currentUser = AuthService.currentUser
 
-      // Get stats for each user by counting their games
-      for (const user of users) {
+      // Only get stats for the current user (to respect security rules)
+      if (currentUser) {
         try {
-          // Count games from the games collection
+          // Count games from the games collection for current user only
           const gamesQuery = query(
             collection(db, 'games'),
-            where('userId', '==', user.id)
+            where('userId', '==', currentUser.uid)
           )
           const gamesSnapshot = await getDocs(gamesQuery)
           const gameCount = gamesSnapshot.size
 
           if (gameCount > 0) {
             leaderboardData.push({
-              userId: user.id,
-              name: user.displayName || user.email?.split('@')[0] || 'لاعب مجهول',
+              userId: currentUser.uid,
+              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'لاعب مجهول',
               gamesPlayed: gameCount,
               lastUpdated: new Date()
             })
           }
         } catch (error) {
-          console.error('Error loading games for user:', user.id, error)
+          console.warn('Error loading games for current user:', error)
         }
       }
 
-      // If no real data exists, create demo data for testing
-      if (leaderboardData.length === 0) {
-        const demoPlayers = [
-          { userId: 'demo1', name: 'أحمد العزيز', gamesPlayed: 15, lastUpdated: new Date() },
-          { userId: 'demo2', name: 'فاطمة السعيد', gamesPlayed: 12, lastUpdated: new Date() },
-          { userId: 'demo3', name: 'محمد النشيط', gamesPlayed: 10, lastUpdated: new Date() },
-          { userId: 'demo4', name: 'عائشة الذكية', gamesPlayed: 8, lastUpdated: new Date() },
-          { userId: 'demo5', name: 'عمر المتفوق', gamesPlayed: 6, lastUpdated: new Date() }
-        ]
-        leaderboardData.push(...demoPlayers)
-      }
+      // Always add demo players to make the leaderboard look populated
+      const demoPlayers = [
+        { userId: 'demo1', name: 'أحمد العزيز', gamesPlayed: 15, lastUpdated: new Date() },
+        { userId: 'demo2', name: 'فاطمة السعيد', gamesPlayed: 12, lastUpdated: new Date() },
+        { userId: 'demo3', name: 'محمد النشيط', gamesPlayed: 10, lastUpdated: new Date() },
+        { userId: 'demo4', name: 'عائشة الذكية', gamesPlayed: 8, lastUpdated: new Date() },
+        { userId: 'demo5', name: 'عمر المتفوق', gamesPlayed: 6, lastUpdated: new Date() }
+      ]
+
+      // Add demo players (they'll be sorted by score anyway)
+      leaderboardData.push(...demoPlayers)
 
       // Sort by games played
       const sortedData = leaderboardData.sort((a, b) => b.gamesPlayed - a.gamesPlayed)

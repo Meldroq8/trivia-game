@@ -160,7 +160,10 @@ function GameSetup({ gameState, setGameState }) {
       },
       activatedPerks: {
         doublePoints: { active: false, team: null }
-      }
+      },
+      // Explicitly clear continuation flags for new games
+      isGameContinuation: false,
+      gameId: null
     }))
     navigate('/categories')
   }
