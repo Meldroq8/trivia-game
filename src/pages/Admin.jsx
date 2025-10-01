@@ -331,6 +331,59 @@ function CategoriesManager({ isAdmin, isModerator }) {
     saveCategories(updatedCategories)
   }
 
+  const exportCategoryQuestions = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId)
+    const categoryQuestions = questions[categoryId] || []
+
+    if (categoryQuestions.length === 0) {
+      alert('لا توجد أسئلة في هذه الفئة للتصدير')
+      return
+    }
+
+    // Prepare export data
+    const exportData = categoryQuestions.map((q, index) => ({
+      'الرقم': index + 1,
+      'السؤال': q.question,
+      'الإجابة الصحيحة': q.answer,
+      'الإجابة الخاطئة 1': q.options?.[0] || '',
+      'الإجابة الخاطئة 2': q.options?.[1] || '',
+      'الإجابة الخاطئة 3': q.options?.[2] || '',
+      'الصعوبة': q.difficulty || 'متوسط',
+      'النقاط': q.points || 100,
+      'نوع السؤال': q.type || 'text'
+    }))
+
+    // Convert to CSV
+    const headers = Object.keys(exportData[0])
+    const csvContent = [
+      headers.join(','),
+      ...exportData.map(row =>
+        headers.map(header => {
+          const value = row[header]
+          // Escape commas and quotes in CSV
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+            return `"${value.replace(/"/g, '""')}"`
+          }
+          return value
+        }).join(',')
+      )
+    ].join('\n')
+
+    // Add BOM for proper UTF-8 encoding in Excel
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `${category.name}_questions_${Date.now()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    alert(`تم تصدير ${categoryQuestions.length} سؤال من فئة "${category.name}" بنجاح!`)
+  }
+
   const deleteCategory = async (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId)
     const categoryQuestions = questions[categoryId] || []
@@ -613,12 +666,20 @@ function CategoriesManager({ isAdmin, isModerator }) {
               </BackgroundImage>
             </div>
 
-            {/* Delete Button */}
-            <div className="text-center">
+            {/* Action Buttons */}
+            <div className="text-center space-y-2">
               {(questions[category.id] || []).length > 0 && (
                 <div className="mb-2 text-xs text-orange-600 font-bold">
                   ⚠️ تحتوي على {(questions[category.id] || []).length} سؤال
                 </div>
+              )}
+              {(questions[category.id] || []).length > 0 && (
+                <button
+                  onClick={() => exportCategoryQuestions(category.id)}
+                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors w-full"
+                >
+                  📥 تصدير الأسئلة
+                </button>
               )}
               {isAdmin && (
                 <button
