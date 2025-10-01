@@ -15,11 +15,11 @@ export default defineConfig({
     include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore']
   },
   build: {
-    // Remove console logs and debugger statements in production
+    // Temporarily keep console logs for debugging
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
+        drop_console: false, // Keep console logs for debugging
         drop_debugger: true,
       },
     },
