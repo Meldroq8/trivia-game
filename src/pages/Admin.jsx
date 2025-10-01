@@ -4,10 +4,11 @@ import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebas
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
+import { deleteField } from 'firebase/firestore'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import AudioPlayer from '../components/AudioPlayer'
-import MediaPlayer from '../components/MediaPlayer'
+import LazyMediaPlayer from '../components/LazyMediaPlayer'
 import SmartImage from '../components/SmartImage'
 import BackgroundImage from '../components/BackgroundImage'
 import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
@@ -293,8 +294,8 @@ function CategoriesManager({ isAdmin, isModerator }) {
         lastModified: Date.now(),
       })
 
-      // Upload to Firebase Storage
-      console.log('Uploading processed category image to Firebase Storage...')
+      // Upload to CloudFront/S3
+      console.log('Uploading processed category image to CloudFront/S3...')
       const downloadURL = await ImageUploadService.uploadCategoryImage(processedFile, categoryId)
 
       // Update category with new image URL
@@ -495,7 +496,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                 placeholder="https://example.com/image.jpg"
               />
 
-              {/* File Upload to Firebase Storage */}
+              {/* File Upload to CloudFront/S3 */}
               <input
                 type="file"
                 accept="image/*"
@@ -520,7 +521,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                 </div>
               )}
               <div className="text-xs text-gray-500 mt-1">
-                🔥 <strong>Firebase Storage:</strong> اختر ملف من جهازك ليتم رفعه تلقائياً إلى السحابة<br/>
+                ☁️ <strong>CloudFront/S3:</strong> اختر ملف من جهازك ليتم رفعه تلقائياً إلى السحابة<br/>
                 🌐 أو أدخل رابط صورة من الإنترنت (JPG, PNG, WebP) - حد أقصى 5MB
               </div>
             </div>
@@ -699,7 +700,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
                     className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    سيتم رفع الصورة إلى Firebase Storage تلقائياً
+                    سيتم رفع الصورة إلى CloudFront/S3 تلقائياً
                   </div>
                 </div>
               </div>
@@ -817,6 +818,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   const [editingData, setEditingData] = useState({})
   const [savingEdit, setSavingEdit] = useState(false)
   const [lastEditedCategory, setLastEditedCategory] = useState(null)
+  const [savedScrollPosition, setSavedScrollPosition] = useState(null)
 
   const loadData = async () => {
     console.log('🔄 Admin loadData called')
@@ -905,13 +907,18 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   }, [])
 
 
-  // Collapse all categories when categories are loaded (but not during editing or after editing)
+  // Collapse all categories when categories are loaded (but not during editing, saving, or after editing)
   useEffect(() => {
-    if (categories.length > 0 && !editingQuestion && !lastEditedCategory) {
+    // Never auto-collapse if any of these conditions are true
+    if (editingQuestion || lastEditedCategory || savingEdit) {
+      return
+    }
+
+    if (categories.length > 0) {
       const allCategoryIds = new Set(categories.map(cat => cat.id))
       setCollapsedCategories(allCategoryIds)
     }
-  }, [categories, editingQuestion, lastEditedCategory])
+  }, [categories.length, editingQuestion, lastEditedCategory, savingEdit])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1205,6 +1212,9 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
   // Inline editing functions
   const startEditing = (categoryId, questionIndex) => {
+    // Save current scroll position
+    setSavedScrollPosition(window.scrollY)
+
     const question = questions[categoryId][questionIndex]
     setEditingQuestion(`${categoryId}-${questionIndex}`)
     setEditingData({
@@ -1246,6 +1256,17 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     setEditingQuestion(null)
     setEditingData({})
 
+    // Restore scroll position when canceling
+    if (savedScrollPosition !== null) {
+      setTimeout(() => {
+        window.scrollTo({
+          top: savedScrollPosition,
+          behavior: 'auto'
+        })
+        setSavedScrollPosition(null)
+      }, 100)
+    }
+
     // Clear the last edited category flag after a short delay
     setTimeout(() => setLastEditedCategory(null), 100)
   }
@@ -1274,41 +1295,97 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         points: editingData.points
       }
 
-      // Only add optional fields if they have values
+      // Handle optional fields - create Firebase update object
+      const firebaseUpdate = {}
+
+      // Handle required fields
+      firebaseUpdate.text = editingData.text
+      firebaseUpdate.answer = editingData.answer
+      firebaseUpdate.difficulty = editingData.difficulty
+      firebaseUpdate.points = editingData.points
+
+      // Handle optional fields - use deleteField() for empty values
       if (editingData.audioUrl && editingData.audioUrl.trim()) {
         updatedQuestion.audioUrl = editingData.audioUrl.trim()
+        firebaseUpdate.audioUrl = editingData.audioUrl.trim()
+      } else {
+        delete updatedQuestion.audioUrl
+        firebaseUpdate.audioUrl = deleteField()
       }
+
       if (editingData.imageUrl && editingData.imageUrl.trim()) {
         updatedQuestion.imageUrl = editingData.imageUrl.trim()
+        firebaseUpdate.imageUrl = editingData.imageUrl.trim()
+      } else {
+        delete updatedQuestion.imageUrl
+        firebaseUpdate.imageUrl = deleteField()
+        console.log('🗑️ Deleted imageUrl from updatedQuestion')
       }
+
       if (editingData.videoUrl && editingData.videoUrl.trim()) {
         updatedQuestion.videoUrl = editingData.videoUrl.trim()
+        firebaseUpdate.videoUrl = editingData.videoUrl.trim()
+      } else {
+        delete updatedQuestion.videoUrl
+        firebaseUpdate.videoUrl = deleteField()
       }
+
       if (editingData.answerAudioUrl && editingData.answerAudioUrl.trim()) {
         updatedQuestion.answerAudioUrl = editingData.answerAudioUrl.trim()
+        firebaseUpdate.answerAudioUrl = editingData.answerAudioUrl.trim()
+      } else {
+        delete updatedQuestion.answerAudioUrl
+        firebaseUpdate.answerAudioUrl = deleteField()
       }
+
       if (editingData.answerImageUrl && editingData.answerImageUrl.trim()) {
         updatedQuestion.answerImageUrl = editingData.answerImageUrl.trim()
+        firebaseUpdate.answerImageUrl = editingData.answerImageUrl.trim()
+      } else {
+        delete updatedQuestion.answerImageUrl
+        firebaseUpdate.answerImageUrl = deleteField()
       }
+
       if (editingData.answerVideoUrl && editingData.answerVideoUrl.trim()) {
         updatedQuestion.answerVideoUrl = editingData.answerVideoUrl.trim()
+        firebaseUpdate.answerVideoUrl = editingData.answerVideoUrl.trim()
+      } else {
+        delete updatedQuestion.answerVideoUrl
+        firebaseUpdate.answerVideoUrl = deleteField()
       }
+
       if (editingData.options && editingData.options.length > 0) {
         updatedQuestion.options = editingData.options
+        firebaseUpdate.options = editingData.options
+      } else {
+        delete updatedQuestion.options
+        firebaseUpdate.options = deleteField()
       }
 
       // Update in Firebase if question has ID
       if (question.id) {
         console.log(`💾 Updating question in Firebase: ${question.id}`)
-        await FirebaseQuestionsService.updateQuestion(question.id, updatedQuestion)
+        console.log(`🔥 Firebase update object:`, firebaseUpdate)
+        await FirebaseQuestionsService.updateQuestion(question.id, firebaseUpdate)
         console.log(`✅ Question updated in Firebase successfully`)
       }
 
       // Update local state
+      console.log('📝 Final updatedQuestion object:', updatedQuestion)
+      console.log('🖼️ imageUrl in updatedQuestion:', updatedQuestion.imageUrl)
+
       const updatedQuestions = { ...questions }
       updatedQuestions[categoryId][questionIndex] = updatedQuestion
+
+      console.log('📋 Updated questions state:', updatedQuestions[categoryId][questionIndex])
+
       setQuestions(updatedQuestions)
       saveQuestions(updatedQuestions)
+
+      // Force a re-render by updating state again with new reference
+      setTimeout(() => {
+        setQuestions({ ...updatedQuestions })
+      }, 50)
 
       // Set the last edited category to prevent auto-collapse
       setLastEditedCategory(categoryId)
@@ -1317,15 +1394,42 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       setEditingQuestion(null)
       setEditingData({})
 
-      // Ensure the category stays expanded after save completion
+      // AGGRESSIVELY ensure the category stays expanded after save completion
       setCollapsedCategories(prev => {
         const newSet = new Set(prev)
         newSet.delete(categoryId)
         return newSet
       })
 
-      // Clear the last edited category flag after a short delay
-      setTimeout(() => setLastEditedCategory(null), 100)
+      // Keep forcing the category to stay expanded at multiple intervals
+      const keepExpanded = () => {
+        setCollapsedCategories(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(categoryId)
+          return newSet
+        })
+      }
+
+      setTimeout(keepExpanded, 100)
+      setTimeout(keepExpanded, 300)
+      setTimeout(keepExpanded, 500)
+      setTimeout(keepExpanded, 1000)
+      setTimeout(keepExpanded, 2000)
+      setTimeout(keepExpanded, 3000)
+
+      // Restore scroll position after save with longer delay to ensure DOM is updated
+      if (savedScrollPosition !== null) {
+        setTimeout(() => {
+          window.scrollTo({
+            top: savedScrollPosition,
+            behavior: 'auto'
+          })
+          setSavedScrollPosition(null)
+        }, 200)
+      }
+
+      // Clear the last edited category flag after a VERY long delay to prevent auto-collapse
+      setTimeout(() => setLastEditedCategory(null), 10000)
 
       console.log('✅ Question updated successfully')
     } catch (error) {
@@ -1528,8 +1632,8 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         lastModified: Date.now(),
       })
 
-      // Upload to Firebase Storage
-      console.log('Uploading processed question image to Firebase Storage...')
+      // Upload to CloudFront/S3
+      console.log('Uploading processed question image to CloudFront/S3...')
       const downloadURL = await ImageUploadService.uploadQuestionImage(processedFile, `${categoryId}_${questionIndex}`)
 
       // Update question with new image URL
@@ -2164,7 +2268,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               />
               {singleQuestion.audioUrl && (
                 <div className="mt-3">
-                  <MediaPlayer
+                  <LazyMediaPlayer
                     src={singleQuestion.audioUrl}
                     type="audio"
                     className="w-full"
@@ -2191,7 +2295,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               />
               {singleQuestion.answerAudioUrl && (
                 <div className="mt-3">
-                  <MediaPlayer
+                  <LazyMediaPlayer
                     src={singleQuestion.answerAudioUrl}
                     type="audio"
                     className="w-full"
@@ -2218,7 +2322,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               />
               {singleQuestion.videoUrl && (
                 <div className="mt-3">
-                  <MediaPlayer
+                  <LazyMediaPlayer
                     src={singleQuestion.videoUrl}
                     type="video"
                     className="w-full"
@@ -2245,7 +2349,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               />
               {singleQuestion.answerVideoUrl && (
                 <div className="mt-3">
-                  <MediaPlayer
+                  <LazyMediaPlayer
                     src={singleQuestion.answerVideoUrl}
                     type="video"
                     className="w-full"
@@ -2538,7 +2642,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {question.audioUrl && (
                             <div className="mb-3">
                               <label className="block text-xs font-bold mb-1 text-gray-600">صوت السؤال:</label>
-                              <MediaPlayer
+                              <LazyMediaPlayer
                                 src={question.audioUrl}
                                 type="audio"
                                 className="w-full max-w-xs"
@@ -2550,7 +2654,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {question.videoUrl && (
                             <div className="mb-3">
                               <label className="block text-xs font-bold mb-1 text-gray-600">فيديو السؤال:</label>
-                              <MediaPlayer
+                              <LazyMediaPlayer
                                 src={question.videoUrl}
                                 type="video"
                                 className="w-full max-w-xs"
@@ -2574,7 +2678,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {question.answerAudioUrl && (
                             <div className="mb-3">
                               <label className="block text-xs font-bold mb-1 text-gray-600">صوت الإجابة:</label>
-                              <MediaPlayer
+                              <LazyMediaPlayer
                                 src={question.answerAudioUrl}
                                 type="audio"
                                 className="w-full max-w-xs"
@@ -2586,7 +2690,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {question.answerVideoUrl && (
                             <div className="mb-3">
                               <label className="block text-xs font-bold mb-1 text-gray-600">فيديو الإجابة:</label>
-                              <MediaPlayer
+                              <LazyMediaPlayer
                                 src={question.answerVideoUrl}
                                 type="video"
                                 className="w-full max-w-xs"
@@ -3723,7 +3827,7 @@ function PendingQuestionsManager() {
                       <div>
                         <strong className="text-gray-700">صوت السؤال:</strong>
                         <div className="mt-2 w-48">
-                          <MediaPlayer
+                          <LazyMediaPlayer
                             src={question.audioUrl}
                             type="audio"
                             className="w-full"
@@ -3735,7 +3839,7 @@ function PendingQuestionsManager() {
                       <div>
                         <strong className="text-gray-700">فيديو السؤال:</strong>
                         <div className="mt-2 w-48">
-                          <MediaPlayer
+                          <LazyMediaPlayer
                             src={question.videoUrl}
                             type="video"
                             className="w-full"
@@ -3766,7 +3870,7 @@ function PendingQuestionsManager() {
                       <div>
                         <strong className="text-gray-700">صوت الإجابة:</strong>
                         <div className="mt-2 w-48">
-                          <MediaPlayer
+                          <LazyMediaPlayer
                             src={question.answerAudioUrl}
                             type="audio"
                             className="w-full"
@@ -3778,7 +3882,7 @@ function PendingQuestionsManager() {
                       <div>
                         <strong className="text-gray-700">فيديو الإجابة:</strong>
                         <div className="mt-2 w-48">
-                          <MediaPlayer
+                          <LazyMediaPlayer
                             src={question.answerVideoUrl}
                             type="video"
                             className="w-full"

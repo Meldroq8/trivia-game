@@ -90,7 +90,7 @@ function Results({ gameState, setGameState }) {
   const handleExit = () => {
     console.log('🚪 Exiting to home...')
 
-    // Reset game state including perks
+    // Reset game state including perks and continuation flags
     setGameState({
       team1: { name: 'الفريق الأول', score: 0 },
       team2: { name: 'الفريق الثاني', score: 0 },
@@ -98,6 +98,9 @@ function Results({ gameState, setGameState }) {
       usedQuestions: new Set(),
       currentQuestion: null,
       gameHistory: [],
+      // Explicitly clear continuation flags for new games
+      isGameContinuation: false,
+      gameId: null,
       perkUsage: {
         team1: { double: 0, phone: 0, search: 0 },
         team2: { double: 0, phone: 0, search: 0 }

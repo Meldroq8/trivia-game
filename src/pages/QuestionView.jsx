@@ -3,13 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import AudioPlayer from '../components/AudioPlayer'
-import MediaPlayer from '../components/MediaPlayer'
+import QuestionMediaPlayer from '../components/QuestionMediaPlayer'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import PerkModal from '../components/PerkModal'
 import gamePreloader from '../utils/preloader'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
+import SmartImage from '../components/SmartImage'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -61,9 +62,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Minimal space accounting to maximize question area
       const browserUIBuffer = 0 // No browser buffer - use natural overflow
       const buttonBuffer = 20 // Minimal space for bottom buttons
-      const safetyMargin = 0 // No safety margin - let natural scrolling handle overflow
 
-      const totalReservedSpace = actualHeaderHeight + browserUIBuffer + buttonBuffer + safetyMargin + (padding * 2)
+      const totalReservedSpace = actualHeaderHeight + browserUIBuffer + buttonBuffer + (padding * 2)
       const availableHeight = Math.max(350, actualVH - totalReservedSpace)
       const availableWidth = W - (padding * 2)
 
@@ -74,20 +74,33 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Very conservative scaling
       const globalScaleFactor = Math.max(0.8, Math.min(1.2, W / 400))
 
-      // Adjust question area for different devices with PC scaling
+      // Define UI element heights for calculations
+      const timerHeight = 50 // Timer at top
+      const bottomButtonsHeight = 60 // Answer/category buttons at bottom
+      const safetyMargin = 20 // Extra safety margin
+
+      // Adaptive question area height calculation based on available viewport
+      // Account for all UI elements: header, timer, buttons, padding, margins
+      const totalUIHeight = actualHeaderHeight + timerHeight + bottomButtonsHeight + safetyMargin + (padding * 2) + 40 // 40px for main container padding
+      const availableQuestionSpace = Math.max(200, actualVH - totalUIHeight)
+
+      // Use percentage of available space with device-specific limits
       let questionAreaHeight
-      if (isShortScreen) {
-        // Z Fold and short screens - use smaller percentage to prevent overflow
-        questionAreaHeight = Math.min(availableHeight * 0.75, 250)
+      if (actualVH <= 400) {
+        // Very small screens - use most available space
+        questionAreaHeight = Math.min(availableQuestionSpace * 0.8, 180)
+      } else if (actualVH <= 600) {
+        // Small to medium phones - balanced approach
+        questionAreaHeight = Math.min(availableQuestionSpace * 0.85, 300)
+      } else if (actualVH <= 800) {
+        // Large phones - optimal space usage
+        questionAreaHeight = Math.min(availableQuestionSpace * 0.9, 450)
+      } else if (actualVH <= 1000) {
+        // Small tablets, phablets
+        questionAreaHeight = Math.min(availableQuestionSpace * 0.9, 550)
       } else {
-        // Other devices - maximize space, scale for PC
-        if (isPC) {
-          // PC: Keep original logic unchanged
-          questionAreaHeight = availableHeight * 0.8
-        } else {
-          // Mobile/Tablet: Use safe percentage - reduce from 90% to 75%
-          questionAreaHeight = Math.min(availableHeight * 0.75, 500)
-        }
+        // Large tablets, desktop - maximum space
+        questionAreaHeight = isPC ? availableQuestionSpace * 0.9 : Math.min(availableQuestionSpace * 0.9, 700)
       }
 
       // Apply proper scaling with dynamic limits
@@ -107,22 +120,136 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         questionAreaWidth = Math.min(availableWidth * 0.9, isPC ? W - 100 : 600)
       }
 
-      // Calculate responsive font sizes and dimensions
-      const baseFontSize = isPC ? 24 : (isUltraNarrow ? 14 : 16)
+      // Calculate responsive font sizes based on screen height
+      let baseFontSize
+      if (actualVH <= 344) {
+        baseFontSize = 12
+      } else if (actualVH <= 360) {
+        baseFontSize = 13
+      } else if (actualVH <= 390) {
+        baseFontSize = 14
+      } else if (actualVH <= 430) {
+        baseFontSize = 15
+      } else if (actualVH <= 568) {
+        baseFontSize = 16
+      } else if (actualVH <= 667) {
+        baseFontSize = 17
+      } else if (actualVH <= 812) {
+        baseFontSize = 18
+      } else if (actualVH <= 896) {
+        baseFontSize = 19
+      } else if (actualVH <= 1024) {
+        baseFontSize = 20
+      } else {
+        baseFontSize = isPC ? 24 : 20
+      }
       const buttonPadding = Math.max(8, globalScaleFactor * 12)
       const headerFontSize = baseFontSize * globalScaleFactor
-      const teamSectionWidth = isPC ? 300 : 200
-      const teamNameFontSize = baseFontSize * 0.9 * globalScaleFactor
-      const teamScoreFontSize = baseFontSize * 1.2 * globalScaleFactor
-      const teamHelpFontSize = baseFontSize * 0.8 * globalScaleFactor
-      const teamIconSize = Math.max(32, 40 * globalScaleFactor)
+      // Responsive team section sizing based on screen size
+      let teamSectionWidth, teamNameFontSize, teamScoreFontSize, teamHelpFontSize, teamIconSize
+
+      // Check if we're in landscape mode on small devices (ultra-compact scenario)
+      const isUltraCompactLandscape = actualVH <= 450 && W > actualVH && !isPC
+
+      if (isUltraCompactLandscape) {
+        // Ultra-compact landscape mode (iPhone SE landscape, Z Fold 5 folded landscape)
+        teamSectionWidth = Math.min(130, W * 0.28) // Max 28% of screen width
+        teamNameFontSize = baseFontSize * 0.75 * globalScaleFactor // Increased for visibility
+        teamScoreFontSize = baseFontSize * 0.9 * globalScaleFactor // Increased for visibility
+        teamHelpFontSize = baseFontSize * 0.65 * globalScaleFactor // Increased for visibility
+        teamIconSize = Math.max(18, 22 * globalScaleFactor) // Reduced icon size
+      } else if (actualVH <= 344) {
+        // Very small screens - compact everything
+        teamSectionWidth = 160
+        teamNameFontSize = baseFontSize * 0.75 * globalScaleFactor
+        teamScoreFontSize = baseFontSize * 0.9 * globalScaleFactor
+        teamHelpFontSize = baseFontSize * 0.65 * globalScaleFactor
+        teamIconSize = Math.max(24, 28 * globalScaleFactor)
+      } else if (actualVH <= 390) {
+        // iPhone SE and similar - reduced sizing
+        teamSectionWidth = 180
+        teamNameFontSize = baseFontSize * 0.8 * globalScaleFactor
+        teamScoreFontSize = baseFontSize * 1.0 * globalScaleFactor
+        teamHelpFontSize = baseFontSize * 0.7 * globalScaleFactor
+        teamIconSize = Math.max(28, 32 * globalScaleFactor)
+      } else if (actualVH <= 430) {
+        // Standard small phones
+        teamSectionWidth = 200
+        teamNameFontSize = baseFontSize * 0.85 * globalScaleFactor
+        teamScoreFontSize = baseFontSize * 1.1 * globalScaleFactor
+        teamHelpFontSize = baseFontSize * 0.75 * globalScaleFactor
+        teamIconSize = Math.max(30, 36 * globalScaleFactor)
+      } else {
+        // Medium to large screens - original sizing
+        teamSectionWidth = isPC ? 300 : 200
+        teamNameFontSize = baseFontSize * 0.9 * globalScaleFactor
+        teamScoreFontSize = baseFontSize * 1.2 * globalScaleFactor
+        teamHelpFontSize = baseFontSize * 0.8 * globalScaleFactor
+        teamIconSize = Math.max(32, 40 * globalScaleFactor)
+      }
+
+      // Responsive team button height
+      const teamButtonHeight = isUltraCompactLandscape ? 24 : actualVH <= 344 ? 28 : actualVH <= 390 ? 32 : actualVH <= 430 ? 36 : 42
+
+      // Responsive spacing for ultra-compact landscape
+      const teamContainerGap = isUltraCompactLandscape ? 'landscape:gap-y-1' : 'landscape:gap-y-3'
+      const teamContainerPadding = isUltraCompactLandscape ? 'landscape:px-1' : 'landscape:px-2.5'
+      const teamContainerTopPadding = isUltraCompactLandscape ? 'landscape:pt-1' : 'landscape:pt-4'
+      const teamElementSpacing = isUltraCompactLandscape ? 'mt-1' : 'mt-2' // Spacing between team name and score
+      const perkIconSize = isUltraCompactLandscape ? 12 : isPC ? 20 : 16 // Even smaller perk icons
+      const perkTitleSpacing = isUltraCompactLandscape ? 'mb-0' : 'mb-1 sm:mb-2 max-xl:mb-0' // Spacing below "وسائل المساعدة"
+      const perkContainerSpacing = isUltraCompactLandscape ? 'my-1' : 'my-2 sm:my-3' // Spacing around perk container
+      const perkButtonPadding = isUltraCompactLandscape ? 'p-0.5' : 'p-1 sm:p-2' // Perk button padding
+
       const buttonFontSize = baseFontSize * globalScaleFactor
-      const timerSize = Math.max(150, 150 * globalScaleFactor)
+      const timerSize = Math.max(180, 180 * globalScaleFactor)
       const timerEmojiSize = Math.max(16, 20 * globalScaleFactor)
       const timerFontSize = baseFontSize * 0.9 * globalScaleFactor
+      const pointsFontSize = baseFontSize * 0.7 * globalScaleFactor
+      const pointsPadding = Math.max(4, 6 * globalScaleFactor)
       const questionFontSize = baseFontSize * 1.1 * globalScaleFactor
-      const imageAreaHeight = Math.max(200, finalQuestionAreaHeight * 0.6)
+      // Responsive media sizing based on screen size and available space
+      let imageAreaHeight
+      if (actualVH <= 344) {
+        imageAreaHeight = Math.max(120, finalQuestionAreaHeight * 0.4) // Smaller for tiny screens
+      } else if (actualVH <= 390) {
+        imageAreaHeight = Math.max(140, finalQuestionAreaHeight * 0.45) // iPhone SE and similar
+      } else if (actualVH <= 430) {
+        imageAreaHeight = Math.max(160, finalQuestionAreaHeight * 0.5) // Standard small phones
+      } else if (actualVH <= 600) {
+        imageAreaHeight = Math.max(180, finalQuestionAreaHeight * 0.55) // Medium phones
+      } else {
+        imageAreaHeight = Math.max(200, finalQuestionAreaHeight * 0.6) // Large screens
+      }
       const answerFontSize = baseFontSize * 1.1 * globalScaleFactor
+
+      // Universal viewport-aware padding system to prevent overflow
+      // Calculate minimum required space for UI elements (timer + buttons + margins)
+      const requiredUISpace = timerHeight + bottomButtonsHeight + safetyMargin
+
+      // Calculate bottom padding as percentage of available space after UI elements
+      const availableSpaceForPadding = Math.max(0, actualVH - actualHeaderHeight - requiredUISpace)
+      const paddingPercentage = Math.min(0.15, Math.max(0.05, availableSpaceForPadding / actualVH)) // 5-15% of viewport
+
+      let bottomPadding = Math.floor(actualVH * paddingPercentage)
+
+      // Ensure minimum and maximum bounds for different screen categories
+      if (actualVH <= 400) {
+        // Very small screens (iPhone SE, small Android) - minimal padding
+        bottomPadding = Math.max(15, Math.min(bottomPadding, 30))
+      } else if (actualVH <= 600) {
+        // Small to medium phones
+        bottomPadding = Math.max(25, Math.min(bottomPadding, 50))
+      } else if (actualVH <= 800) {
+        // Large phones (iPhone 12 Pro, Samsung S20 Ultra)
+        bottomPadding = Math.max(35, Math.min(bottomPadding, 70))
+      } else if (actualVH <= 1000) {
+        // Small tablets, large phones
+        bottomPadding = Math.max(45, Math.min(bottomPadding, 90))
+      } else {
+        // Large tablets, desktop
+        bottomPadding = Math.max(60, Math.min(bottomPadding, isPC ? 120 : 100))
+      }
       const scoringButtonWidth = Math.max(100, 120 * globalScaleFactor)
       const scoringButtonHeight = Math.max(60, 80 * globalScaleFactor)
       const scoringFontSize = baseFontSize * 0.9 * globalScaleFactor
@@ -153,16 +280,28 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         teamScoreFontSize,
         teamHelpFontSize,
         teamIconSize,
+        teamButtonHeight,
+        teamContainerGap,
+        teamContainerPadding,
+        teamContainerTopPadding,
+        teamElementSpacing,
+        perkIconSize,
+        perkTitleSpacing,
+        perkContainerSpacing,
+        perkButtonPadding,
         buttonFontSize,
         timerSize,
         timerEmojiSize,
         timerFontSize,
+        pointsFontSize,
+        pointsPadding,
         questionFontSize,
         imageAreaHeight,
         answerFontSize,
         scoringButtonWidth,
         scoringButtonHeight,
-        scoringFontSize
+        scoringFontSize,
+        bottomPadding
       }
     } catch (error) {
       console.error('Error in getResponsiveStyles:', error)
@@ -186,10 +325,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         teamScoreFontSize: 18,
         teamHelpFontSize: 12,
         teamIconSize: 32,
+        teamButtonHeight: 42,
+        teamContainerGap: 'landscape:gap-y-3',
+        teamContainerPadding: 'landscape:px-2.5',
+        teamContainerTopPadding: 'landscape:pt-4',
+        teamElementSpacing: 'mt-2',
+        perkIconSize: 20,
+        perkTitleSpacing: 'mb-1 sm:mb-2 max-xl:mb-0',
+        perkContainerSpacing: 'my-2 sm:my-3',
+        perkButtonPadding: 'p-1 sm:p-2',
         buttonFontSize: 16,
-        timerSize: 200,
+        timerSize: 220,
         timerEmojiSize: 16,
         timerFontSize: 14,
+        pointsFontSize: 12,
+        pointsPadding: 6,
         questionFontSize: 18,
         imageAreaHeight: 200,
         answerFontSize: 18,
@@ -214,6 +364,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [perkModalOpen, setPerkModalOpen] = useState(false)
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
   const [activeTimer, setActiveTimer] = useState({ active: false, type: null, team: null, timeLeft: 0, paused: false })
+  const [burgerMenuOpen, setBurgerMenuOpen] = useState(false)
   const { isAuthenticated, loading, user } = useAuth()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
@@ -491,12 +642,33 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     return () => clearInterval(timer)
   }, [activeTimer.active, activeTimer.timeLeft, activeTimer.paused])
 
+  // Close burger menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (burgerMenuOpen &&
+          !event.target.closest('.burger-menu-container') &&
+          !event.target.closest('.burger-dropdown')) {
+        setBurgerMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [burgerMenuOpen])
+
 
   const handleShowAnswer = () => {
     setShowAnswer(true)
     setTimerActive(false)
     // Hide active timer circle when showing answer
     setActiveTimer({ active: false, type: null, team: null, timeLeft: 0, paused: false })
+  }
+
+  const handleResetTimer = () => {
+    setTimeElapsed(0)
+    setTimerActive(true)
   }
 
   const handleShowScoring = () => {
@@ -635,7 +807,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     }
   }
 
-  const handleBackdropClick = () => {
+  const handleBackdropClick = (e) => {
+    // Don't close image if clicking on burger dropdown
+    if (e.target.closest('.burger-dropdown') || e.target.closest('.burger-menu-container')) {
+      return
+    }
     setImageZoomed(false)
   }
 
@@ -788,14 +964,54 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   // Get responsive styles - use the memoized version from line 200
 
   return (
-    <div ref={containerRef} className="bg-gradient-to-br from-red-900 via-red-800 to-red-900 flex flex-col" style={{
+    <div ref={containerRef} className="bg-[#f5f5dc] flex flex-col" style={{
       height: '100vh',
       overflow: 'hidden'
     }} onClick={handleBackdropClick}>
+
+      {/* Fullscreen Image Overlay */}
+      {imageZoomed && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 z-[10000] flex items-center justify-center"
+          onClick={handleBackdropClick}
+        >
+          <SmartImage
+            src={(() => {
+              const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+
+              if (showAnswer) {
+                // In answer mode, prioritize answer image
+                const answerImageUrl = currentQuestion?.question?.answerImageUrl ||
+                                     currentQuestion?.answerImageUrl ||
+                                     currentQuestion?.question?.answerImage ||
+                                     currentQuestion?.answerImage
+
+                // For اغاني اجنبية category, only show answerImageUrl (no fallback to question image)
+                if (categoryId === 'اغاني_اجنبية') {
+                  return answerImageUrl
+                }
+
+                // For other categories, fall back to question image if no answer image
+                const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
+                return answerImageUrl || questionImageUrl
+              } else {
+                // In question mode, show question image (exclude اغاني اجنبية category)
+                const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
+                return questionImageUrl && categoryId !== 'اغاني_اجنبية' ? questionImageUrl : null
+              }
+            })()}
+            alt={currentQuestion ? (showAnswer ? (currentQuestion.question?.answer || currentQuestion.answer) : (currentQuestion.question?.text || currentQuestion.text)) : ''}
+            className="max-w-full max-h-full object-contain cursor-pointer"
+            context={showAnswer ? "answer" : "question"}
+            size="original"
+            onClick={handleImageClick}
+          />
+        </div>
+      )}
       {/* Header - Copy from GameBoard */}
       <div
         ref={headerRef}
-        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden"
+        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-hidden"
         style={{
           padding: `${Math.max(8, styles.buttonPadding * 0.25)}px`,
           height: `${Math.max(56, styles.headerFontSize * 3)}px`
@@ -841,876 +1057,605 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             </h1>
           </div>
 
-          <div className="flex gap-3">
-            <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.8}px` }} />
+          {/* Navigation - Responsive */}
+          <div className="relative">
+            {/* Landscape Mode - Show all buttons */}
+            <div className="hidden landscape:flex gap-3">
+              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.8}px` }} />
+              <button
+                onClick={() => navigate('/game')}
+                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+              >
+                الرجوع للوحة
+              </button>
+              <button
+                onClick={() => navigate('/results')}
+                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+              >
+                انهاء
+              </button>
+            </div>
+
+            {/* Portrait Mode - Burger Menu */}
+            <div className="landscape:hidden burger-menu-container">
+              <button
+                onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
+                className="px-2 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex flex-col justify-center items-center"
+                style={{ fontSize: `${styles.headerFontSize * 0.6}px`, width: '32px', height: '32px' }}
+              >
+                <div className="w-4 h-0.5 bg-white mb-1"></div>
+                <div className="w-4 h-0.5 bg-white mb-1"></div>
+                <div className="w-4 h-0.5 bg-white"></div>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Burger Menu Dropdown - Outside header to avoid overflow clipping */}
+      {burgerMenuOpen && (
+        <div className="fixed top-0 left-0 bg-red-700 rounded-lg shadow-lg border border-red-600 z-[9999] min-w-max landscape:hidden burger-dropdown"
+             style={{
+               top: `${Math.max(56, styles.headerFontSize * 3)}px`,
+               left: '8px'
+             }}
+             onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col p-2 gap-2">
+            <div className="border-b border-red-600 pb-2">
+              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.7}px` }} />
+            </div>
             <button
-              onClick={() => navigate('/game')}
-              className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-              style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+              onClick={(e) => {
+                e.stopPropagation()
+                console.log('Navigate to game clicked')
+                navigate('/game')
+                setBurgerMenuOpen(false)
+              }}
+              className="px-3 py-2 bg-red-600 hover:bg-red-800 text-white rounded-lg transition-colors text-right"
+              style={{ fontSize: `${styles.headerFontSize * 0.7}px` }}
             >
               الرجوع للوحة
             </button>
             <button
-              onClick={() => navigate('/results')}
-              className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-              style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+              onClick={(e) => {
+                e.stopPropagation()
+                console.log('Navigate to results clicked')
+                navigate('/results')
+                setBurgerMenuOpen(false)
+              }}
+              className="px-3 py-2 bg-red-600 hover:bg-red-800 text-white rounded-lg transition-colors text-right"
+              style={{ fontSize: `${styles.headerFontSize * 0.7}px` }}
             >
               انهاء
             </button>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Content - Full Screen with Header */}
-      <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
-        <div className="bg-[#f7f2e6] flex-1 flex" style={{ minHeight: 0 }}>
-          {/* Main Content Area - Full Height Split Layout */}
-          <div className="flex flex-1 h-full">
-            {/* Left Side - Teams - Responsive Width - Height varies by device */}
-            <div className="flex flex-col flex-shrink-0" style={{
-              width: styles.isPC ? `${styles.teamSectionWidth}px` : '200px',
-              height: styles.isPC ? '90%' : (styles.isUltraNarrow ? '75%' : '85%')
-            }}>
-              {/* Team 1 */}
-              <div className="flex-1 bg-red-600 text-white flex flex-col items-center justify-center" style={{
-                padding: `${Math.max(2, styles.buttonPadding * 0.25)}px`,
-                borderTopLeftRadius: '0',
-                borderTopRightRadius: '0',
-                borderBottomLeftRadius: '0',
-                borderBottomRightRadius: '0',
-                position: 'relative'
-              }}>
-                <div className="absolute top-0 left-0 w-6 h-6" style={{
-                  background: 'radial-gradient(circle at bottom right, transparent 70%, #dc2626 70%)'
-                }}></div>
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className={`bg-black text-white font-bold rounded-full shadow-lg text-center ${gameState.currentTurn === 'team1' ? 'ring-4 ring-white' : ''}`} style={{
-                    fontSize: `${styles.buttonFontSize * 0.8}px`,
-                    padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                    marginBottom: `${styles.buttonPadding * 0.25}px`
-                  }}>{gameState.team1.name}</div>
-                  <div className="font-bold text-center" style={{
-                    fontSize: `${styles.teamScoreFontSize}px`,
-                    marginBottom: `${styles.buttonPadding * 0.25}px`
-                  }}>{gameState.team1.score}</div>
-                  <div className="text-center" style={{
-                    fontSize: `${styles.teamHelpFontSize}px`,
-                    marginBottom: `${styles.buttonPadding * 0.5}px`
-                  }}>وسائل المساعدة</div>
-                  <div className="flex" style={{ gap: `${styles.buttonPadding * 0.25}px` }}>
-                    <div
-                      className="bg-gray-400 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-all duration-200"
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      title="متاح فقط في لوحة اللعبة"
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                        <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                      </svg>
-                    </div>
-                    <div
-                      className={`rounded-full flex items-center justify-center transition-all duration-200 ${
-                        (gameState.perkUsage?.team1?.phone || 0) >= 1
-                          ? 'bg-gray-400 opacity-50 cursor-not-allowed'
-                          : gameState.currentTurn !== 'team1'
-                          ? 'bg-white bg-opacity-10 opacity-30 cursor-not-allowed'
-                          : 'bg-white bg-opacity-20 cursor-pointer hover:bg-opacity-30'
-                      }`}
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      onClick={() => handlePerkClick('phone', 'team1')}
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                      </svg>
-                    </div>
-                    <div
-                      className={`rounded-full flex items-center justify-center transition-all duration-200 ${
-                        (gameState.perkUsage?.team1?.search || 0) >= 1
-                          ? 'bg-gray-400 opacity-50 cursor-not-allowed'
-                          : gameState.currentTurn !== 'team1'
-                          ? 'bg-white bg-opacity-10 opacity-30 cursor-not-allowed'
-                          : 'bg-white bg-opacity-20 cursor-pointer hover:bg-opacity-30'
-                      }`}
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      onClick={() => handlePerkClick('search', 'team1')}
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                      </svg>
-                    </div>
-                  </div>
+      {/* Main Content - New Grid Layout */}
+      <div className="flex-1 flex flex-col px-4 py-5 2xl:h-[calc(100vh_-_112px)] 4xl:h-[calc(100vh_-_130px)] xl:h-[calc(100vh-76px)] sm:h-[calc(100vh-92px)] xs:h-[calc(100vh-118px)] h-[calc(100vh-107px)] height-container" style={{
+        minHeight: 0
+      }}>
+        <div className={`xl:grid flex flex-col-reverse landscape:flex landscape:flex-row xl:grid xl:grid-cols-12 gap-x-5 pt-2 sm:pt-4 md:pt-6 lg:pt-8 xl:pt-10 2xl:pt-12 ${styles.teamContainerTopPadding} h-full max-xl:justify-between landscape:justify-start game-panel_wrapper text-center`}>
+          {/* Teams Sidebar - xl:col-span-3 */}
+          <div className={`xl:col-span-3 xl:order-1 landscape:w-auto landscape:flex-shrink-0 max-xl:flex max-md:grid grid-cols-2 max-md:flex-col landscape:flex landscape:flex-col max-xl:justify-around max-xl:flex-row-reverse landscape:justify-start max-xl:gap-x-5 ${styles.teamContainerGap} max-sm:gap-x-2 max-xl:[&>*]:flex-shrink-0 styled-scrollbar xl:px-2.5 ${styles.teamContainerPadding} max-xl:w-full max-xl:mx-auto max-xl:items-center landscape:items-stretch xl:h-[calc(90vh_-_112px)] landscape:h-[calc(90vh_-_112px)] mb-3 landscape:mb-0 landscpe_btn-view`}>
+
+            {/* Team 1 Section */}
+            <section className="about_score_footer_secMain">
+              <div className="text-center about_score_footer max-2xl:gap-x-2">
+                <div className={`text-white min-w-max w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-4xl:max-w-64 4xl:max-w-96 max-xl:max-w-64 xl:w-full max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative ${
+                  gameState.currentTurn === 'team1' ? 'ring-4 ring-red-400 ring-opacity-60 shadow-lg shadow-red-400/30' : ''
+                }`}
+                     style={{
+                       background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
+                       fontSize: `${styles.buttonFontSize * 0.8}px`,
+                       minHeight: `${styles.teamButtonHeight}px`,
+                       padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
+                     }}>
+                  <span className="whitespace-nowrap inline-block">
+                    {gameState.team1.name}
+                  </span>
+                </div>
+                <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
+                  {gameState.team1.score}
+                </div>
+                <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
+                     style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
+                  وسائل المساعدة
+                </div>
+
+                {/* Helper Tools */}
+                <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team1?.double || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team1'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1'}
+                    onClick={() => handlePerkClick('double', 'team1')}
+                    title="ضعف النقاط"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
+                      <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" dominantBaseline="middle">2</text>
+                    </svg>
+                  </button>
+
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team1?.phone || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team1'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team1?.phone || 0) >= 1 || gameState.currentTurn !== 'team1'}
+                    onClick={() => handlePerkClick('phone', 'team1')}
+                    title="اتصال بصديق"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill="#dc2626" stroke="none"/>
+                    </svg>
+                  </button>
+
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team1?.google || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team1'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team1?.google || 0) >= 1 || gameState.currentTurn !== 'team1'}
+                    onClick={() => handlePerkClick('search', 'team1')}
+                    title="البحث في جوجل"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill="#dc2626" stroke="none"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
+            </section>
 
-              {/* Team 2 */}
-              <div className="flex-1 bg-red-600 text-white flex flex-col items-center justify-center rounded-bl-3xl" style={{
-                padding: `${Math.max(2, styles.buttonPadding * 0.25)}px`,
-                position: 'relative'
-              }}>
-                <div className="flex flex-col items-center justify-center h-full">
-                  <div className={`bg-black text-white font-bold rounded-full shadow-lg text-center ${gameState.currentTurn === 'team2' ? 'ring-4 ring-white' : ''}`} style={{
-                    fontSize: `${styles.buttonFontSize * 0.8}px`,
-                    padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                    marginBottom: `${styles.buttonPadding * 0.25}px`
-                  }}>{gameState.team2.name}</div>
-                  <div className="font-bold text-center" style={{
-                    fontSize: `${styles.teamScoreFontSize}px`,
-                    marginBottom: `${styles.buttonPadding * 0.25}px`
-                  }}>{gameState.team2.score}</div>
-                  <div className="text-center" style={{
-                    fontSize: `${styles.teamHelpFontSize}px`,
-                    marginBottom: `${styles.buttonPadding * 0.5}px`
-                  }}>وسائل المساعدة</div>
-                  <div className="flex" style={{ gap: `${styles.buttonPadding * 0.25}px` }}>
-                    <div
-                      className="bg-gray-400 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-all duration-200"
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      title="متاح فقط في لوحة اللعبة"
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
-                        <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                      </svg>
-                    </div>
-                    <div
-                      className={`rounded-full flex items-center justify-center transition-all duration-200 ${
-                        (gameState.perkUsage?.team2?.phone || 0) >= 1
-                          ? 'bg-gray-400 opacity-50 cursor-not-allowed'
-                          : gameState.currentTurn !== 'team2'
-                          ? 'bg-white bg-opacity-10 opacity-30 cursor-not-allowed'
-                          : 'bg-white bg-opacity-20 cursor-pointer hover:bg-opacity-30'
-                      }`}
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      onClick={() => handlePerkClick('phone', 'team2')}
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-                      </svg>
-                    </div>
-                    <div
-                      className={`rounded-full flex items-center justify-center transition-all duration-200 ${
-                        (gameState.perkUsage?.team2?.search || 0) >= 1
-                          ? 'bg-gray-400 opacity-50 cursor-not-allowed'
-                          : gameState.currentTurn !== 'team2'
-                          ? 'bg-white bg-opacity-10 opacity-30 cursor-not-allowed'
-                          : 'bg-white bg-opacity-20 cursor-pointer hover:bg-opacity-30'
-                      }`}
-                      style={{
-                        width: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        height: styles.isUltraNarrow ? '32px' : `${styles.teamIconSize}px`,
-                        fontSize: styles.isUltraNarrow ? '19.2px' : `${styles.teamIconSize * 0.6}px`
-                      }}
-                      onClick={() => handlePerkClick('search', 'team2')}
-                    >
-                      <svg width={styles.isPC ? "28" : "16"} height={styles.isPC ? "28" : "16"} viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
-                      </svg>
-                    </div>
-                  </div>
+            {/* Team 2 Section */}
+            <section className="about_score_footer_secMain">
+              <div className="text-center about_score_footer max-2xl:gap-x-2">
+                <div className={`text-white min-w-max w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-4xl:max-w-64 4xl:max-w-96 max-xl:max-w-64 xl:w-full max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative ${
+                  gameState.currentTurn === 'team2' ? 'ring-4 ring-red-400 ring-opacity-60 shadow-lg shadow-red-400/30' : ''
+                }`}
+                     style={{
+                       background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
+                       fontSize: `${styles.buttonFontSize * 0.8}px`,
+                       minHeight: `${styles.teamButtonHeight}px`,
+                       padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
+                     }}>
+                  <span className="whitespace-nowrap inline-block">
+                    {gameState.team2.name}
+                  </span>
+                </div>
+                <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
+                  {gameState.team2.score}
+                </div>
+                <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
+                     style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
+                  وسائل المساعدة
+                </div>
+
+                {/* Helper Tools */}
+                <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team2?.double || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team2'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2'}
+                    onClick={() => handlePerkClick('double', 'team2')}
+                    title="ضعف النقاط"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
+                      <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" dominantBaseline="middle">2</text>
+                    </svg>
+                  </button>
+
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team2?.phone || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team2'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team2?.phone || 0) >= 1 || gameState.currentTurn !== 'team2'}
+                    onClick={() => handlePerkClick('phone', 'team2')}
+                    title="اتصال بصديق"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill="#dc2626" stroke="none"/>
+                    </svg>
+                  </button>
+
+                  <button
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
+                      (gameState.perkUsage?.team2?.google || 0) >= 1
+                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                        : gameState.currentTurn !== 'team2'
+                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                    }`}
+                    disabled={(gameState.perkUsage?.team2?.google || 0) >= 1 || gameState.currentTurn !== 'team2'}
+                    onClick={() => handlePerkClick('search', 'team2')}
+                    title="البحث في جوجل"
+                  >
+                    <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill="#dc2626" stroke="none"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
-            </div>
+            </section>
+          </div>
 
+          {/* Main Question Area - xl:col-span-9 */}
+          <div className="xl:col-span-9 xl:order-2 landscape:flex-1 max-xl:row-start-1 h-full relative gamemain_section max-xl:mb-7 landscape:mb-0 barcode-box barcode-more"
+               style={{ backgroundColor: '#f7f2e6' }}>
+            <div className="h-full game-mainSec px-3.5 landscape:px-6 xs:px-6 border-[5px] border-[#E34B4B] 2xl:rounded-[78px] xl:rounded-[54px] rounded-3xl pt-2 game-section_wrapper flex justify-center hint-question-wrapper"
+                 style={{
+                   paddingBottom: `${styles.bottomPadding}px`,
+                   backgroundColor: '#f7f2e6'
+                 }}>
+              <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper">
 
-            {/* Right Side - Question and Image */}
-            <div className="flex-1 flex flex-col relative" style={{
-              height: styles.isPC ? '90%' : (styles.isUltraNarrow ? '90%' : '95%'),
-              paddingTop: styles.isPC ? `${Math.max(12, styles.buttonPadding * 0.25)}px` : `${Math.max(8, styles.buttonPadding * 0.5)}px`,
-              paddingLeft: styles.isPC ? `${Math.max(12, styles.buttonPadding * 0.25)}px` : `${Math.max(8, styles.buttonPadding * 0.5)}px`,
-              paddingRight: styles.isPC ? `${Math.max(12, styles.buttonPadding * 0.25)}px` : `${Math.max(8, styles.buttonPadding * 0.5)}px`
-            }}>
-              {/* Perk Timer Circle */}
-              {activeTimer.active && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: `${Math.max(8, styles.buttonPadding * 0.75) + 15}px`,
-                    right: `${Math.max(8, styles.buttonPadding * 0.75) + 15}px`,
-                    zIndex: 1000,
-                    backgroundColor: activeTimer.paused ? '#059669' : '#dc2626',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: `${120 * (styles.isPC ? 2.0 : 1.0)}px`,
-                    height: `${120 * (styles.isPC ? 2.0 : 1.0)}px`,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.4)',
-                    cursor: 'pointer',
-                    transition: 'transform 0.3s ease',
-                    border: '4px solid rgba(255, 255, 255, 0.4)'
-                  }}
-                  onClick={() => setActiveTimer(prev => ({ ...prev, paused: !prev.paused }))}
-                  title={`${activeTimer.type === 'phone' ? 'اتصال بصديق' : 'البحث في جوجل'} - ${activeTimer.team === 'team1' ? gameState.team1.name : gameState.team2.name} - ${activeTimer.paused ? 'اضغط للمتابعة' : 'اضغط للإيقاف'}`}
-                >
-                  <div style={{ fontSize: `${24 * (styles.isPC ? 2.0 : 1.0)}px`, marginBottom: '4px' }}>
-                    {activeTimer.type === 'phone' ? '📞' : '🔍'}
+                {/* Question Content - Only show when not in answer mode */}
+                {!showAnswer && (
+                  <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
+                  <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black"
+                         style={{
+                           direction: 'rtl',
+                           fontSize: `${styles.questionFontSize}px`
+                         }}>
+                    {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
+                  </label>
+
+                  {/* Media Player for Question */}
+                  {(() => {
+                    const hasQuestionAudio = currentQuestion?.question?.audioUrl || currentQuestion?.audioUrl
+                    const hasQuestionVideo = currentQuestion?.question?.videoUrl || currentQuestion?.videoUrl
+                    return currentQuestion && (hasQuestionAudio || hasQuestionVideo)
+                  })() && (
+                    <div className="relative overflow-hidden media-wrapper"
+                         style={{
+                           display: 'block',
+                           height: styles.imageAreaHeight + 'px',
+                           maxHeight: styles.imageAreaHeight + 'px',
+                           width: '90%',
+                           maxWidth: '90%'
+                         }}>
+                      <QuestionMediaPlayer
+                        currentQuestion={currentQuestion}
+                        showAnswer={showAnswer}
+                        isQuestionMedia={true}
+                        styles={styles}
+                      />
+                    </div>
+                  )}
+
+                  {/* Image for Question - only show question image (exclude اغاني اجنبية category) */}
+                  {(() => {
+                    const imageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
+                    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                    // Don't show question images for اغاني اجنبية category (images moved to answers)
+                    return imageUrl && categoryId !== 'اغاني_اجنبية'
+                  })() && (
+                    <div className="relative overflow-hidden image-text-below-block media-wrapper"
+                         style={{
+                           display: 'block',
+                           height: styles.imageAreaHeight + 'px',
+                           maxHeight: styles.imageAreaHeight + 'px',
+                           width: '90%',
+                           maxWidth: '90%'
+                         }}>
+                      <SmartImage
+                        src={currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl}
+                        alt={currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : ''}
+                        className="w-full h-full object-contain mx-auto cursor-pointer image"
+                        context="question"
+                        size="large"
+                        onClick={handleImageClick}
+                      />
+                    </div>
+                  )}
+                </div>
+                )}
+              </div>
+
+              {/* Absolute Positioned Elements */}
+
+              {/* Timer at Top Center - Hide in answer and scoring mode */}
+              {!showAnswer && !showScoring && (
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 flex justify-between items-center w-full max-w-[90%]">
+                <div className="text-center">
+                  {/* Points Display */}
+                  <div className="font-bold bg-[#000000] text-white rounded-xl w-fit box-point flex items-center justify-center"
+                       style={{
+                         fontSize: `${styles.pointsFontSize}px`,
+                         padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
+                       }}>
+                    {currentQuestion?.points || 0} نقطة
                   </div>
-                  <div style={{ fontSize: `${16 * (styles.isPC ? 2.0 : 1.0)}px`, lineHeight: '1', fontWeight: 'bold' }}>
-                    {String(Math.floor(activeTimer.timeLeft / 60)).padStart(2, '0')}:{String(activeTimer.timeLeft % 60).padStart(2, '0')}
+                </div>
+
+                {/* Timer Controls */}
+                <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
+                     style={{
+                       padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
+                       maxWidth: `${styles.timerSize}px`
+                     }}>
+                  <button type="button" className="flex items-center justify-center p-1" onClick={handleResetTimer}>
+                    <svg
+                      viewBox="0 0 44 44"
+                      style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                      className="active:scale-110 duration-100"
+                    >
+                      <path
+                        d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
+                        fill="#fff"
+                      />
+                      <path
+                        d="M18 2H26V6H18V2Z"
+                        fill="#fff"
+                      />
+                    </svg>
+                  </button>
+
+                  <span className="inline-flex items-center text-white justify-center font-cairo"
+                        style={{ fontSize: `${styles.timerFontSize}px` }}>
+                    {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
+                  </span>
+
+                  <button type="button" className="flex items-center justify-center p-1" onClick={() => setTimerActive(!timerActive)}>
+                    {timerActive ? (
+                      <svg
+                        viewBox="0 0 24 24"
+                        style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                        className="active:scale-110 duration-100"
+                      >
+                        <path d="M6 4H10V20H6V4Z" fill="#fff"/>
+                        <path d="M14 4H18V20H14V4Z" fill="#fff"/>
+                      </svg>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                        className="active:scale-110 duration-100"
+                      >
+                        <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+
+                <div className="w-11 text-center"></div>
+              </div>
+              )}
+
+              {/* Answer Button at Bottom Right - Only show in question mode */}
+              {!showAnswer && !showScoring && (
+                <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
+                  <div className="flex gap-1 sm:gap-2 landscape:gap-2 justify-end px-1 sm:px-0 landscape:px-0">
+                    <div className="md:text-xl sm:text-base text-xs text-white bg-[#FF7546] py-1.5 4xl:py-2.5 xl:px-5 lg:px-3 md:px-2.5 sm:px-2 px-2 rounded-2xl w-fit font-semibold flex items-center justify-center ml-auto mr-[5%]">
+                      {currentQuestion?.category || 'فئة السؤال'}
+                    </div>
+                    <div className="cursor-pointer sm:text-xl 2xl:text-3xl bg-[#265B13] text-white md:px-6 px-5 py-1 md:py-3 inline-flex items-center justify-center text-center rounded-full go-to-answer"
+                         onClick={handleShowAnswer}>
+                      الإجابة
+                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="bg-[#f7f2e6] rounded-2xl border-4 border-red-600 flex flex-col relative h-full" style={{
-                outline: '2px solid #dc2626',
-                outlineOffset: '2px'
-              }}>
-                {/* الإجابة Button - Overlapping bottom-left corner */}
-                {!showAnswer && (
-                  <button
-                    onClick={handleShowAnswer}
-                    className="absolute bg-green-600 hover:bg-green-700 text-white font-bold rounded-full shadow-lg z-10"
-                    style={{
-                      left: '-12px',
-                      bottom: '-12px',
-                      fontSize: `${styles.buttonFontSize}px`,
-                      padding: `${styles.buttonPadding * 0.5}px ${styles.buttonPadding}px`
-                    }}
-                  >
-                    الإجابة
-                  </button>
-                )}
+              {/* Answer Section - Show answer text and question image */}
+              {showAnswer && !showScoring && (
+                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0"
+                     style={{
+                       background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                       border: '5px solid transparent',
+                       borderRadius: 'inherit'
+                     }}>
 
-                {/* Points Display - Overlapping top-right corner */}
-                <div
-                  className="absolute bg-blue-600 text-white font-bold rounded-full shadow-lg z-10"
-                  style={{
-                    right: '-12px',
-                    top: '-12px',
-                    fontSize: `${styles.buttonFontSize}px`,
-                    padding: `${styles.buttonPadding * 0.5}px ${styles.buttonPadding}px`
-                  }}
-                >
-                  {currentQuestion?.points || 0} نقطة
+                  {/* Answer Content - Same as question content */}
+                  <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
+                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black font-arabic"
+                           style={{
+                             direction: 'rtl',
+                             fontSize: `${styles.questionFontSize}px`
+                           }}>
+                      {currentQuestion ? (currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
+                    </label>
+
+                    {/* Answer Media Player */}
+                    {(() => {
+                      const hasAnswerAudio = currentQuestion?.question?.answerAudioUrl || currentQuestion?.answerAudioUrl
+                      const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
+                      return currentQuestion && (hasAnswerAudio || hasAnswerVideo)
+                    })() && (
+                      <div className="relative overflow-hidden media-wrapper"
+                           style={{
+                             display: 'block',
+                             height: styles.imageAreaHeight + 'px',
+                             maxHeight: styles.imageAreaHeight + 'px',
+                             width: '90%',
+                             maxWidth: '90%'
+                           }}>
+                        <QuestionMediaPlayer
+                          currentQuestion={currentQuestion}
+                          showAnswer={showAnswer}
+                          isQuestionMedia={false}
+                          styles={styles}
+                        />
+                      </div>
+                    )}
+
+                    {/* Answer Image (shown in answer area) */}
+                    {(() => {
+                      // First check for answer-specific image
+                      const answerImageUrl = currentQuestion?.question?.answerImageUrl ||
+                                           currentQuestion?.answerImageUrl ||
+                                           currentQuestion?.question?.answerImage ||
+                                           currentQuestion?.answerImage
+
+                      const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+
+                      // For اغاني اجنبية category, only show answerImageUrl (no fallback to question image)
+                      if (categoryId === 'اغاني_اجنبية') {
+                        return answerImageUrl
+                      }
+
+                      // For other categories, fall back to question image if no answer image
+                      const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
+                      return answerImageUrl || questionImageUrl
+                    })() && (
+                      <div className="relative overflow-hidden image-text-below-block media-wrapper"
+                           style={{
+                             display: 'block',
+                             height: styles.imageAreaHeight + 'px',
+                             maxHeight: styles.imageAreaHeight + 'px',
+                             width: '90%',
+                             maxWidth: '90%'
+                           }}>
+                        <SmartImage
+                          src={(() => {
+                            const answerImageUrl = currentQuestion?.question?.answerImageUrl ||
+                                                 currentQuestion?.answerImageUrl ||
+                                                 currentQuestion?.question?.answerImage ||
+                                                 currentQuestion?.answerImage
+
+                            const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+
+                            // For اغاني اجنبية category, only show answerImageUrl (no fallback to question image)
+                            if (categoryId === 'اغاني_اجنبية') {
+                              return answerImageUrl
+                            }
+
+                            // For other categories, fall back to question image if no answer image
+                            const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
+                            return answerImageUrl || questionImageUrl
+                          })()}
+                          alt={currentQuestion ? (currentQuestion.question?.answer || currentQuestion.answer) : ''}
+                          className="w-full h-full object-contain mx-auto cursor-pointer image"
+                          context="answer"
+                          size="large"
+                          onClick={handleImageClick}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Navigation Buttons */}
+                  <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
+                    <div className="flex items-stretch justify-between">
+                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#D10C0C] rounded-full prev-step-btn font-arabic font-bold"
+                           onClick={() => setShowAnswer(false)}>
+                        <span className="shrink-0">ارجع للسؤال</span>
+                      </div>
+                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#00619B] rounded-full next-step-btn font-arabic font-bold"
+                           onClick={handleShowScoring}>
+                        <span className="shrink-0">منو جاوب؟</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                {/* منو جاوب صح Button - Overlapping bottom-left corner when showing answer */}
-                {showAnswer && !showScoring && (
-                  <button
-                    onClick={handleShowScoring}
-                    className="absolute bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-full shadow-lg z-10"
-                    style={{
-                      left: '-12px',
-                      bottom: '-12px',
-                      fontSize: `${styles.buttonFontSize}px`,
-                      padding: `${styles.buttonPadding * 0.5}px ${styles.buttonPadding}px`
-                    }}
-                  >
-                    منو جاوب صح؟
-                  </button>
-                )}
+              {/* Scoring Section - Clean scoring area with team buttons only */}
+              {showScoring && (
+                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0"
+                     style={{
+                       background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                       border: '5px solid transparent',
+                       borderRadius: 'inherit'
+                     }}>
 
-                {/* الرجوع للإجابة Button - Overlapping bottom-left corner when showing scoring */}
-                {showScoring && (
-                  <button
-                    onClick={() => setShowScoring(false)}
-                    className="absolute bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-full shadow-lg z-10"
-                    style={{
-                      left: '-12px',
-                      bottom: '-12px',
-                      fontSize: `${styles.buttonFontSize}px`,
-                      padding: `${styles.buttonPadding * 0.5}px ${styles.buttonPadding}px`
-                    }}
-                  >
-                    الرجوع للإجابة
-                  </button>
-                )}
-
-                {/* الرجوع للسؤال Button - Overlapping bottom-right corner when showing answer or scoring */}
-                {(showAnswer || showScoring) && (
-                  <button
-                    onClick={() => {
-                      setShowAnswer(false)
-                      setShowScoring(false)
-                    }}
-                    className="absolute bg-red-600 hover:bg-red-700 text-white font-bold rounded-full shadow-lg z-10"
-                    style={{
-                      right: '-12px',
-                      bottom: '-12px',
-                      fontSize: `${styles.buttonFontSize}px`,
-                      padding: `${styles.buttonPadding * 0.5}px ${styles.buttonPadding}px`
-                    }}
-                  >
-                    الرجوع للسؤال
-                  </button>
-                )}
-
-                {!showAnswer ? (
-                  <>
-                    {/* Compact Oval Timer Section */}
-                    <div className="flex justify-center" style={{
-                      paddingTop: styles.isUltraNarrow
-                        ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
-                        : styles.isMobileLayout
-                        ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                        : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                      paddingBottom: styles.isUltraNarrow
-                        ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                        : styles.isMobileLayout
-                        ? `${Math.max(16, styles.buttonPadding * 1.0)}px`
-                        : `${Math.max(20, styles.buttonPadding * 1.25)}px`
-                    }}>
-                      <div className="relative">
-                        {/* Simple Oval Timer */}
-                        <div
-                          className={`shadow-xl flex items-center justify-between backdrop-blur-sm border-2 transition-all duration-300 ${
-                            timeElapsed >= 50
-                              ? 'bg-red-600/90 border-red-400 shadow-red-500/20'
-                              : timeElapsed >= 30
-                              ? 'bg-amber-600/90 border-amber-400 shadow-amber-500/20'
-                              : 'bg-emerald-600/90 border-emerald-400 shadow-emerald-500/20'
-                          }`}
-                          style={{
-                            width: styles.isUltraNarrow
-                              ? `${Math.max(140, styles.timerSize * 0.9)}px`
-                              : styles.isMobileLayout
-                              ? `${Math.max(160, styles.timerSize * 1.0)}px`
-                              : `${Math.max(180, styles.timerSize * 1.2)}px`,
-                            height: styles.isUltraNarrow
-                              ? `${Math.max(45, styles.timerSize * 0.3)}px`
-                              : styles.isMobileLayout
-                              ? `${Math.max(50, styles.timerSize * 0.35)}px`
-                              : `${Math.max(40, styles.timerSize * 0.4)}px`,
-                            borderRadius: styles.isUltraNarrow
-                              ? `${Math.max(22, styles.timerSize * 0.15)}px`
-                              : styles.isMobileLayout
-                              ? `${Math.max(25, styles.timerSize * 0.175)}px`
-                              : `${Math.max(30, styles.timerSize * 0.2)}px`,
-                            padding: `${Math.max(2, styles.buttonPadding * 0.15)}px ${Math.max(6, styles.buttonPadding * 0.4)}px`,
-                            gap: `${Math.max(3, styles.buttonPadding * 0.2)}px`
-                          }}
-                        >
-                          {/* SVG Play/Pause Button */}
-                          <button
-                            onClick={() => setTimerActive(!timerActive)}
-                            className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
-                            style={{
-                              width: styles.isUltraNarrow
-                                ? `${Math.max(26, styles.timerEmojiSize)}px`
-                                : styles.isMobileLayout
-                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
-                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              height: styles.isUltraNarrow
-                                ? `${Math.max(26, styles.timerEmojiSize)}px`
-                                : styles.isMobileLayout
-                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
-                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`
-                            }}
-                          >
-                            {timerActive ? (
-                              // Pause Icon
-                              <svg
-                                width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                                height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                                viewBox="0 0 12 12"
-                                fill="none"
-                              >
-                                <rect x="2" y="1" width="2.5" height="10" rx="1" fill="white" />
-                                <rect x="7.5" y="1" width="2.5" height="10" rx="1" fill="white" />
-                              </svg>
-                            ) : (
-                              // Play Icon
-                              <svg
-                                width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                                height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                                viewBox="0 0 12 12"
-                                fill="none"
-                              >
-                                <path
-                                  d="M3 1.5L10 6L3 10.5V1.5Z"
-                                  fill="white"
-                                  stroke="white"
-                                  strokeWidth="0.5"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
-                          </button>
-
-                          {/* Time Display */}
-                          <div className="flex-1 flex items-center justify-center">
-                            <div className="font-bold text-white text-center leading-none" style={{
-                              fontSize: styles.isUltraNarrow
-                                ? `${Math.max(14, styles.timerFontSize * 0.8)}px`
-                                : styles.isMobileLayout
-                                ? `${Math.max(16, styles.timerFontSize * 0.9)}px`
-                                : `${Math.max(18, styles.timerFontSize * 1.0)}px`,
-                              textShadow: '0 2px 4px rgba(0,0,0,0.4)',
-                              fontFamily: 'monospace'
-                            }}>
-                              {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
-                            </div>
-                          </div>
-
-                          {/* SVG Reset Button */}
-                          <button
-                            onClick={() => setTimeElapsed(0)}
-                            className="rounded-full bg-white/10 hover:bg-white/20 transition-all duration-200 flex items-center justify-center"
-                            style={{
-                              width: styles.isUltraNarrow
-                                ? `${Math.max(26, styles.timerEmojiSize)}px`
-                                : styles.isMobileLayout
-                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
-                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`,
-                              height: styles.isUltraNarrow
-                                ? `${Math.max(26, styles.timerEmojiSize)}px`
-                                : styles.isMobileLayout
-                                ? `${Math.max(28, styles.timerEmojiSize + 2)}px`
-                                : `${Math.max(32, styles.timerEmojiSize + 4)}px`
-                            }}
-                          >
-                            {/* Reset/Refresh Icon */}
-                            <svg
-                              width={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                              height={styles.isUltraNarrow ? "10" : styles.isMobileLayout ? "11" : "12"}
-                              viewBox="0 0 12 12"
-                              fill="none"
-                            >
-                              <path
-                                d="M3 2.5C4.5 1 7.5 1 9 2.5C10.5 4 10.5 7 9 8.5C7.5 10 4.5 10 3 8.5L3.5 8"
-                                stroke="white"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                fill="none"
-                              />
-                              <path
-                                d="M2.5 7.5L3.5 8.5L4.5 7.5"
-                                stroke="white"
-                                strokeWidth="1.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                fill="none"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
+                  {/* Team Selection Buttons - Centered in scoring area */}
+                  <div className="flex flex-col gap-4 justify-center items-center w-full h-full">
+                    {/* Title Text */}
+                    <div className="text-center mb-4">
+                      <h2 className="text-black font-bold font-arabic"
+                          style={{ fontSize: `${styles.questionFontSize}px` }}>
+                        منو جاوب صح؟
+                      </h2>
                     </div>
 
-                    {/* Content area without padding to prevent overlap */}
-                    <div className="flex-1 relative">
-
-                      <div className="flex items-center justify-center" style={{
-                        paddingTop: `${Math.max(5, styles.buttonPadding * 0.03125 + 5)}px`,
-                        paddingLeft: `${Math.max(2, styles.buttonPadding * 0.0625)}px`,
-                        paddingRight: `${Math.max(2, styles.buttonPadding * 0.0625)}px`,
-                        paddingBottom: styles.isUltraNarrow
-                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                          : styles.isMobileLayout
-                          ? `${Math.max(16, styles.buttonPadding * 1.0)}px`
-                          : `${Math.max(20, styles.buttonPadding * 1.25)}px`
-                      }}>
-                        <h2 className="font-bold text-gray-800 text-center" dir="rtl" style={{ fontSize: `${styles.questionFontSize}px` }}>
-                          {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
-                        </h2>
-                      </div>
-
-                      {/* Media Player - Audio and Video */}
-                      {(() => {
-                        const hasQuestionAudio = currentQuestion?.question?.audioUrl || currentQuestion?.audioUrl
-                        const hasQuestionVideo = currentQuestion?.question?.videoUrl || currentQuestion?.videoUrl
-                        console.log('🎵 Question Media Check:', {
-                          hasQuestionAudio: !!hasQuestionAudio,
-                          hasQuestionVideo: !!hasQuestionVideo,
-                          audioUrl1: currentQuestion?.question?.audioUrl,
-                          audioUrl2: currentQuestion?.audioUrl,
-                          videoUrl1: currentQuestion?.question?.videoUrl,
-                          videoUrl2: currentQuestion?.videoUrl
-                        })
-                        return currentQuestion && (hasQuestionAudio || hasQuestionVideo)
-                      })() && (
-                        <div className="flex justify-center" style={{
-                          paddingTop: styles.isUltraNarrow
-                            ? `${Math.max(10, styles.buttonPadding * 0.625)}px`
-                            : styles.isMobileLayout
-                            ? `${Math.max(15, styles.buttonPadding * 0.9375)}px`
-                            : `${Math.max(20, styles.buttonPadding * 1.25)}px`,
-                          paddingBottom: styles.isUltraNarrow
-                            ? `${Math.max(10, styles.buttonPadding * 0.625)}px`
-                            : styles.isMobileLayout
-                            ? `${Math.max(15, styles.buttonPadding * 0.9375)}px`
-                            : `${Math.max(20, styles.buttonPadding * 1.25)}px`,
-                          // Responsive horizontal padding for mobile overflow prevention
-                          paddingLeft: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px',
-                          paddingRight: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px'
-                        }}>
-                          <div style={{
-                            // Responsive scaling with natural width limits for different devices
-                            maxWidth: `${Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}px`,
-                            width: '100%'
-                          }}>
-                            {/* Video Player - Show if video exists */}
-                            {(currentQuestion.question?.videoUrl || currentQuestion.videoUrl) ? (
-                              <MediaPlayer
-                                src={getCachedMediaUrl(currentQuestion.question?.videoUrl || currentQuestion.videoUrl)}
-                                type="video"
-                                className="w-full"
-                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
-                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
-                                maxHeight={styles.isUltraNarrow ? 200 : styles.isMobileLayout ? 250 : 300}
-                              />
-                            ) : (
-                              /* Audio Player - Show if only audio exists */
-                              <MediaPlayer
-                                src={getCachedAudioUrl(currentQuestion.question?.audioUrl || currentQuestion.audioUrl)}
-                                type="audio"
-                                className="w-full"
-                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
-                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
-                                maxHeight={styles.isUltraNarrow ? 120 : styles.isMobileLayout ? 150 : 180}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Question Image Area - Fixed Height */}
-                      <div className="flex-1 flex items-center justify-center" style={{
-                        minHeight: styles.isUltraNarrow ? '150px' : `${styles.imageAreaHeight}px`,
-                        height: styles.isUltraNarrow ? '150px' : `${styles.imageAreaHeight}px`,
-                        overflow: 'hidden',
-                        paddingLeft: styles.isUltraNarrow ? '1.8px' : `${Math.max(1, styles.buttonPadding * 0.125)}px`,
-                        paddingRight: styles.isUltraNarrow ? '1.8px' : `${Math.max(1, styles.buttonPadding * 0.125)}px`,
-                        paddingTop: styles.isUltraNarrow
-                          ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
-                          : styles.isMobileLayout
-                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                          : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                        paddingBottom: styles.isUltraNarrow
-                          ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
-                          : styles.isMobileLayout
-                          ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                          : `${Math.max(16, styles.buttonPadding * 1.0)}px`
-                      }}>
-                        {(() => {
-                          const showImage = currentQuestion && currentQuestion.question?.imageUrl && shouldShowImageInQuestion(currentQuestion.categoryId);
-
-                          if (!showImage) {
-                            return <div className="w-full h-full"></div>;
-                          }
-
-                          return (
-                            <>
-                              {imageLoading && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg">
-                                  <div className="flex flex-col items-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                                    <span className="text-sm text-gray-600 mt-2">جاري تحميل الصورة...</span>
-                                  </div>
-                                </div>
-                              )}
-                              <img
-                                src={getCachedImageUrl(getQuestionImageUrl())}
-                                alt="سؤال"
-                                className={`rounded-lg cursor-pointer transition-all duration-300 ${imageLoading ? 'opacity-0' : 'opacity-100'} ${imageZoomed ? 'fixed inset-0 z-50 w-screen h-screen object-contain bg-black bg-opacity-90' : ''}`}
-                                style={{
-                                  display: 'block',
-                                  visibility: 'visible',
-                                  ...(imageZoomed ? {
-                                    maxWidth: 'none',
-                                    maxHeight: 'none',
-                                    width: '100vw',
-                                    height: '100vh',
-                                    objectFit: 'contain',
-                                    zIndex: 9999
-                                  } : {
-                                    maxWidth: '100%',
-                                    maxHeight: '100%',
-                                    width: styles.isPC
-                                      ? ((currentQuestion.question.imageUrl.endsWith('.svg')) ? '400px' : 'auto')
-                                      : styles.isUltraNarrow
-                                        ? '95%'
-                                        : '90%',
-                                    height: styles.isPC
-                                      ? ((currentQuestion.question.imageUrl.endsWith('.svg')) ? '300px' : 'auto')
-                                      : 'auto',
-                                    objectFit: 'contain',
-                                    touchAction: styles.isPC ? 'auto' : 'manipulation',
-                                    userSelect: 'none',
-                                    WebkitUserSelect: 'none',
-                                    WebkitTouchCallout: 'none'
-                                  })
-                                }}
-                                onClick={handleImageClick}
-                                onLoad={(e) => {
-                                  // Only handle loading for non-cached images
-                                  if (!e.target.src.startsWith('blob:')) {
-                                    setImageLoading(false)
-                                  }
-                                }}
-                                onLoadStart={(e) => {
-                                  // Only show loading for non-cached images
-                                  if (!e.target.src.startsWith('blob:')) {
-                                    setImageLoading(true)
-                                  }
-                                }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  setImageLoading(false);
-                                }}
-                                loading="eager"
-                                decoding="async"
-                                fetchPriority="high"
-                              />
-                            </>
-                          );
-                        })()}
-                      </div>
-
+                    {/* First Row - Team Buttons Side by Side */}
+                    <div style={{ width: '90%' }} className="flex gap-4">
+                      <button
+                        onClick={() => handleScoreTeam('team1')}
+                        className="text-white font-bold rounded-full px-6 py-3 font-arabic flex-1 hover:opacity-90 transition-opacity"
+                        style={{
+                          fontSize: `${styles.buttonFontSize}px`,
+                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)'
+                        }}
+                      >
+                        {gameState.team1.name}
+                      </button>
+                      <button
+                        onClick={() => handleScoreTeam('team2')}
+                        className="text-white font-bold rounded-full px-6 py-3 font-arabic flex-1 hover:opacity-90 transition-opacity"
+                        style={{
+                          fontSize: `${styles.buttonFontSize}px`,
+                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)'
+                        }}
+                      >
+                        {gameState.team2.name}
+                      </button>
                     </div>
-                  </>
-                ) : showAnswer && !showScoring ? (
-                  <>
-                    {/* Answer Section */}
-                    <div className="flex-1 relative">
-                      <div className="flex items-center justify-center" style={{
-                        paddingTop: `${styles.buttonPadding * 0.5}px`,
-                        paddingBottom: `${styles.buttonPadding * 0.25}px`,
-                        paddingLeft: `${styles.buttonPadding * 0.25}px`,
-                        paddingRight: `${styles.buttonPadding * 0.25}px`
-                      }}>
-                        <h2 className="font-bold text-black text-center" dir="rtl" style={{ fontSize: `${styles.answerFontSize}px` }}>
-                          {currentQuestion ? (currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
-                        </h2>
-                      </div>
 
-                      {/* Answer Media Player - Audio and Video */}
-                      {(() => {
-                        const hasAnswerAudio = currentQuestion?.question?.answerAudioUrl || currentQuestion?.answerAudioUrl
-                        const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
-                        console.log('🎬 Answer Media Check:', {
-                          hasAnswerAudio: !!hasAnswerAudio,
-                          hasAnswerVideo: !!hasAnswerVideo,
-                          answerAudioUrl1: currentQuestion?.question?.answerAudioUrl,
-                          answerAudioUrl2: currentQuestion?.answerAudioUrl,
-                          answerVideoUrl1: currentQuestion?.question?.answerVideoUrl,
-                          answerVideoUrl2: currentQuestion?.answerVideoUrl
-                        })
-                        return currentQuestion && (hasAnswerAudio || hasAnswerVideo)
-                      })() && (
-                        <div className="flex justify-center" style={{
-                          paddingTop: styles.isUltraNarrow
-                            ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
-                            : styles.isMobileLayout
-                            ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                            : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                          paddingBottom: styles.isUltraNarrow
-                            ? `${Math.max(8, styles.buttonPadding * 0.5)}px`
-                            : styles.isMobileLayout
-                            ? `${Math.max(12, styles.buttonPadding * 0.75)}px`
-                            : `${Math.max(16, styles.buttonPadding * 1.0)}px`,
-                          // Responsive horizontal padding for mobile overflow prevention
-                          paddingLeft: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px',
-                          paddingRight: styles.isUltraNarrow ? '12px' : styles.isMobileLayout ? '10px' : '2px'
-                        }}>
-                          <div style={{
-                            // Responsive scaling with natural width limits for different devices
-                            maxWidth: `${Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}px`,
-                            width: '100%'
-                          }}>
-                            {/* Answer Video Player - Show if video exists */}
-                            {(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl) ? (
-                              <MediaPlayer
-                                src={getCachedMediaUrl(currentQuestion.question?.answerVideoUrl || currentQuestion.answerVideoUrl)}
-                                type="video"
-                                className="w-full"
-                                autoPlay={true}
-                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
-                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
-                                maxHeight={styles.isUltraNarrow ? 200 : styles.isMobileLayout ? 250 : 300}
-                              />
-                            ) : (
-                              /* Answer Audio Player - Show if only audio exists */
-                              <MediaPlayer
-                                src={getCachedAudioUrl(currentQuestion.question?.answerAudioUrl || currentQuestion.answerAudioUrl)}
-                                type="audio"
-                                className="w-full"
-                                autoPlay={true}
-                                deviceType={styles.isUltraNarrow ? 'ultraNarrow' : styles.isMobileLayout ? 'mobile' : 'desktop'}
-                                containerWidth={Math.min(styles.questionAreaWidth - 40, styles.isPC ? 500 : styles.isMobileLayout ? 350 : 450)}
-                                maxHeight={styles.isUltraNarrow ? 120 : styles.isMobileLayout ? 150 : 180}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Answer Image Area - Fixed Height */}
-                      <div className="flex-1 flex items-center justify-center pt-1" style={{
-                        minHeight: styles.isUltraNarrow ? '150px' : `${styles.imageAreaHeight}px`,
-                        height: styles.isUltraNarrow ? '150px' : `${styles.imageAreaHeight}px`,
-                        overflow: 'hidden',
-                        paddingLeft: styles.isUltraNarrow ? '1.8px' : `${styles.buttonPadding * 0.25}px`,
-                        paddingRight: styles.isUltraNarrow ? '1.8px' : `${styles.buttonPadding * 0.25}px`
-                      }}>
-                        {(() => {
-                          const showAnswerImage = currentQuestion && (currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || getQuestionImageUrl()) && shouldShowImageInAnswer(currentQuestion.categoryId);
-
-                          if (!showAnswerImage) {
-                            return <div className="w-full h-full"></div>;
-                          }
-
-                          return (
-                            <img
-                              src={getCachedImageUrl(currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || getQuestionImageUrl())}
-                              alt="إجابة"
-                              className={`rounded-lg cursor-pointer transition-all duration-300 ${imageZoomed ? 'fixed inset-0 z-50 w-screen h-screen object-contain bg-black bg-opacity-90' : ''}`}
-                              style={{
-                                display: 'block',
-                                visibility: 'visible',
-                                ...(imageZoomed ? {
-                                  maxWidth: 'none',
-                                  maxHeight: 'none',
-                                  width: '100vw',
-                                  height: '100vh',
-                                  objectFit: 'contain',
-                                  zIndex: 9999
-                                } : {
-                                  maxWidth: '100%',
-                                  maxHeight: '100%',
-                                  width: styles.isPC
-                                    ? ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg')) ? '400px' : 'auto')
-                                    : styles.isUltraNarrow
-                                      ? '95%'
-                                      : '90%',
-                                  height: styles.isPC
-                                    ? ((((currentQuestion.question?.answerImageUrl || currentQuestion.answerImageUrl || currentQuestion.question?.imageUrl) || '').endsWith('.svg')) ? '300px' : 'auto')
-                                    : 'auto',
-                                  objectFit: 'contain',
-                                  touchAction: styles.isPC ? 'auto' : 'manipulation',
-                                  userSelect: 'none',
-                                  WebkitUserSelect: 'none',
-                                  WebkitTouchCallout: 'none'
-                                })
-                              }}
-                              onClick={handleImageClick}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                              loading="eager"
-                              decoding="async"
-                              fetchPriority="high"
-                            />
-                          );
-                        })()}
-                      </div>
-
+                    {/* Second Row - No One Button Spanning Full Width */}
+                    <div style={{ width: '90%' }}>
+                      <button
+                        onClick={() => handleNoAnswer()}
+                        className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-full px-6 py-3 w-full"
+                        style={{ fontSize: `${styles.buttonFontSize}px` }}
+                      >
+                        لا أحد
+                      </button>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    {/* Scoring Section */}
-                    <div className="flex-1 relative flex items-center justify-center">
-                      <div className="flex items-center justify-center" style={{ padding: `${styles.buttonPadding * 0.5}px` }}>
-                        <div className="text-center">
-                          <h3 className="font-bold text-gray-800" dir="rtl" style={{
-                            fontSize: `${styles.questionFontSize * 1.2}px`,
-                            marginBottom: `${styles.buttonPadding * 0.75}px`
-                          }}>منو جاوب صح؟</h3>
-                          <div className="grid grid-cols-3 mx-auto" style={{
-                            gap: `${styles.buttonPadding * 0.5}px`,
-                            maxWidth: `${styles.scoringButtonWidth * 3 + styles.buttonPadding * 1.5}px`
-                          }}>
-                            <button
-                              onClick={() => handleScoreTeam('team1')}
-                              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center"
-                              style={{
-                                width: `${styles.scoringButtonWidth}px`,
-                                height: `${styles.scoringButtonHeight}px`,
-                                fontSize: `${Math.max(styles.scoringFontSize * 0.5, styles.scoringFontSize - (gameState.team1.name.length > 8 ? (gameState.team1.name.length - 8) * 2 : 0))}px`,
-                                padding: `${Math.max(2, styles.buttonPadding * 0.25)}px`
-                              }}
-                            >
-                              <div style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                width: '100%',
-                                textAlign: 'center'
-                              }}>{gameState.team1.name}</div>
-                            </button>
-                            <button
-                              onClick={handleNoAnswer}
-                              className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-xl"
-                              style={{
-                                width: `${styles.scoringButtonWidth}px`,
-                                height: `${styles.scoringButtonHeight}px`,
-                                fontSize: `${styles.scoringFontSize}px`,
-                                padding: `${Math.max(2, styles.buttonPadding * 0.25)}px`
-                              }}
-                            >
-                              <div>لا أحد أجاب</div>
-                            </button>
-                            <button
-                              onClick={() => handleScoreTeam('team2')}
-                              className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl flex items-center justify-center"
-                              style={{
-                                width: `${styles.scoringButtonWidth}px`,
-                                height: `${styles.scoringButtonHeight}px`,
-                                fontSize: `${Math.max(styles.scoringFontSize * 0.5, styles.scoringFontSize - (gameState.team2.name.length > 8 ? (gameState.team2.name.length - 8) * 2 : 0))}px`,
-                                padding: `${Math.max(2, styles.buttonPadding * 0.25)}px`
-                              }}
-                            >
-                              <div style={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                width: '100%',
-                                textAlign: 'center'
-                              }}>{gameState.team2.name}</div>
-                            </button>
-                          </div>
-                        </div>
+                  </div>
+
+                  {/* Navigation Buttons at Bottom - Return to Answer and Question */}
+                  <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
+                    <div className="flex items-stretch justify-between">
+                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#D10C0C] rounded-full prev-step-btn font-arabic font-bold"
+                           onClick={() => {
+                             setShowScoring(false)
+                             setShowAnswer(false)
+                           }}>
+                        <span className="shrink-0">ارجع للسؤال</span>
                       </div>
-
+                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#00619B] rounded-full next-step-btn font-arabic font-bold"
+                           onClick={() => setShowScoring(false)}>
+                        <span className="shrink-0">ارجع للإجابة</span>
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
-
+                  </div>
+                </div>
+              )}
 
 
             </div>
           </div>
-
         </div>
       </div>
-
-      {/* Perk Modal */}
-      <PerkModal
-        isOpen={perkModalOpen}
-        onClose={handlePerkModalClose}
-        perkType={activePerk.type}
-        teamName={activePerk.team === 'team1' ? gameState.team1.name : gameState.team2.name}
-        onConfirm={handlePerkConfirm}
-        usageCount={gameState.perkUsage?.[activePerk.team]?.[activePerk.type] || 0}
-        maxUses={1}
-        readOnly={false}
-      />
-
     </div>
   )
 }

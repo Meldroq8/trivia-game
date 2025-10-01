@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
+import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 
 function AudioPlayer({ src, className = '' }) {
+  // Convert URL to optimized CloudFront URL
+  const optimizedSrc = src ? getOptimizedMediaUrl(src, 'medium', 'audio') : null
   const audioRef = useRef(null)
   const progressRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -120,7 +123,7 @@ function AudioPlayer({ src, className = '' }) {
     <div className={`bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-xl p-4 shadow-lg backdrop-blur-sm ${className}`} dir="ltr">
       <audio
         ref={audioRef}
-        src={src}
+        src={optimizedSrc}
         preload="metadata"
         volume={volume}
       />

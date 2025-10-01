@@ -113,6 +113,13 @@ export class GameDataLoader {
       const savedMystery = localStorage.getItem('mystery_category_settings')
       if (savedMystery) {
         mysteryCategoryCustomizations = JSON.parse(savedMystery)
+        console.log('🔍 Loaded mystery customizations from localStorage:', mysteryCategoryCustomizations)
+
+        // Force clear empty imageUrl to allow fallback
+        if (mysteryCategoryCustomizations.imageUrl === '') {
+          console.log('🔧 Clearing empty imageUrl from localStorage to allow fallback')
+          delete mysteryCategoryCustomizations.imageUrl
+        }
       }
     } catch (error) {
       console.warn('Could not load mystery category customizations:', error)
@@ -123,11 +130,14 @@ export class GameDataLoader {
       name: mysteryCategoryCustomizations.name || 'الفئة الغامضة',
       color: mysteryCategoryCustomizations.color || 'bg-purple-600',
       image: mysteryCategoryCustomizations.image || '❓',
-      imageUrl: mysteryCategoryCustomizations.imageUrl || '',
+      imageUrl: (mysteryCategoryCustomizations.imageUrl && mysteryCategoryCustomizations.imageUrl.trim()) || '/images/categories/category_mystery_1758939021986.webp',
       showImageInQuestion: mysteryCategoryCustomizations.showImageInQuestion !== false,
       showImageInAnswer: mysteryCategoryCustomizations.showImageInAnswer !== false,
       isMystery: true // Special flag to identify this as the mystery category
     }
+
+    console.log('🔍 Mystery category created:', mysteryCategory)
+    console.log('🔍 Mystery imageUrl:', mysteryCategory.imageUrl)
     transformedCategories.push(mysteryCategory)
 
     // Add default category if it has questions but no category definition

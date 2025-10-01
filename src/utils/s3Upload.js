@@ -1,8 +1,28 @@
-import { S3UploadService } from './s3Upload'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
-export class ImageUploadService {
+const S3_CONFIG = {
+  region: import.meta.env.VITE_AWS_REGION || 'me-south-1',
+  bucket: import.meta.env.VITE_AWS_S3_BUCKET || 'trivia-game-media-cdn'
+}
+
+let s3Client = null
+
+const getS3Client = () => {
+  if (!s3Client) {
+    s3Client = new S3Client({
+      region: S3_CONFIG.region,
+      credentials: {
+        accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
+        secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY
+      }
+    })
+  }
+  return s3Client
+}
+
+export class S3UploadService {
   /**
-   * Upload a media file (image, audio, video) to S3 and return CloudFront URL
+   * Upload a media file (image, audio, video) to S3
    * @param {File} file - The media file to upload
    * @param {string} folder - The folder path (e.g., 'categories', 'questions', 'media')
    * @param {string} fileName - Optional custom filename
@@ -48,20 +68,51 @@ export class ImageUploadService {
         fileName = `${timestamp}_${Math.random().toString(36).substring(2)}.${extension}`
       }
 
-      // Upload to S3 and get CloudFront URL
-      console.log(`Uploading media to S3: ${folder}/${fileName}`)
-      const cloudFrontUrl = await S3UploadService.uploadMedia(file, folder, fileName)
-      console.log('Upload completed successfully, CloudFront URL:', cloudFrontUrl)
+      // Create S3 key
+      const key = `${folder}/${fileName}`
+
+      // Determine content type
+      const contentType = file.type || 'application/octet-stream'
+
+      // Convert File to ArrayBuffer for AWS SDK compatibility
+      console.log(`Converting file to ArrayBuffer for S3 upload: ${key}`)
+      const fileBuffer = await file.arrayBuffer()
+
+      // Upload to S3
+      console.log(`Uploading media to S3: ${key}`)
+      const client = getS3Client()
+      const command = new PutObjectCommand({
+        Bucket: S3_CONFIG.bucket,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: contentType,
+        CacheControl: 'max-age=31536000' // 1 year cache
+        // Removed ACL: public-read - bucket policy should handle public access
+      })
+
+      await client.send(command)
+      console.log('Upload completed successfully')
+
+      // Return CloudFront URL instead of S3 URL
+      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
+      const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
+      console.log('CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading media:', error)
+      console.error('Error uploading media to S3:', error)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.Code || error.code,
+        statusCode: error.$metadata?.httpStatusCode,
+        requestId: error.$metadata?.requestId
+      })
       throw new Error(`Failed to upload media: ${error.message}`)
     }
   }
 
   /**
-   * Upload an image file to S3 and return CloudFront URL
+   * Upload an image file to S3
    * @param {File} file - The image file to upload
    * @param {string} folder - The folder path (e.g., 'categories', 'questions')
    * @param {string} fileName - Optional custom filename
@@ -91,14 +142,42 @@ export class ImageUploadService {
         fileName = `${timestamp}_${Math.random().toString(36).substring(2)}.${extension}`
       }
 
-      // Upload to S3 and get CloudFront URL
-      console.log(`Uploading image to S3: ${folder}/${fileName}`)
-      const cloudFrontUrl = await S3UploadService.uploadImage(file, folder, fileName)
-      console.log('Image upload completed successfully, CloudFront URL:', cloudFrontUrl)
+      // Create S3 key
+      const key = `${folder}/${fileName}`
+
+      // Convert File to ArrayBuffer for AWS SDK compatibility
+      console.log(`Converting file to ArrayBuffer for S3 upload: ${key}`)
+      const fileBuffer = await file.arrayBuffer()
+
+      // Upload to S3
+      console.log(`Uploading image to S3: ${key}`)
+      const client = getS3Client()
+      const command = new PutObjectCommand({
+        Bucket: S3_CONFIG.bucket,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: file.type,
+        CacheControl: 'max-age=31536000' // 1 year cache
+        // Removed ACL: public-read - bucket policy should handle public access
+      })
+
+      await client.send(command)
+      console.log('Upload completed successfully')
+
+      // Return CloudFront URL instead of S3 URL
+      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
+      const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
+      console.log('CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading image:', error)
+      console.error('Error uploading image to S3:', error)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.Code || error.code,
+        statusCode: error.$metadata?.httpStatusCode,
+        requestId: error.$metadata?.requestId
+      })
       throw new Error(`Failed to upload image: ${error.message}`)
     }
   }
@@ -110,7 +189,8 @@ export class ImageUploadService {
    * @returns {Promise<string>} - The CloudFront URL
    */
   static async uploadCategoryImage(file, categoryId) {
-    return S3UploadService.uploadCategoryImage(file, categoryId)
+    const fileName = `category_${categoryId}_${Date.now()}.${file.name.split('.').pop()}`
+    return this.uploadImage(file, 'images/categories', fileName)
   }
 
   /**
@@ -120,7 +200,9 @@ export class ImageUploadService {
    * @returns {Promise<string>} - The CloudFront URL
    */
   static async uploadQuestionImage(file, questionId = null) {
-    return S3UploadService.uploadQuestionImage(file, questionId)
+    const prefix = questionId ? `question_${questionId}` : 'question'
+    const fileName = `${prefix}_${Date.now()}.${file.name.split('.').pop()}`
+    return this.uploadImage(file, 'images/questions', fileName)
   }
 
   /**
@@ -130,56 +212,33 @@ export class ImageUploadService {
    * @returns {Promise<string>} - The CloudFront URL
    */
   static async uploadQuestionMedia(file, questionId = null) {
-    return S3UploadService.uploadQuestionMedia(file, questionId)
+    const prefix = questionId ? `question_${questionId}` : 'question'
+    const fileName = `${prefix}_${Date.now()}.${file.name.split('.').pop()}`
+
+    // Determine the appropriate S3 folder based on file type
+    let folder = 'images/questions' // default for images
+    if (file.type.startsWith('audio/')) {
+      folder = 'audio'
+    } else if (file.type.startsWith('video/')) {
+      folder = 'video'
+    }
+
+    return this.uploadMedia(file, folder, fileName)
   }
 
   /**
-   * Delete an image from S3 (via CloudFront URL)
-   * @param {string} imageUrl - The CloudFront URL of the image
-   * @returns {Promise<void>}
+   * Delete a file from S3 (optional - for cleanup)
+   * Note: This would require additional AWS SDK imports and DELETE permissions
+   * For now, we'll just log and skip deletion
    */
-  static async deleteImage(imageUrl) {
-    if (!imageUrl || !imageUrl.includes('cloudfront')) {
-      console.log('Not a CloudFront URL, skipping deletion')
-      return
-    }
-
-    try {
-      // Extract S3 path from CloudFront URL
-      const path = this.extractS3PathFromCloudFrontUrl(imageUrl)
-      if (!path) {
-        throw new Error('Could not extract S3 path from CloudFront URL')
-      }
-
-      await S3UploadService.deleteFile(path)
-      console.log('Image deleted successfully from S3:', path)
-    } catch (error) {
-      console.error('Error deleting image:', error)
-      // Don't throw error for deletion failures - just log them
-    }
+  static async deleteFile(fileUrl) {
+    console.log('S3 file deletion not implemented yet:', fileUrl)
+    // TODO: Implement S3 deleteObject if needed
+    return
   }
 
   /**
-   * Extract the S3 path from a CloudFront URL
-   * @param {string} url - The CloudFront URL
-   * @returns {string|null} - The S3 path
-   */
-  static extractS3PathFromCloudFrontUrl(url) {
-    try {
-      // CloudFront URLs have the format:
-      // https://drcqcbq3desis.cloudfront.net/images/categories/filename.webp
-      const urlObj = new URL(url)
-      const path = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname
-      return path
-    } catch (error) {
-      console.error('Error extracting S3 path from CloudFront URL:', error)
-      return null
-    }
-  }
-
-
-  /**
-   * Compress image before upload (optional)
+   * Compress image before upload (reusing from original service)
    * @param {File} file - The image file
    * @param {number} maxWidth - Maximum width in pixels
    * @param {number} quality - JPEG quality (0-1)
@@ -221,3 +280,5 @@ export class ImageUploadService {
     })
   }
 }
+
+export default S3UploadService

@@ -7,7 +7,7 @@ import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
 import SmartImage from '../components/SmartImage'
 import BackgroundImage from '../components/BackgroundImage'
-import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet } from '../utils/mediaUrlConverter'
+import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet, getOptimizedMediaUrl as getOptimizedMediaUrlUtil } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
@@ -35,19 +35,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   // Portrait menu state
   const [portraitMenuOpen, setPortraitMenuOpen] = useState(false)
 
-  // Helper function to get optimized media URL (local static files with smart sizing)
+  // Helper function to get optimized media URL (CloudFront → Firebase → local fallback chain)
   const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {
     if (!originalUrl) return null
 
-    // Use local optimization with Firebase fallback
-    const localUrl = getCategoryImageUrl(originalUrl, size)
-    if (localUrl !== originalUrl) {
-      console.log(`🚀 Using optimized local file: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${localUrl}`)
-      return localUrl
-    } else {
-      console.log(`🔄 Using Firebase URL: ${originalUrl}`)
-      return originalUrl
-    }
+    // Use CloudFront-enabled optimization with fallback chain
+    const optimizedUrl = getOptimizedMediaUrlUtil(originalUrl, size, context)
+    console.log(`🚀 Using CloudFront-optimized URL: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${optimizedUrl}`)
+    return optimizedUrl
   }
 
   // Set up automatic cache updates for React re-renders
@@ -139,12 +134,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   useEffect(() => {
     if (!gameData?.categories) return
 
-    // Pre-log converted URLs for debugging
+    // Pre-log optimized URLs for debugging
     gameData.categories.forEach(category => {
       if (category.imageUrl) {
-        const localUrl = convertToLocalMediaUrl(category.imageUrl)
-        if (localUrl !== category.imageUrl) {
-          console.log(`📂 Mapped: ${category.name} -> ${localUrl}`)
+        const optimizedUrl = getOptimizedMediaUrl(category.imageUrl, 'medium', 'category')
+        if (optimizedUrl !== category.imageUrl) {
+          console.log(`☁️ Optimized: ${category.name} -> ${optimizedUrl}`)
         }
       }
     })
@@ -665,31 +660,42 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
 
       // Find the question by ID
-      const question = questions.find(q => q.id === assignment.questionId)
+      let question = questions.find(q => q.id === assignment.questionId)
       if (!question) {
-        console.error('Question not found by ID:', assignment.questionId)
+        console.warn('Previously assigned question not found by ID:', assignment.questionId)
+        console.log('Available question IDs:', questions.map(q => q.id))
+
+        // Fallback: Clear the invalid assignment and select a new question
+        const updatedAssignments = { ...gameState.assignedQuestions }
+        delete updatedAssignments[buttonKey]
+
+        setGameState(prev => ({
+          ...prev,
+          assignedQuestions: updatedAssignments
+        }))
+
+        // Continue with normal question selection logic by falling through
+        console.log('Cleared invalid assignment, will select new question')
+      } else {
+        // Found the previously assigned question, use it
+        const questionData = {
+          categoryId: assignment.categoryId,
+          questionIndex: questions.indexOf(question),
+          question: question, // Fresh data from database
+          points: assignment.points,
+          category: assignment.category,
+          questionKey: `${assignment.categoryId}-${questions.indexOf(question)}`,
+          pointValueKey: `${assignment.categoryId}-${assignment.points}-${assignment.buttonIndex}`
+        }
+
+        setGameState(prev => ({
+          ...prev,
+          currentQuestion: questionData
+        }))
+
+        navigate('/question')
         return
       }
-
-      // Create question data with the original question from database
-      const questionData = {
-        categoryId: assignment.categoryId,
-        questionIndex: questions.indexOf(question),
-        question: question, // Fresh data from database
-        points: assignment.points,
-        category: assignment.category,
-        questionKey: `${assignment.categoryId}-${questions.indexOf(question)}`,
-        pointValueKey: `${assignment.categoryId}-${assignment.points}-${assignment.buttonIndex}`
-      }
-
-      // Reconstructed question data from ID (debug removed)
-
-      setGameState(prev => ({
-        ...prev,
-        currentQuestion: questionData
-      }))
-      navigate('/question')
-      return
     }
 
     // Get questions from Firebase data

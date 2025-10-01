@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { convertToLocalMediaUrl } from '../utils/mediaUrlConverter';
+import { convertToLocalMediaUrl, getOptimizedMediaUrl } from '../utils/mediaUrlConverter';
 
 /**
- * Smart Image component that tries local images first, falls back to Firebase
- * Provides optimal performance by serving local images when available
+ * Smart Image component with CloudFront/Firebase/local fallback chain
+ * Priority order: CloudFront → Firebase → Local
+ * Provides optimal performance by serving CDN images when available
  */
 const SmartImage = ({
   src,
@@ -16,12 +17,17 @@ const SmartImage = ({
   onError = () => {},
   ...props
 }) => {
+  // Early return for null/undefined/empty src
+  if (!src || src === null || src === undefined || src === '') {
+    return null;
+  }
+
   const [currentSrc, setCurrentSrc] = useState(null);
   const [isLocalFailed, setIsLocalFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!src) {
+    if (!src || src === null || src === undefined || src === '') {
       setCurrentSrc(null);
       setIsLoading(false);
       return;
@@ -31,63 +37,110 @@ const SmartImage = ({
     setIsLocalFailed(false);
     setIsLoading(true);
 
-    // If it's already a local path, use it directly
-    if (!src.includes('firebasestorage.googleapis.com')) {
-      setCurrentSrc(src);
-      setIsLoading(false);
-      return;
+    // Always use optimized media URL function for CloudFront priority
+    // This will handle local paths, Firebase URLs, and CloudFront URLs properly
+    const optimizedUrl = getOptimizedMediaUrl(src, size, context);
+    console.log(`🚀 Using optimized URL: ${optimizedUrl}`);
+
+    // For thumbnails, we can still try local compressed versions
+    const shouldTryLocalCompressed = context === 'thumbnail' || size === 'thumb';
+    const localUrl = shouldTryLocalCompressed ? convertToLocalMediaUrl(src, size, context) : null;
+
+    // Extract original filename as fallback (only for Firebase URLs)
+    let fallbackLocalUrl = null;
+    if (src.includes('firebasestorage.googleapis.com')) {
+      try {
+        const url = new URL(src);
+        const pathPart = url.pathname.split('/o/')[1];
+        if (pathPart) {
+          const decodedPath = decodeURIComponent(pathPart.split('?')[0]);
+          fallbackLocalUrl = `/images/${decodedPath}`;
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to parse Firebase Storage URL:', src, error);
+      }
     }
 
-    // For Firebase URLs, use original quality by default to avoid sharp-to-blurry transition
-    // Only try local compressed versions for specific contexts that need optimization
-    const shouldUseCompressed = context === 'thumbnail' || size === 'thumb';
-
-    if (!shouldUseCompressed) {
-      console.log(`🎯 Using original quality for better visual experience: ${src}`);
-      setCurrentSrc(src);
-      setIsLoading(false);
-      return;
-    }
-
-    // Try local version only for thumbnails and specific small contexts
-    const localUrl = convertToLocalMediaUrl(src, size, context);
-
-    // Extract original filename as fallback
-    const url = new URL(src);
-    const pathPart = url.pathname.split('/o/')[1];
-    const decodedPath = decodeURIComponent(pathPart.split('?')[0]);
-    const fallbackLocalUrl = `/images/${decodedPath}`;
-
-    // Test if local image exists (try processed path first)
+    // Test optimized URL first (CloudFront → Firebase → Local priority)
     const testImage = new Image();
     testImage.onload = () => {
-      console.log(`✅ Local compressed image loaded for thumbnail: ${localUrl}`);
-      setCurrentSrc(localUrl);
+      console.log(`✅ Optimized URL loaded successfully: ${optimizedUrl}`);
+      setCurrentSrc(optimizedUrl);
       setIsLoading(false);
     };
 
     testImage.onerror = () => {
-      console.log(`⚠️ Processed local image not found: ${localUrl}`);
+      console.log(`⚠️ Optimized URL failed: ${optimizedUrl}`);
 
-      // Try original filename as fallback
-      const fallbackImage = new Image();
-      fallbackImage.onload = () => {
-        console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
-        setCurrentSrc(fallbackLocalUrl);
-        setIsLoading(false);
-      };
+      // Fallback to local compressed version if applicable
+      if (localUrl) {
+        console.log(`🔄 Trying local compressed fallback: ${localUrl}`);
+        const localImage = new Image();
+        localImage.onload = () => {
+          console.log(`✅ Local compressed image loaded: ${localUrl}`);
+          setCurrentSrc(localUrl);
+          setIsLoading(false);
+        };
 
-      fallbackImage.onerror = () => {
-        console.log(`⚠️ No local images found, using original Firebase quality: ${src}`);
-        setIsLocalFailed(true);
-        setCurrentSrc(src); // Fallback to original Firebase URL
-        setIsLoading(false);
-      };
+        localImage.onerror = () => {
+          console.log(`⚠️ Local compressed failed`);
 
-      fallbackImage.src = fallbackLocalUrl;
+          // Try original filename as fallback (only if available)
+          if (fallbackLocalUrl) {
+            console.log(`🔄 Trying original filename: ${fallbackLocalUrl}`);
+            const fallbackImage = new Image();
+            fallbackImage.onload = () => {
+              console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
+              setCurrentSrc(fallbackLocalUrl);
+              setIsLoading(false);
+            };
+
+            fallbackImage.onerror = () => {
+              console.log(`❌ All fallbacks failed, using original URL: ${src}`);
+              setIsLocalFailed(true);
+              setCurrentSrc(src); // Ultimate fallback to original URL
+              setIsLoading(false);
+            };
+
+            fallbackImage.src = fallbackLocalUrl;
+          } else {
+            console.log(`❌ No fallback available, using original URL: ${src}`);
+            setIsLocalFailed(true);
+            setCurrentSrc(src); // Ultimate fallback to original URL
+            setIsLoading(false);
+          }
+        };
+
+        localImage.src = localUrl;
+      } else {
+        // No local compressed version to try, go straight to original filename (if available)
+        if (fallbackLocalUrl) {
+          console.log(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
+          const fallbackImage = new Image();
+          fallbackImage.onload = () => {
+            console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
+            setCurrentSrc(fallbackLocalUrl);
+            setIsLoading(false);
+          };
+
+          fallbackImage.onerror = () => {
+            console.log(`❌ All fallbacks failed, using original URL: ${src}`);
+            setIsLocalFailed(true);
+            setCurrentSrc(src); // Ultimate fallback to original URL
+            setIsLoading(false);
+          };
+
+          fallbackImage.src = fallbackLocalUrl;
+        } else {
+          console.log(`❌ No fallback filename available, using original URL: ${src}`);
+          setIsLocalFailed(true);
+          setCurrentSrc(src); // Ultimate fallback to original URL
+          setIsLoading(false);
+        }
+      }
     };
 
-    testImage.src = localUrl;
+    testImage.src = optimizedUrl;
   }, [src, size, context]);
 
   const handleImageLoad = (e) => {
@@ -102,8 +155,10 @@ const SmartImage = ({
       setIsLocalFailed(true);
       setCurrentSrc(src);
     } else {
-      // Both local and Firebase failed
-      console.error(`❌ All image sources failed: ${src}`);
+      // Both local and Firebase failed - only log if src is not null/undefined
+      if (src) {
+        console.error(`❌ All image sources failed: ${src}`);
+      }
       setIsLoading(false);
       onError(e);
     }

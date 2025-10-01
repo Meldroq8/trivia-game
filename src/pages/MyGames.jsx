@@ -405,14 +405,24 @@ function MyGames({ gameState, setGameState }) {
                       <div className="mt-3">
                         <span className="text-sm font-medium text-gray-600">الفئات: </span>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {game.gameData.selectedCategories?.map((categoryId, idx) => (
-                            <span
-                              key={idx}
-                              className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full"
-                            >
-                              {categoryId.replace(/_/g, ' ')}
-                            </span>
-                          ))}
+                          {game.gameData.selectedCategories?.map((categoryId, idx) => {
+                            // Map category IDs to proper Arabic names
+                            const getCategoryName = (id) => {
+                              if (id === 'mystery') {
+                                return 'الفئة الغامضة'
+                              }
+                              return id.replace(/_/g, ' ')
+                            }
+
+                            return (
+                              <span
+                                key={idx}
+                                className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full"
+                              >
+                                {getCategoryName(categoryId)}
+                              </span>
+                            )
+                          })}
                         </div>
                       </div>
 

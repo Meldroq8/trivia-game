@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, deviceType = 'desktop', containerWidth = 500, maxHeight = null }) {
+function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, deviceType = 'desktop', containerWidth = 500, maxHeight = null, hideVolumeControl = false }) {
   const mediaRef = useRef(null)
   const progressRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -354,6 +354,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
           )}
 
           {/* Volume Control */}
+          {!hideVolumeControl && (
           <div className="volume-control-container relative flex items-center flex-shrink-0" style={{ marginLeft: `${Math.max(4, 8 * controlScale)}px` }}>
             <button
               onClick={toggleVolumeControl}
@@ -406,6 +407,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
               </div>
             )}
           </div>
+          )}
 
           {/* Fullscreen Button (Video Only) - Hidden on ultra narrow */}
           {isVideo && !isUltraNarrow && (
