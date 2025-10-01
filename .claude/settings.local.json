@@ -81,7 +81,9 @@
       "Bash(\"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" s3 ls s3://trivia-game-media-cdn/images/songseng/ --recursive)",
       "Bash(test:*)",
       "Bash(cat:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(\"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" cloudfront list-distributions --query \"DistributionList.Items[?DomainName==''drcqcbq3desis.cloudfront.net''].{Id:Id,DomainName:DomainName}\" --output json)",
+      "Bash(\"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" cloudfront list-distributions --query \"DistributionList.Items[?contains(Origins.Items[0].DomainName, ''trivia-game-media-cdn'')].{Id:Id,DomainName:DomainName,OriginDomain:Origins.Items[0].DomainName}\" --output json)"
     ],
     "deny": [],
     "ask": []

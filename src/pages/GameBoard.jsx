@@ -296,6 +296,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Load game data from Firebase
   useEffect(() => {
+    // If we already have game data, don't reload (avoid unnecessary fetches)
+    if (gameData) {
+      console.log('✅ GameBoard: Game data already loaded, skipping reload')
+      return
+    }
+
     const loadGameData = async () => {
       try {
         setLoadingError(null)
@@ -355,7 +361,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
 
     loadGameData()
-  }, [])
+  }, [location.pathname]) // Re-run when route changes (e.g., coming back from /question)
 
   useEffect(() => {
     // Only wait for essential data for dimensions - don't block on everything
