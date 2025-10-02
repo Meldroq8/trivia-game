@@ -2215,27 +2215,26 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       {/* Single Question Add Section */}
       {showSingleAdd && (
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-bold text-green-800">إضافة سؤال واحد</h3>
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-yellow-800">➕ إضافة سؤال جديد</h3>
             <button
               onClick={() => setShowSingleAdd(false)}
-              className="text-gray-500 hover:text-gray-700 text-2xl"
+              className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
             >
               ✕
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Category and Difficulty */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* Category Selection */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                الفئة *
-              </label>
+              <label className="block text-xs font-bold text-yellow-700 mb-1">الفئة *</label>
               <select
                 value={singleQuestion.categoryId}
                 onChange={(e) => setSingleQuestion(prev => ({ ...prev, categoryId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
+                className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
                 required
               >
                 <option value="">اختر الفئة</option>
@@ -2249,249 +2248,205 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
             {/* Difficulty */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                مستوى الصعوبة
-              </label>
+              <label className="block text-xs font-bold text-yellow-700 mb-1">مستوى الصعوبة:</label>
               <select
                 value={singleQuestion.difficulty}
                 onChange={(e) => setSingleQuestion(prev => ({ ...prev, difficulty: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
+                className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
               >
                 <option value="easy">سهل (200 نقطة)</option>
                 <option value="medium">متوسط (400 نقطة)</option>
                 <option value="hard">صعب (600 نقطة)</option>
               </select>
             </div>
+          </div>
 
-            {/* Question Text */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                نص السؤال *
-              </label>
-              <textarea
-                value={singleQuestion.text}
-                onChange={(e) => setSingleQuestion(prev => ({ ...prev, text: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
-                rows={3}
-                placeholder="اكتب نص السؤال هنا..."
-                required
-              />
+          {/* Question Text */}
+          <div className="mb-4">
+            <label className="block text-xs font-bold mb-1 text-yellow-700">نص السؤال *</label>
+            <textarea
+              value={singleQuestion.text}
+              onChange={(e) => setSingleQuestion(prev => ({ ...prev, text: e.target.value }))}
+              className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
+              rows={3}
+              placeholder="اكتب نص السؤال هنا..."
+              required
+            />
+          </div>
+
+          {/* Answer */}
+          <div className="mb-4">
+            <label className="block text-xs font-bold mb-1 text-yellow-700">الإجابة الصحيحة *</label>
+            <input
+              type="text"
+              value={singleQuestion.answer}
+              onChange={(e) => setSingleQuestion(prev => ({ ...prev, answer: e.target.value }))}
+              className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white"
+              placeholder="الإجابة الصحيحة..."
+              required
+            />
+          </div>
+
+          {/* Multiple Choice Options */}
+          <div className="mb-4">
+            <label className="block text-xs font-bold mb-1 text-yellow-700">خيارات الإجابة (اختياري)</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {singleQuestion.choices.map((choice, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  value={choice}
+                  onChange={(e) => {
+                    const newChoices = [...singleQuestion.choices]
+                    newChoices[index] = e.target.value
+                    setSingleQuestion(prev => ({ ...prev, choices: newChoices }))
+                  }}
+                  className="p-2 border rounded text-xs text-gray-900 bg-white"
+                  placeholder={`الخيار ${index + 1}`}
+                />
+              ))}
             </div>
+          </div>
 
-            {/* Answer */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                الإجابة الصحيحة *
-              </label>
-              <input
-                type="text"
-                value={singleQuestion.answer}
-                onChange={(e) => setSingleQuestion(prev => ({ ...prev, answer: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900"
-                placeholder="الإجابة الصحيحة..."
-                required
-              />
-            </div>
-
-            {/* Multiple Choice Options */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                خيارات الإجابة (اختياري)
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {singleQuestion.choices.map((choice, index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    value={choice}
-                    onChange={(e) => {
-                      const newChoices = [...singleQuestion.choices]
-                      newChoices[index] = e.target.value
-                      setSingleQuestion(prev => ({ ...prev, choices: newChoices }))
-                    }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                    placeholder={`الخيار ${index + 1}`}
-                  />
-                ))}
+          {/* Question Media Section */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-bold mb-3 text-blue-800">🎯 وسائط السؤال</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold mb-1 text-blue-700">صورة السؤال:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleQuestionImageUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.imageUrl && (
+                  <div className="mt-2">
+                    <SmartImage
+                      src={singleQuestion.imageUrl}
+                      alt="معاينة"
+                      size="thumb"
+                      context="question"
+                      className="w-20 h-20 object-cover rounded border"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1 text-blue-700">صوت السؤال:</label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleQuestionAudioUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.audioUrl && (
+                  <div className="mt-2">
+                    <LazyMediaPlayer
+                      src={singleQuestion.audioUrl}
+                      type="audio"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1 text-blue-700">فيديو السؤال:</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleQuestionVideoUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.videoUrl && (
+                  <div className="mt-2">
+                    <LazyMediaPlayer
+                      src={singleQuestion.videoUrl}
+                      type="video"
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* Explanation */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                شرح الإجابة (اختياري)
-              </label>
-              <textarea
-                value={singleQuestion.explanation}
-                onChange={(e) => setSingleQuestion(prev => ({ ...prev, explanation: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                rows={2}
-                placeholder="شرح مفصل للإجابة..."
-              />
-            </div>
-
-            {/* Image Upload */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                صورة السؤال (اختياري)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleQuestionImageUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.imageUrl && (
-                <div className="mt-3">
-                  <SmartImage
-                    src={singleQuestion.imageUrl}
-                    alt="معاينة السؤال"
-                    size="medium"
-                    context="question"
-                    className="w-32 h-32 object-cover rounded-lg border"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Answer Image Upload */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                صورة الجواب (اختياري)
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleAnswerImageUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.answerImageUrl && (
-                <div className="mt-3">
-                  <img
-                    src={singleQuestion.answerImageUrl}
-                    alt="معاينة الجواب"
-                    className="w-32 h-32 object-cover rounded-lg border"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Question Audio Upload */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                صوت السؤال (اختياري) - MP3, WAV, OGG
-              </label>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleQuestionAudioUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.audioUrl && (
-                <div className="mt-3">
-                  <LazyMediaPlayer
-                    src={singleQuestion.audioUrl}
-                    type="audio"
-                    className="w-full"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Answer Audio Upload */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                صوت الجواب (اختياري) - MP3, WAV, OGG
-              </label>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleAnswerAudioUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.answerAudioUrl && (
-                <div className="mt-3">
-                  <LazyMediaPlayer
-                    src={singleQuestion.answerAudioUrl}
-                    type="audio"
-                    className="w-full"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Question Video Upload */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                فيديو السؤال (اختياري) - MP4, WebM, MOV
-              </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleQuestionVideoUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.videoUrl && (
-                <div className="mt-3">
-                  <LazyMediaPlayer
-                    src={singleQuestion.videoUrl}
-                    type="video"
-                    className="w-full"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Answer Video Upload */}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                فيديو الجواب (اختياري) - MP4, WebM, MOV
-              </label>
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) => {
-                  const file = e.target.files[0]
-                  if (file) {
-                    handleSingleAnswerVideoUpload(file)
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-              />
-              {singleQuestion.answerVideoUrl && (
-                <div className="mt-3">
-                  <LazyMediaPlayer
-                    src={singleQuestion.answerVideoUrl}
-                    type="video"
-                    className="w-full"
-                  />
-                </div>
-              )}
+          {/* Answer Media Section */}
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <h4 className="text-sm font-bold mb-3 text-green-800">✅ وسائط الإجابة</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold mb-1 text-green-700">صورة الإجابة:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleAnswerImageUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.answerImageUrl && (
+                  <div className="mt-2">
+                    <img
+                      src={singleQuestion.answerImageUrl}
+                      alt="معاينة"
+                      className="w-20 h-20 object-cover rounded border"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1 text-green-700">صوت الإجابة:</label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleAnswerAudioUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.answerAudioUrl && (
+                  <div className="mt-2">
+                    <LazyMediaPlayer
+                      src={singleQuestion.answerAudioUrl}
+                      type="audio"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1 text-green-700">فيديو الإجابة:</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0]
+                    if (file) handleSingleAnswerVideoUpload(file)
+                  }}
+                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
+                />
+                {singleQuestion.answerVideoUrl && (
+                  <div className="mt-2">
+                    <LazyMediaPlayer
+                      src={singleQuestion.answerVideoUrl}
+                      type="video"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
