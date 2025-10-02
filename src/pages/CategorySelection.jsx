@@ -141,7 +141,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     for (const categoryId of Object.keys(gameData.questions)) {
       try {
         const categoryQuestions = gameData.questions[categoryId]
+        console.log(`📊 Counting questions for category ${categoryId}:`, categoryQuestions.length, 'total')
+
         const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
+        console.log(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
 
         // Divide by 3 for the 3 difficulties to get average per difficulty
         counts[categoryId] = Math.round(availableQuestions.length / 3)
@@ -156,6 +159,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       counts['mystery'] = '?' // Show question mark for mystery category count
     }
 
+    console.log('📊 Final question counts:', counts)
     setQuestionCounts(counts)
   }
 
