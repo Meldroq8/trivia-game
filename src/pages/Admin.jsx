@@ -1331,15 +1331,31 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       // Add questions to Firebase
       let addedCount = 0
       let skippedCount = 0
+      const errors = []
 
-      for (const question of processedQuestions) {
+      for (let i = 0; i < processedQuestions.length; i++) {
+        const question = processedQuestions[i]
+        setBulkProgress({
+          current: i + 1,
+          total: processedQuestions.length,
+          message: `جاري إضافة السؤال ${i + 1} من ${processedQuestions.length} إلى Firebase...`
+        })
+
         try {
+          console.log(`Adding question ${i + 1}:`, question.text)
           await FirebaseQuestionsService.addQuestion(targetCategoryId, question)
           addedCount++
+          console.log(`✅ Question ${i + 1} added successfully`)
         } catch (error) {
-          console.error('Error adding question:', error)
+          console.error(`Error adding question ${i + 1}:`, error)
+          errors.push({ questionNumber: i + 1, text: question.text, error: error.message })
           skippedCount++
         }
+      }
+
+      // Log errors if any
+      if (errors.length > 0) {
+        console.error('Failed questions:', errors)
       }
 
       // Reset state
@@ -1355,9 +1371,11 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
     } catch (error) {
       console.error('❌ File bulk import error:', error)
-      alert('فشل في استيراد الملف: ' + error.message)
+      const errorMessage = error?.message || error?.toString() || 'خطأ غير معروف'
+      alert('فشل في استيراد الملف: ' + errorMessage)
     } finally {
       setIsProcessingBulk(false)
+      setBulkProgress({ current: 0, total: 0, message: '' })
     }
   }
 
