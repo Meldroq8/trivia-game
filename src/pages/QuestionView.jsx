@@ -832,22 +832,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const handlePerkConfirm = () => {
     const { type, team } = activePerk
 
-    // Initialize perk usage tracking if it doesn't exist
-    if (!gameState.perkUsage) {
-      setGameState(prev => ({
-        ...prev,
-        perkUsage: {
-          team1: { double: 0, phone: 0, search: 0 },
-          team2: { double: 0, phone: 0, search: 0 }
-        }
-      }))
-    }
-
     // Check if perk is already used (max 1 use per perk per team)
     const currentUsage = gameState.perkUsage?.[team]?.[type] || 0
-    if (currentUsage >= 1) return
+    if (currentUsage >= 1) {
+      console.warn(`Perk ${type} already used by ${team}`)
+      setPerkModalOpen(false)
+      setActivePerk({ type: null, team: null })
+      return
+    }
 
-    // Update perk usage count
+    // Update perk usage count in a single state call
     setGameState(prev => ({
       ...prev,
       perkUsage: {
@@ -859,9 +853,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       }
     }))
 
+    console.log(`✅ Perk activated in QuestionView: ${type} for ${team}`)
+
     // Handle specific perk effects
     if (type === 'double') {
       // Double points should not be activatable in QuestionView
+      console.warn('Double points perk should only be used in GameBoard')
+      setPerkModalOpen(false)
+      setActivePerk({ type: null, team: null })
       return
     }
 

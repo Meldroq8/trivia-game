@@ -515,6 +515,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     // Get all available categories except the selected ones (excluding mystery)
     const selectedCategoryIds = gameState.selectedCategories.filter(id => id !== 'mystery')
     const allCategories = gameData?.categories || []
+
+    console.log('🔍 Mystery Category Debug:')
+    console.log('  - All categories:', allCategories.map(c => c.name))
+    console.log('  - Selected categories:', selectedCategoryIds)
+    console.log('  - Categories with questions:', Object.keys(gameData?.questions || {}))
+
     const unselectedCategories = allCategories.filter(cat =>
       !selectedCategoryIds.includes(cat.id) &&
       cat.id !== 'mystery' &&
@@ -522,8 +528,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       gameData.questions[cat.id].length > 0
     )
 
+    console.log('  - Unselected categories available for mystery:', unselectedCategories.map(c => `${c.name} (${gameData.questions[c.id].length} questions)`))
+
     if (unselectedCategories.length === 0) {
-      console.warn('No unselected categories available for mystery question')
+      console.warn('❌ No unselected categories available for mystery question')
+      alert('لا توجد فئات غير محددة متاحة للفئة الغامضة')
       return
     }
 
