@@ -26,36 +26,26 @@ export const resizeImage = (file, width = 400, height = 300, format = 'webp', qu
 
     img.onload = () => {
       try {
-        // Set canvas dimensions to target size
-        canvas.width = width
-        canvas.height = height
+        // Calculate dimensions maintaining aspect ratio (contain behavior - no cropping)
+        let targetWidth = img.width
+        let targetHeight = img.height
 
-        // Calculate scaling to maintain aspect ratio with cover behavior
-        const imgAspect = img.width / img.height
-        const targetAspect = width / height
+        // Scale down if needed
+        if (targetWidth > width || targetHeight > height) {
+          const widthRatio = width / targetWidth
+          const heightRatio = height / targetHeight
+          const ratio = Math.min(widthRatio, heightRatio)
 
-        let drawWidth, drawHeight, drawX, drawY
-
-        if (imgAspect > targetAspect) {
-          // Image is wider - fit height and crop width
-          drawHeight = height
-          drawWidth = height * imgAspect
-          drawX = (width - drawWidth) / 2
-          drawY = 0
-        } else {
-          // Image is taller - fit width and crop height
-          drawWidth = width
-          drawHeight = width / imgAspect
-          drawX = 0
-          drawY = (height - drawHeight) / 2
+          targetWidth = Math.round(targetWidth * ratio)
+          targetHeight = Math.round(targetHeight * ratio)
         }
 
-        // Clear canvas
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, width, height)
+        // Set canvas to calculated dimensions (no padding, exact fit)
+        canvas.width = targetWidth
+        canvas.height = targetHeight
 
-        // Draw resized image
-        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+        // Draw image to fit exactly (no cropping, no padding)
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
 
         // Convert to blob with specified format and quality
         const mimeType = format === 'webp' ? 'image/webp' :
@@ -84,14 +74,15 @@ export const resizeImage = (file, width = 400, height = 300, format = 'webp', qu
 }
 
 /**
- * Process image for category cards (400x300 WebP)
+ * Process image for category cards (max 400x300 WebP)
+ * Maintains aspect ratio, no cropping
  * @param {File} file - Original image file
  * @returns {Promise<{blob: Blob, info: Object}>} - Processed image and info
  */
 export const processCategoryImage = async (file) => {
   try {
     const originalSize = (file.size / 1024).toFixed(1) // KB
-    const blob = await resizeImage(file, 400, 300, 'webp', 0.92) // Increased quality from 0.8 to 0.92
+    const blob = await resizeImage(file, 400, 300, 'webp', 0.92) // High quality, no cropping
     const newSize = (blob.size / 1024).toFixed(1) // KB
 
     return {
@@ -100,7 +91,7 @@ export const processCategoryImage = async (file) => {
         originalSize: `${originalSize} KB`,
         newSize: `${newSize} KB`,
         compression: `${Math.round((1 - blob.size / file.size) * 100)}%`,
-        dimensions: '400×300px',
+        dimensions: 'Max 400×300px (maintains aspect ratio)',
         format: 'WebP'
       }
     }
