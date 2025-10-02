@@ -896,43 +896,40 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const handlePerkConfirm = () => {
     const { type, team } = activePerk
 
-    // Initialize perk usage tracking if it doesn't exist
-    if (!gameState.perkUsage) {
-      setGameState(prev => ({
-        ...prev,
-        perkUsage: {
-          team1: { double: 0, phone: 0, search: 0 },
-          team2: { double: 0, phone: 0, search: 0 }
-        }
-      }))
-    }
-
     // Check if perk is already used (max 1 use per perk per team)
     const currentUsage = gameState.perkUsage?.[team]?.[type] || 0
-    if (currentUsage >= 1) return
+    if (currentUsage >= 1) {
+      console.warn(`Perk ${type} already used by ${team}`)
+      setPerkModalOpen(false)
+      setActivePerk({ type: null, team: null })
+      return
+    }
 
-    // Update perk usage count
-    setGameState(prev => ({
-      ...prev,
-      perkUsage: {
-        ...prev.perkUsage,
-        [team]: {
-          ...prev.perkUsage?.[team],
-          [type]: (prev.perkUsage?.[team]?.[type] || 0) + 1
+    // Update state in a single call to avoid race conditions
+    setGameState(prev => {
+      const newState = {
+        ...prev,
+        perkUsage: {
+          ...prev.perkUsage,
+          [team]: {
+            ...prev.perkUsage?.[team],
+            [type]: (prev.perkUsage?.[team]?.[type] || 0) + 1
+          }
         }
       }
-    }))
 
-    // Store perk activation for use in QuestionView
-    if (type === 'double') {
-      setGameState(prev => ({
-        ...prev,
-        activatedPerks: {
+      // Add perk activation for double points
+      if (type === 'double') {
+        newState.activatedPerks = {
           ...prev.activatedPerks,
           doublePoints: { active: true, team }
         }
-      }))
-    }
+      }
+
+      return newState
+    })
+
+    console.log(`✅ Perk activated: ${type} for ${team}`)
 
     // Close modal
     setPerkModalOpen(false)

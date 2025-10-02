@@ -68,6 +68,8 @@ export class GameDataLoader {
    * @returns {Object} Game data in expected format
    */
   static transformFirebaseData(questions, categories) {
+    console.log(`🔄 transformFirebaseData called with ${questions.length} questions and ${categories.length} categories`)
+
     // Group questions by category
     const questionsByCategory = {}
 
@@ -75,6 +77,7 @@ export class GameDataLoader {
       const categoryId = question.categoryId || 'general'
       if (!questionsByCategory[categoryId]) {
         questionsByCategory[categoryId] = []
+        console.log(`📁 Creating new question array for category: ${categoryId}`)
       }
       questionsByCategory[categoryId].push({
         id: question.id,
@@ -138,6 +141,22 @@ export class GameDataLoader {
     console.log('🔍 Mystery category created:', mysteryCategory)
     console.log('🔍 Mystery imageUrl:', mysteryCategory.imageUrl)
     transformedCategories.push(mysteryCategory)
+
+    // Log questions per category for debugging
+    console.log('📊 Questions per category after grouping:')
+    Object.entries(questionsByCategory).forEach(([catId, qs]) => {
+      const category = transformedCategories.find(c => c.id === catId)
+      const catName = category?.name || catId
+      console.log(`  - ${catName} (categoryId: ${catId}): ${qs.length} questions`)
+    })
+
+    // Log categories from Firebase for debugging
+    console.log('📂 Categories from Firebase:')
+    transformedCategories.forEach(cat => {
+      if (!cat.isMystery) {
+        console.log(`  - ${cat.name} (Firebase doc ID: ${cat.id})`)
+      }
+    })
 
     // Add default category if it has questions but no category definition
     if (questionsByCategory.general && !transformedCategories.find(cat => cat.id === 'general')) {
