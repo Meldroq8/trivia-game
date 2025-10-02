@@ -1326,6 +1326,14 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         })
         targetCategoryId = newCategory.id
         console.log(`✅ Created category with ID: ${targetCategoryId}`)
+
+        // Add category to local state immediately so it doesn't get filtered out
+        setCategories(prev => [...prev, {
+          id: newCategory.id,
+          name: bulkCategoryName,
+          color: newCategory.color,
+          icon: newCategory.icon
+        }])
       }
 
       // Add questions to Firebase
