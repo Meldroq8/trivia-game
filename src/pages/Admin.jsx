@@ -11,7 +11,7 @@ import AudioPlayer from '../components/AudioPlayer'
 import LazyMediaPlayer from '../components/LazyMediaPlayer'
 import SmartImage from '../components/SmartImage'
 import BackgroundImage from '../components/BackgroundImage'
-import { processCategoryImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
+import { processCategoryImage, processQuestionImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
 import { getCategoryImageUrl, getQuestionImageUrl, getThumbnailUrl } from '../utils/mediaUrlConverter'
 import MediaUploadManager from '../components/MediaUploadManager'
 
@@ -1326,6 +1326,26 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     try {
       setUploadingMedia(prev => ({ ...prev, [fieldName]: true }))
 
+      let fileToUpload = file
+      let compressionInfo = null
+
+      // Process images before upload
+      if (mediaType === 'image') {
+        console.log('Processing image before upload...')
+        const { blob, info } = await processQuestionImage(file)
+
+        // Convert blob to File for upload
+        const extension = 'webp'
+        const fileName = `question_${Date.now()}.${extension}`
+        fileToUpload = new File([blob], fileName, {
+          type: 'image/webp',
+          lastModified: Date.now(),
+        })
+
+        compressionInfo = info
+        console.log('Image processed:', info)
+      }
+
       // Determine folder based on media type
       let folder = 'questions'
       if (mediaType === 'audio') {
@@ -1337,12 +1357,17 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       }
 
       // Upload media to S3/CloudFront
-      const cloudFrontUrl = await ImageUploadService.uploadMedia(file, folder)
+      const cloudFrontUrl = await ImageUploadService.uploadMedia(fileToUpload, folder)
 
       // Update editing data with the new URL
       updateEditingData(fieldName, cloudFrontUrl)
 
-      alert(`تم رفع ${mediaType === 'image' ? 'الصورة' : mediaType === 'audio' ? 'الصوت' : 'الفيديو'} بنجاح!`)
+      // Show success message with compression info for images
+      if (compressionInfo) {
+        alert(`تم رفع الصورة بنجاح!\n📏 الأبعاد الأصلية: ${compressionInfo.originalDimensions}\n📐 الأبعاد الجديدة: ${compressionInfo.dimensions}\n📦 الحجم الأصلي: ${compressionInfo.originalSize}\n🗜️ الحجم الجديد: ${compressionInfo.newSize}\n📉 نسبة الضغط: ${compressionInfo.compression}`)
+      } else {
+        alert(`تم رفع ${mediaType === 'audio' ? 'الصوت' : 'الفيديو'} بنجاح!`)
+      }
     } catch (error) {
       console.error('Error uploading media:', error)
       alert('فشل في رفع الملف: ' + error.message)
