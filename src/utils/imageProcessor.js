@@ -110,6 +110,131 @@ export const processCategoryImage = async (file) => {
 }
 
 /**
+ * Resize image without cropping - maintains aspect ratio
+ * @param {File} file - The original image file
+ * @param {number} maxWidth - Maximum width
+ * @param {number} maxHeight - Maximum height
+ * @param {string} format - Output format (default: 'webp')
+ * @param {number} quality - Compression quality 0-1 (default: 0.9)
+ * @returns {Promise<Blob>} - Processed image as blob
+ */
+const resizeImageContain = (file, maxWidth, maxHeight, format = 'webp', quality = 0.9) => {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith('image/')) {
+      reject(new Error('Invalid file: not an image'))
+      return
+    }
+
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+
+    img.onload = () => {
+      try {
+        // Calculate dimensions maintaining aspect ratio
+        let width = img.width
+        let height = img.height
+
+        if (width > maxWidth || height > maxHeight) {
+          const widthRatio = maxWidth / width
+          const heightRatio = maxHeight / height
+          const ratio = Math.min(widthRatio, heightRatio)
+
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        // Set canvas to calculated dimensions
+        canvas.width = width
+        canvas.height = height
+
+        // Draw image to fit exactly (no cropping, no padding)
+        ctx.drawImage(img, 0, 0, width, height)
+
+        // Convert to blob
+        const mimeType = format === 'webp' ? 'image/webp' :
+                        format === 'png' ? 'image/png' : 'image/jpeg'
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Failed to create blob'))
+          }
+        }, mimeType, quality)
+
+      } catch (error) {
+        reject(error)
+      }
+    }
+
+    img.onerror = () => {
+      reject(new Error('Failed to load image'))
+    }
+
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+/**
+ * Process image for questions (max 1920x1080 WebP)
+ * Maintains aspect ratio, no cropping
+ * @param {File} file - Original image file
+ * @returns {Promise<{blob: Blob, info: Object}>} - Processed image and info
+ */
+export const processQuestionImage = async (file) => {
+  try {
+    const originalSize = (file.size / 1024).toFixed(1) // KB
+
+    // Load image to get original dimensions
+    const img = new Image()
+    const imageUrl = URL.createObjectURL(file)
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = reject
+      img.src = imageUrl
+    })
+
+    URL.revokeObjectURL(imageUrl)
+
+    // Calculate new dimensions maintaining aspect ratio
+    const maxWidth = 1920
+    const maxHeight = 1080
+    let targetWidth = img.width
+    let targetHeight = img.height
+
+    // Only resize if image is larger than max dimensions
+    if (targetWidth > maxWidth || targetHeight > maxHeight) {
+      const widthRatio = maxWidth / targetWidth
+      const heightRatio = maxHeight / targetHeight
+      const ratio = Math.min(widthRatio, heightRatio)
+
+      targetWidth = Math.round(targetWidth * ratio)
+      targetHeight = Math.round(targetHeight * ratio)
+    }
+
+    // Process with calculated dimensions (no cropping)
+    const blob = await resizeImageContain(file, maxWidth, maxHeight, 'webp', 0.90)
+    const newSize = (blob.size / 1024).toFixed(1) // KB
+
+    return {
+      blob,
+      info: {
+        originalSize: `${originalSize} KB`,
+        newSize: `${newSize} KB`,
+        compression: `${Math.round((1 - blob.size / file.size) * 100)}%`,
+        dimensions: `${targetWidth}×${targetHeight}px`,
+        originalDimensions: `${img.width}×${img.height}px`,
+        format: 'WebP'
+      }
+    }
+  } catch (error) {
+    throw new Error(`Image processing failed: ${error.message}`)
+  }
+}
+
+/**
  * Create preview URL for processed image
  * @param {Blob} blob - Processed image blob
  * @returns {string} - Object URL for preview
