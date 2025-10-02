@@ -1338,7 +1338,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         setBulkProgress({
           current: i + 1,
           total: processedQuestions.length,
-          message: `جاري إضافة السؤال ${i + 1} من ${processedQuestions.length} إلى Firebase...`
+          message: `جاري حفظ السؤال ${i + 1} من ${processedQuestions.length} في قاعدة البيانات...`
         })
 
         try {
@@ -1350,6 +1350,26 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           console.error(`Error adding question ${i + 1}:`, error)
           errors.push({ questionNumber: i + 1, text: question.text, error: error.message })
           skippedCount++
+
+          // Delete uploaded media files for this failed question
+          console.log(`🗑️ Cleaning up media files for failed question ${i + 1}...`)
+          const mediaUrls = [
+            question.imageUrl,
+            question.audioUrl,
+            question.videoUrl,
+            question.answerImageUrl,
+            question.answerAudioUrl,
+            question.answerVideoUrl
+          ].filter(Boolean) // Remove null/undefined values
+
+          for (const url of mediaUrls) {
+            try {
+              await S3UploadService.deleteFile(url)
+              console.log(`✅ Deleted: ${url}`)
+            } catch (deleteError) {
+              console.error(`Failed to delete ${url}:`, deleteError)
+            }
+          }
         }
       }
 
