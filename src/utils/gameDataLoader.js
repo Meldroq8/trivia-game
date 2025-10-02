@@ -35,9 +35,8 @@ export class GameDataLoader {
       // Transform Firebase data to expected format
       const gameData = this.transformFirebaseData(questions, categories)
 
-
-      // Cache the data for next time
-      this.saveToCache(gameData)
+      // Note: localStorage caching disabled for large datasets
+      // All data is stored in Firebase Firestore, media files in CloudFront
 
       console.log('✅ Game data loaded from Firebase:', {
         categories: gameData.categories.length,
