@@ -2885,24 +2885,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الصورة"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'imageUrl')}
-                                      disabled={uploadingMedia.imageUrl}
-                                      className="hidden"
-                                      id="question-image-upload"
-                                    />
-                                    <label
-                                      htmlFor="question-image-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.imageUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.imageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'imageUrl')}
+                                        disabled={uploadingMedia.imageUrl}
+                                        className="hidden"
+                                        id="question-image-upload"
+                                      />
+                                      <label
+                                        htmlFor="question-image-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.imageUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.imageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
+                                      </label>
+                                      {editingData.imageUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('imageUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الصورة"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-blue-700">صوت السؤال:</label>
@@ -2913,24 +2925,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الصوت"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="audio/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'audioUrl')}
-                                      disabled={uploadingMedia.audioUrl}
-                                      className="hidden"
-                                      id="question-audio-upload"
-                                    />
-                                    <label
-                                      htmlFor="question-audio-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.audioUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.audioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="audio/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'audioUrl')}
+                                        disabled={uploadingMedia.audioUrl}
+                                        className="hidden"
+                                        id="question-audio-upload"
+                                      />
+                                      <label
+                                        htmlFor="question-audio-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.audioUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.audioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
+                                      </label>
+                                      {editingData.audioUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('audioUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الصوت"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-blue-700">فيديو السؤال:</label>
@@ -2941,24 +2965,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الفيديو"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="video/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'videoUrl')}
-                                      disabled={uploadingMedia.videoUrl}
-                                      className="hidden"
-                                      id="question-video-upload"
-                                    />
-                                    <label
-                                      htmlFor="question-video-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.videoUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.videoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="video/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'videoUrl')}
+                                        disabled={uploadingMedia.videoUrl}
+                                        className="hidden"
+                                        id="question-video-upload"
+                                      />
+                                      <label
+                                        htmlFor="question-video-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.videoUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.videoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
+                                      </label>
+                                      {editingData.videoUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('videoUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الفيديو"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -2976,24 +3012,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الصورة"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'answerImageUrl')}
-                                      disabled={uploadingMedia.answerImageUrl}
-                                      className="hidden"
-                                      id="answer-image-upload"
-                                    />
-                                    <label
-                                      htmlFor="answer-image-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.answerImageUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-green-600 hover:bg-green-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.answerImageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'answerImageUrl')}
+                                        disabled={uploadingMedia.answerImageUrl}
+                                        className="hidden"
+                                        id="answer-image-upload"
+                                      />
+                                      <label
+                                        htmlFor="answer-image-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.answerImageUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-green-600 hover:bg-green-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.answerImageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
+                                      </label>
+                                      {editingData.answerImageUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('answerImageUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الصورة"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-green-700">صوت الإجابة:</label>
@@ -3004,24 +3052,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الصوت"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="audio/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'answerAudioUrl')}
-                                      disabled={uploadingMedia.answerAudioUrl}
-                                      className="hidden"
-                                      id="answer-audio-upload"
-                                    />
-                                    <label
-                                      htmlFor="answer-audio-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.answerAudioUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-green-600 hover:bg-green-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.answerAudioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="audio/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'answerAudioUrl')}
+                                        disabled={uploadingMedia.answerAudioUrl}
+                                        className="hidden"
+                                        id="answer-audio-upload"
+                                      />
+                                      <label
+                                        htmlFor="answer-audio-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.answerAudioUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-green-600 hover:bg-green-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.answerAudioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
+                                      </label>
+                                      {editingData.answerAudioUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('answerAudioUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الصوت"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-green-700">فيديو الإجابة:</label>
@@ -3032,24 +3092,36 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
                                       placeholder="رابط الفيديو"
                                     />
-                                    <input
-                                      type="file"
-                                      accept="video/*"
-                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'answerVideoUrl')}
-                                      disabled={uploadingMedia.answerVideoUrl}
-                                      className="hidden"
-                                      id="answer-video-upload"
-                                    />
-                                    <label
-                                      htmlFor="answer-video-upload"
-                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
-                                        uploadingMedia.answerVideoUrl
-                                          ? 'bg-gray-400 text-white cursor-not-allowed'
-                                          : 'bg-green-600 hover:bg-green-700 text-white'
-                                      }`}
-                                    >
-                                      {uploadingMedia.answerVideoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
-                                    </label>
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="video/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'answerVideoUrl')}
+                                        disabled={uploadingMedia.answerVideoUrl}
+                                        className="hidden"
+                                        id="answer-video-upload"
+                                      />
+                                      <label
+                                        htmlFor="answer-video-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.answerVideoUrl
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-green-600 hover:bg-green-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.answerVideoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
+                                      </label>
+                                      {editingData.answerVideoUrl && (
+                                        <button
+                                          type="button"
+                                          onClick={() => updateEditingData('answerVideoUrl', '')}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الفيديو"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               </div>
