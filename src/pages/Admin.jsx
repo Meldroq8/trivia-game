@@ -7,6 +7,7 @@ import { GameDataLoader } from '../utils/gameDataLoader'
 import { deleteField } from 'firebase/firestore'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
+import { S3UploadService } from '../utils/s3Upload'
 import AudioPlayer from '../components/AudioPlayer'
 import LazyMediaPlayer from '../components/LazyMediaPlayer'
 import SmartImage from '../components/SmartImage'
@@ -1376,6 +1377,30 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     }
   }
 
+  // Handle media deletion with confirmation
+  const handleMediaDelete = async (fieldName, fileUrl, updateFunction) => {
+    if (!fileUrl) return
+
+    // Show confirmation dialog
+    const confirmed = window.confirm('هل تريد حذف الملف من التخزين السحابي؟\n\n✅ نعم: سيتم حذف الملف نهائياً من S3/CloudFront\n❌ لا: سيتم إزالة الرابط فقط من السؤال')
+
+    try {
+      if (confirmed) {
+        // Delete from S3
+        await S3UploadService.deleteFile(fileUrl)
+        alert('✅ تم حذف الملف من التخزين السحابي بنجاح')
+      }
+
+      // Always clear the field regardless of choice
+      updateFunction(fieldName, '')
+    } catch (error) {
+      console.error('Error deleting file:', error)
+      alert('⚠️ فشل حذف الملف من التخزين: ' + error.message + '\n\nتم إزالة الرابط من السؤال فقط.')
+      // Still clear the field even if deletion failed
+      updateFunction(fieldName, '')
+    }
+  }
+
   const cancelEditing = (categoryId, questionIndex) => {
     // Set the last edited category to prevent auto-collapse
     setLastEditedCategory(categoryId)
@@ -2327,7 +2352,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.imageUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, imageUrl: '' }))}
+                      onClick={() => handleMediaDelete('imageUrl', singleQuestion.imageUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الصورة"
                     >
@@ -2362,7 +2387,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.audioUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, audioUrl: '' }))}
+                      onClick={() => handleMediaDelete('audioUrl', singleQuestion.audioUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الصوت"
                     >
@@ -2395,7 +2420,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.videoUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, videoUrl: '' }))}
+                      onClick={() => handleMediaDelete('videoUrl', singleQuestion.videoUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الفيديو"
                     >
@@ -2435,7 +2460,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.answerImageUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerImageUrl: '' }))}
+                      onClick={() => handleMediaDelete('answerImageUrl', singleQuestion.answerImageUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الصورة"
                     >
@@ -2468,7 +2493,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.answerAudioUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerAudioUrl: '' }))}
+                      onClick={() => handleMediaDelete('answerAudioUrl', singleQuestion.answerAudioUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الصوت"
                     >
@@ -2501,7 +2526,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   {singleQuestion.answerVideoUrl && (
                     <button
                       type="button"
-                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerVideoUrl: '' }))}
+                      onClick={() => handleMediaDelete('answerVideoUrl', singleQuestion.answerVideoUrl, (field, value) => setSingleQuestion(prev => ({ ...prev, [field]: value })))}
                       className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                       title="حذف الفيديو"
                     >
@@ -2979,7 +3004,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.imageUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('imageUrl', '')}
+                                          onClick={() => handleMediaDelete('imageUrl', editingData.imageUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الصورة"
                                         >
@@ -3019,7 +3044,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.audioUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('audioUrl', '')}
+                                          onClick={() => handleMediaDelete('audioUrl', editingData.audioUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الصوت"
                                         >
@@ -3059,7 +3084,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.videoUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('videoUrl', '')}
+                                          onClick={() => handleMediaDelete('videoUrl', editingData.videoUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الفيديو"
                                         >
@@ -3106,7 +3131,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.answerImageUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('answerImageUrl', '')}
+                                          onClick={() => handleMediaDelete('answerImageUrl', editingData.answerImageUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الصورة"
                                         >
@@ -3146,7 +3171,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.answerAudioUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('answerAudioUrl', '')}
+                                          onClick={() => handleMediaDelete('answerAudioUrl', editingData.answerAudioUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الصوت"
                                         >
@@ -3186,7 +3211,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       {editingData.answerVideoUrl && (
                                         <button
                                           type="button"
-                                          onClick={() => updateEditingData('answerVideoUrl', '')}
+                                          onClick={() => handleMediaDelete('answerVideoUrl', editingData.answerVideoUrl, updateEditingData)}
                                           className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
                                           title="حذف الفيديو"
                                         >
