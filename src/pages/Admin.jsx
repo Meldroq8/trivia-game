@@ -897,6 +897,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   const [editingData, setEditingData] = useState({})
   const [savingEdit, setSavingEdit] = useState(false)
   const [lastEditedCategory, setLastEditedCategory] = useState(null)
+  const [uploadingMedia, setUploadingMedia] = useState({})
   const [savedScrollPosition, setSavedScrollPosition] = useState(null)
 
   const loadData = async () => {
@@ -1317,6 +1318,37 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       newSet.delete(categoryId)
       return newSet
     })
+  }
+
+  const handleMediaUpload = async (file, mediaType, fieldName) => {
+    if (!file) return
+
+    try {
+      setUploadingMedia(prev => ({ ...prev, [fieldName]: true }))
+
+      // Determine folder based on media type
+      let folder = 'questions'
+      if (mediaType === 'audio') {
+        folder = 'audio'
+      } else if (mediaType === 'video') {
+        folder = 'video'
+      } else if (mediaType === 'image') {
+        folder = 'images/questions'
+      }
+
+      // Upload media to S3/CloudFront
+      const cloudFrontUrl = await ImageUploadService.uploadMedia(file, folder)
+
+      // Update editing data with the new URL
+      updateEditingData(fieldName, cloudFrontUrl)
+
+      alert(`تم رفع ${mediaType === 'image' ? 'الصورة' : mediaType === 'audio' ? 'الصوت' : 'الفيديو'} بنجاح!`)
+    } catch (error) {
+      console.error('Error uploading media:', error)
+      alert('فشل في رفع الملف: ' + error.message)
+    } finally {
+      setUploadingMedia(prev => ({ ...prev, [fieldName]: false }))
+    }
   }
 
   const cancelEditing = (categoryId, questionIndex) => {
@@ -2870,9 +2902,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.imageUrl || ''}
                                       onChange={(e) => updateEditingData('imageUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الصورة"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'imageUrl')}
+                                      disabled={uploadingMedia.imageUrl}
+                                      className="hidden"
+                                      id="question-image-upload"
+                                    />
+                                    <label
+                                      htmlFor="question-image-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.imageUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.imageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
+                                    </label>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-blue-700">صوت السؤال:</label>
@@ -2880,9 +2930,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.audioUrl || ''}
                                       onChange={(e) => updateEditingData('audioUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/.../audio/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الصوت"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="audio/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'audioUrl')}
+                                      disabled={uploadingMedia.audioUrl}
+                                      className="hidden"
+                                      id="question-audio-upload"
+                                    />
+                                    <label
+                                      htmlFor="question-audio-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.audioUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.audioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
+                                    </label>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-blue-700">فيديو السؤال:</label>
@@ -2890,9 +2958,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.videoUrl || ''}
                                       onChange={(e) => updateEditingData('videoUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/.../video/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الفيديو"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="video/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'videoUrl')}
+                                      disabled={uploadingMedia.videoUrl}
+                                      className="hidden"
+                                      id="question-video-upload"
+                                    />
+                                    <label
+                                      htmlFor="question-video-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.videoUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.videoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
+                                    </label>
                                   </div>
                                 </div>
                               </div>
@@ -2907,9 +2993,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.answerImageUrl || ''}
                                       onChange={(e) => updateEditingData('answerImageUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الصورة"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'answerImageUrl')}
+                                      disabled={uploadingMedia.answerImageUrl}
+                                      className="hidden"
+                                      id="answer-image-upload"
+                                    />
+                                    <label
+                                      htmlFor="answer-image-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.answerImageUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-green-600 hover:bg-green-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.answerImageUrl ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
+                                    </label>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-green-700">صوت الإجابة:</label>
@@ -2917,9 +3021,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.answerAudioUrl || ''}
                                       onChange={(e) => updateEditingData('answerAudioUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/.../audio/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الصوت"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="audio/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'audio', 'answerAudioUrl')}
+                                      disabled={uploadingMedia.answerAudioUrl}
+                                      className="hidden"
+                                      id="answer-audio-upload"
+                                    />
+                                    <label
+                                      htmlFor="answer-audio-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.answerAudioUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-green-600 hover:bg-green-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.answerAudioUrl ? '⏳ جاري الرفع...' : '📤 رفع صوت'}
+                                    </label>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold mb-1 text-green-700">فيديو الإجابة:</label>
@@ -2927,9 +3049,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                                       type="text"
                                       value={editingData.answerVideoUrl || ''}
                                       onChange={(e) => updateEditingData('answerVideoUrl', e.target.value)}
-                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white"
-                                      placeholder="/images/questions/.../video/..."
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الفيديو"
                                     />
+                                    <input
+                                      type="file"
+                                      accept="video/*"
+                                      onChange={(e) => handleMediaUpload(e.target.files[0], 'video', 'answerVideoUrl')}
+                                      disabled={uploadingMedia.answerVideoUrl}
+                                      className="hidden"
+                                      id="answer-video-upload"
+                                    />
+                                    <label
+                                      htmlFor="answer-video-upload"
+                                      className={`block text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                        uploadingMedia.answerVideoUrl
+                                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                                          : 'bg-green-600 hover:bg-green-700 text-white'
+                                      }`}
+                                    >
+                                      {uploadingMedia.answerVideoUrl ? '⏳ جاري الرفع...' : '📤 رفع فيديو'}
+                                    </label>
                                   </div>
                                 </div>
                               </div>
