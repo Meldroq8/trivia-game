@@ -193,11 +193,26 @@ export class GameDataLoader {
    */
   static saveToCache(data) {
     try {
-      localStorage.setItem(this.CACHE_KEY, JSON.stringify(data))
+      const dataString = JSON.stringify(data)
+      const dataSizeKB = (dataString.length / 1024).toFixed(2)
+
+      // Check if data is too large (localStorage limit is ~5-10MB depending on browser)
+      // Skip caching if data is larger than 4MB to prevent quota errors
+      if (dataString.length > 4 * 1024 * 1024) {
+        console.warn(`⚠️ Data too large to cache (${dataSizeKB} KB). Skipping localStorage cache.`)
+        return
+      }
+
+      localStorage.setItem(this.CACHE_KEY, dataString)
       localStorage.setItem(this.CACHE_TIMESTAMP_KEY, Date.now().toString())
-      console.log('💾 Data cached locally')
+      console.log(`💾 Data cached locally (${dataSizeKB} KB)`)
     } catch (error) {
       console.error('Error saving to cache:', error)
+      // If quota exceeded, clear cache and try again with empty state
+      if (error.name === 'QuotaExceededError') {
+        console.warn('⚠️ Storage quota exceeded. Clearing old cache...')
+        this.clearCache()
+      }
     }
   }
 
