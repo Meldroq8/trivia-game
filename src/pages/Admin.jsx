@@ -2314,15 +2314,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold mb-1 text-blue-700">صورة السؤال:</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleQuestionImageUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleQuestionImageUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, imageUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الصورة"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.imageUrl && (
                   <div className="mt-2">
                     <SmartImage
@@ -2337,15 +2349,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-blue-700">صوت السؤال:</label>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleQuestionAudioUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleQuestionAudioUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.audioUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, audioUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الصوت"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.audioUrl && (
                   <div className="mt-2">
                     <LazyMediaPlayer
@@ -2358,15 +2382,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-blue-700">فيديو السؤال:</label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleQuestionVideoUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleQuestionVideoUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.videoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, videoUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الفيديو"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.videoUrl && (
                   <div className="mt-2">
                     <LazyMediaPlayer
@@ -2386,15 +2422,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold mb-1 text-green-700">صورة الإجابة:</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleAnswerImageUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleAnswerImageUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.answerImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerImageUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الصورة"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.answerImageUrl && (
                   <div className="mt-2">
                     <img
@@ -2407,15 +2455,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-green-700">صوت الإجابة:</label>
-                <input
-                  type="file"
-                  accept="audio/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleAnswerAudioUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleAnswerAudioUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.answerAudioUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerAudioUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الصوت"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.answerAudioUrl && (
                   <div className="mt-2">
                     <LazyMediaPlayer
@@ -2428,15 +2488,27 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1 text-green-700">فيديو الإجابة:</label>
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => {
-                    const file = e.target.files[0]
-                    if (file) handleSingleAnswerVideoUpload(file)
-                  }}
-                  className="w-full p-1 border rounded text-xs text-gray-900 bg-white"
-                />
+                <div className="flex gap-1">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0]
+                      if (file) handleSingleAnswerVideoUpload(file)
+                    }}
+                    className="flex-1 p-1 border rounded text-xs text-gray-900 bg-white"
+                  />
+                  {singleQuestion.answerVideoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setSingleQuestion(prev => ({ ...prev, answerVideoUrl: '' }))}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                      title="حذف الفيديو"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 {singleQuestion.answerVideoUrl && (
                   <div className="mt-2">
                     <LazyMediaPlayer
