@@ -1319,7 +1319,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       if (!targetCategoryId) {
         console.log(`🆕 Creating new category: ${bulkCategoryName}`)
-        const newCategory = await FirebaseQuestionsService.addCategory({
+        const newCategory = await FirebaseQuestionsService.createCategory({
           name: bulkCategoryName,
           color: '#' + Math.floor(Math.random()*16777215).toString(16),
           icon: '❓'
