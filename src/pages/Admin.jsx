@@ -8,6 +8,7 @@ import { deleteField } from 'firebase/firestore'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import { S3UploadService } from '../utils/s3Upload'
+import { parseExcelFile, extractZipFile, processBulkQuestions } from '../utils/bulkImport'
 import AudioPlayer from '../components/AudioPlayer'
 import LazyMediaPlayer from '../components/LazyMediaPlayer'
 import SmartImage from '../components/SmartImage'
@@ -875,6 +876,11 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   const [bulkQuestions, setBulkQuestions] = useState('')
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [showSingleAdd, setShowSingleAdd] = useState(false)
+  const [bulkCategoryName, setBulkCategoryName] = useState('') // Category name for bulk import
+  const [bulkImportType, setBulkImportType] = useState('text') // 'text', 'xlsx', or 'zip'
+  const [bulkFile, setBulkFile] = useState(null) // XLSX or ZIP file
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, message: '' })
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false)
   const [singleQuestion, setSingleQuestion] = useState({
     categoryId: '',
     difficulty: 'easy',
@@ -1252,6 +1258,106 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     } catch (error) {
       console.error('❌ Firebase bulk add error:', error)
       alert('فشل في إضافة الأسئلة إلى Firebase: ' + error.message)
+    }
+  }
+
+  // Handle XLSX/ZIP bulk import
+  const handleFileBulkImport = async () => {
+    if (!bulkCategoryName || !bulkCategoryName.trim()) {
+      alert('يرجى إدخال اسم الفئة')
+      return
+    }
+
+    if (!bulkFile) {
+      alert('يرجى اختيار ملف XLSX أو ZIP')
+      return
+    }
+
+    try {
+      setIsProcessingBulk(true)
+      setBulkProgress({ current: 0, total: 0, message: 'جاري التحضير...' })
+
+      let excelData = []
+      let mediaFiles = {}
+
+      // Handle ZIP file (contains both XLSX and media)
+      if (bulkImportType === 'zip') {
+        console.log('📦 Extracting ZIP file...')
+        const extracted = await extractZipFile(bulkFile)
+
+        if (!extracted.xlsx) {
+          throw new Error('لم يتم العثور على ملف Excel في ملف ZIP')
+        }
+
+        excelData = await parseExcelFile(extracted.xlsx)
+        mediaFiles = extracted.media
+        console.log(`✅ Extracted ${Object.keys(mediaFiles).length} media files from ZIP`)
+      }
+      // Handle XLSX file only
+      else if (bulkImportType === 'xlsx') {
+        console.log('📄 Parsing XLSX file...')
+        excelData = await parseExcelFile(bulkFile)
+      }
+
+      if (excelData.length === 0) {
+        throw new Error('لم يتم العثور على أسئلة في الملف')
+      }
+
+      console.log(`📊 Processing ${excelData.length} questions...`)
+
+      // Process questions with media upload
+      const processedQuestions = await processBulkQuestions(
+        excelData,
+        mediaFiles,
+        (current, total, message) => {
+          setBulkProgress({ current, total, message })
+        }
+      )
+
+      // Check if category exists or create it
+      let targetCategoryId = categories.find(c => c.name === bulkCategoryName)?.id
+
+      if (!targetCategoryId) {
+        console.log(`🆕 Creating new category: ${bulkCategoryName}`)
+        const newCategory = await FirebaseQuestionsService.addCategory({
+          name: bulkCategoryName,
+          color: '#' + Math.floor(Math.random()*16777215).toString(16),
+          icon: '❓'
+        })
+        targetCategoryId = newCategory.id
+        console.log(`✅ Created category with ID: ${targetCategoryId}`)
+      }
+
+      // Add questions to Firebase
+      let addedCount = 0
+      let skippedCount = 0
+
+      for (const question of processedQuestions) {
+        try {
+          await FirebaseQuestionsService.addQuestion(targetCategoryId, question)
+          addedCount++
+        } catch (error) {
+          console.error('Error adding question:', error)
+          skippedCount++
+        }
+      }
+
+      // Reset state
+      setBulkFile(null)
+      setBulkCategoryName('')
+      setIsProcessingBulk(false)
+      setBulkProgress({ current: 0, total: 0, message: '' })
+
+      alert(`✅ نجح الاستيراد!\n\n📊 تم إضافة: ${addedCount} سؤال\n⚠️ تم تخطي: ${skippedCount} سؤال\n📁 الفئة: ${bulkCategoryName}`)
+
+      // Refresh data
+      await loadDataForceRefresh()
+
+    } catch (error) {
+      console.error('❌ File bulk import error:', error)
+      alert('فشل في استيراد الملف: ' + error.message)
+    } finally {
+      setIsProcessingBulk(false)
     }
   }
 
@@ -2581,132 +2687,264 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
         {showBulkAdd && (
           <div>
+            {/* Import Type Selection */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg mb-4 border-2 border-purple-200">
+              <h4 className="font-bold text-purple-800 mb-3">📥 اختر طريقة الاستيراد:</h4>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 transition-all">
+                  <input
+                    type="radio"
+                    name="importType"
+                    value="text"
+                    checked={bulkImportType === 'text'}
+                    onChange={(e) => setBulkImportType(e.target.value)}
+                    className="w-4 h-4 text-purple-600"
+                  />
+                  <span className="font-semibold text-purple-700">📝 نص مباشر</span>
+                </label>
 
-            {/* Instructions */}
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
-              <h4 className="font-bold text-blue-800 mb-2">تعليمات التنسيق:</h4>
-              <div className="text-blue-700 text-sm space-y-1">
-                <p>• استخدم الفاصلة المنقوطة العربية (؛) للفصل بين الأجزاء</p>
-                <p>• كل سؤال في سطر واحد مقسم كالتالي:</p>
-                <p><strong>السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة</strong></p>
-                <p>• يمكن ترك الخيارات فارغة للأسئلة النصية</p>
-                <p>• مستوى الصعوبة: سهل/متوسط/صعب أو easy/medium/hard</p>
-                <p>• <strong>🎵 رابط الصوت:</strong> اختياري - مثل: images/songseng/Skyfall_Adele.mp3</p>
-                <p>• <strong>🖼️ رابط الصورة:</strong> اختياري - مثل: images/songsimg/Skyfall_Adele.jpg</p>
-                <p>• <strong>✨ الفئة مطلوبة:</strong> يجب تحديد الفئة في العمود السابع، وإذا لم تكن موجودة سيتم إنشاؤها تلقائياً!</p>
-                <p>• <strong>🔄 لا حاجة لاختيار فئة مسبقاً:</strong> النظام سيوزع الأسئلة على الفئات المحددة في كل سؤال</p>
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-3 rounded-lg border-2 border-green-200 hover:border-green-400 transition-all">
+                  <input
+                    type="radio"
+                    name="importType"
+                    value="xlsx"
+                    checked={bulkImportType === 'xlsx'}
+                    onChange={(e) => setBulkImportType(e.target.value)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="font-semibold text-green-700">📊 ملف Excel (XLSX)</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-white p-3 rounded-lg border-2 border-blue-200 hover:border-blue-400 transition-all">
+                  <input
+                    type="radio"
+                    name="importType"
+                    value="zip"
+                    checked={bulkImportType === 'zip'}
+                    onChange={(e) => setBulkImportType(e.target.value)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="font-semibold text-blue-700">📦 ملف مضغوط (ZIP)</span>
+                </label>
               </div>
             </div>
 
-            {/* Firebase Info */}
-            <div className="bg-orange-50 p-4 rounded-lg mb-4">
-              <h4 className="font-bold text-orange-800 mb-2">🔥 الاستيراد المباشر إلى Firebase</h4>
-              <div className="text-orange-700 text-sm space-y-1">
-                <p>• <strong>فحص المكررات التلقائي:</strong> سيتم تخطي الأسئلة المكررة (نفس النص والإجابة)</p>
-                <p>• <strong>أسئلة مشابهة مسموحة:</strong> إذا كان النص نفسه ولكن الإجابة مختلفة، سيتم إضافته</p>
-                <p>• <strong>حفظ دائم:</strong> البيانات محفوظة في Firebase وتظل موجودة حتى لو تم مسح المتصفح</p>
-                <p>• <strong>تزامن فوري:</strong> يمكن للمستخدمين الآخرين رؤية الأسئلة الجديدة فوراً</p>
-                <p>• <strong>🎵 دعم كامل للصوت والصور:</strong> يدعم ملفات MP3 و JPG حسب التنسيق الجديد</p>
-                <p>• <strong>⚡ أداء محسن:</strong> لا يحفظ في localStorage - Firebase فقط للموثوقية</p>
-              </div>
-            </div>
-
-            {/* Auto Category Creation Info */}
-            <div className="bg-green-50 p-4 rounded-lg mb-4">
-              <h4 className="font-bold text-green-800 mb-2">✨ إنشاء الفئات التلقائي</h4>
-              <div className="text-green-700 text-sm space-y-1">
-                <p>• إذا كتبت فئة جديدة في عمود "الفئة"، سيتم إنشاؤها تلقائياً</p>
-                <p>• الفئات الجديدة ستظهر في لوحة اللعبة وفي قائمة إدارة الفئات</p>
-                <p>• يمكنك تعديل لون وصورة الفئة الجديدة من تبويب "إدارة الفئات"</p>
-                <p>• إذا تركت عمود الفئة فارغاً، سيتم إضافة السؤال لفئة "عام"</p>
-              </div>
-            </div>
-
-            {/* Example */}
-            <div className="bg-green-50 p-4 rounded-lg mb-4">
-              <h4 className="font-bold text-green-800 mb-2">🎯 أمثلة التنسيق الجديد المبسط (باستخدام البادئات):</h4>
-              <pre className="text-green-700 text-sm whitespace-pre-line" style={{ direction: 'ltr', textAlign: 'left' }}>{`ما اسم هذا الحيوان؟؛أسد؛أسد؛نمر؛فهد؛ذئب؛حيوانات؛Q:lion.jpg|QA:lion_roar.mp3|AV:lion_facts.mp4؛سهل
-
-من غنى هذه الأغنية؟؛Adele - Skyfall؛Taylor Swift؛Harry Styles؛Adele؛The Weeknd؛اغاني اجنبية؛QA:skyfall.mp3|Q:adele.jpg|AA:skyfall_answer.mp3|A:album.jpg؛متوسط
-
-شاهد الفيديو واجب على السؤال؟؛باريس؛باريس؛لندن؛روما؛برلين؛سفر؛QV:paris_tour.mp4|A:paris_answer.jpg|AV:paris_facts.mp4؛صعب
-
-سؤال بصورة فقط؛جواب؛؛؛؛؛فئة؛Q:question_image.jpg؛سهل
-
-سؤال بصوت فقط؛جواب؛؛؛؛؛فئة؛QA:question_audio.mp3؛سهل`}</pre>
-
-              <h4 className="font-bold text-green-800 mb-2 mt-4">📱 أمثلة التنسيق القديم (مدعوم):</h4>
-              <pre className="text-green-700 text-sm whitespace-pre-line" style={{ direction: 'ltr', textAlign: 'left' }}>{`من غنى هذه الأغنية؟؛Adele - Skyfall؛Taylor Swift؛Harry Styles؛Adele؛The Weeknd؛اغاني اجنبية؛images/songseng/Skyfall_Adele.mp3؛images/songsimg/Skyfall_Adele.jpg؛سهل
-
-ما هي الدولة الملونة بالأحمر في الخريطة؟؛هنغاريا؛هنغاريا؛هولندا؛الهند؛هايتي؛خرائط؛؛images/Flags/countries/Hungary_map.svg؛متوسط
-
-من اكتشف الجاذبية؟؛إسحاق نيوتن؛؛؛؛؛علوم؛؛؛متوسط`}</pre>
-              <div className="text-green-600 text-xs mt-2">
-                <p><strong>🎯 التنسيق الجديد المبسط (مع دعم الفيديو والصوت):</strong></p>
-                <p className="bg-green-50 p-2 rounded mt-1 mb-2 font-mono text-xs">
-                  السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛الوسائط؛مستوى الصعوبة
-                </p>
-                <p><strong>📱 التنسيق القديم المدعوم:</strong> السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة</p>
-
-                <div className="mt-3 space-y-1">
-                  <p><strong>📝 قواعد الأسئلة:</strong></p>
-                  <p>• أسئلة متعددة الخيارات: املأ جميع الخيارات الأربعة</p>
-                  <p>• أسئلة نصية: اترك الخيارات فارغة (؛؛؛؛)</p>
-                  <p>• <strong>الفئة مطلوبة:</strong> كل سؤال يجب أن يحدد فئته</p>
-
-                  <p><strong>🎥 قواعد الوسائط الجديدة (باستخدام البادئات):</strong></p>
-                  <p>• <strong>للسؤال:</strong> Q:صورة.jpg | QA:صوت.mp3 | QV:فيديو.mp4</p>
-                  <p>• <strong>للجواب:</strong> A:صورة.jpg | AA:صوت.mp3 | AV:فيديو.mp4</p>
-                  <p>• <strong>مثال كامل:</strong> Q:lion.jpg|QA:roar.mp3|AV:facts.mp4</p>
-                  <p>• اترك الوسائط فارغة إذا لم تكن هناك وسائط</p>
-
-                  <p><strong>🏷️ البادئات المدعومة:</strong></p>
-                  <p>• Q, QI, Q_IMG → صورة السؤال | QA, Q_AUDIO → صوت السؤال | QV, Q_VIDEO → فيديو السؤال</p>
-                  <p>• A, AI, A_IMG → صورة الجواب | AA, A_AUDIO → صوت الجواب | AV, A_VIDEO → فيديو الجواب</p>
-
-                  <p><strong>⚙️ إعدادات أخرى:</strong></p>
-                  <p>• مستوى الصعوبة: سهل / متوسط / صعب</p>
-                  <p>• فئات جديدة سيتم إنشاؤها تلقائياً</p>
+            {/* Text Import Mode */}
+            {bulkImportType === 'text' && (
+              <>
+                {/* Instructions */}
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-bold text-blue-800 mb-2">تعليمات التنسيق:</h4>
+                  <div className="text-blue-700 text-sm space-y-1">
+                    <p>• استخدم الفاصلة المنقوطة العربية (؛) للفصل بين الأجزاء</p>
+                    <p>• كل سؤال في سطر واحد مقسم كالتالي:</p>
+                    <p><strong>السؤال؛الجواب؛خيار1؛خيار2؛خيار3؛خيار4؛الفئة؛رابط الصوت؛رابط الصورة؛مستوى الصعوبة</strong></p>
+                    <p>• يمكن ترك الخيارات فارغة للأسئلة النصية</p>
+                    <p>• مستوى الصعوبة: سهل/متوسط/صعب أو easy/medium/hard</p>
+                    <p>• <strong>✨ الفئة مطلوبة:</strong> يجب تحديد الفئة في العمود السابع، وإذا لم تكن موجودة سيتم إنشاؤها تلقائياً!</p>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Bulk Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-bold mb-2">الأسئلة (بالتنسيق المطلوب):</label>
-              <textarea
-                value={bulkQuestions}
-                onChange={(e) => setBulkQuestions(e.target.value)}
-                className="w-full h-64 p-3 border rounded-lg font-mono text-sm"
-                placeholder="أدخل الأسئلة هنا..."
-                style={{ direction: 'ltr', textAlign: 'left' }}
-              />
-            </div>
+                {/* Firebase Info */}
+                <div className="bg-orange-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-bold text-orange-800 mb-2">🔥 الاستيراد المباشر إلى Firebase</h4>
+                  <div className="text-orange-700 text-sm space-y-1">
+                    <p>• <strong>فحص المكررات التلقائي:</strong> سيتم تخطي الأسئلة المكررة (نفس النص والإجابة)</p>
+                    <p>• <strong>أسئلة مشابهة مسموحة:</strong> إذا كان النص نفسه ولكن الإجابة مختلفة، سيتم إضافته</p>
+                    <p>• <strong>حفظ دائم:</strong> البيانات محفوظة في Firebase وتظل موجودة حتى لو تم مسح المتصفح</p>
+                    <p>• <strong>تزامن فوري:</strong> يمكن للمستخدمين الآخرين رؤية الأسئلة الجديدة فوراً</p>
+                  </div>
+                </div>
 
-            {/* Force Import Option */}
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={forceImport}
-                  onChange={(e) => setForceImport(e.target.checked)}
-                  className="rounded"
-                />
-                <span className="text-sm font-bold text-yellow-800">
-                  ⚠️ فرض الاستيراد (تجاهل الأسئلة المكررة)
-                </span>
-              </label>
-              <p className="text-xs text-yellow-600 mt-1">
-                استخدم هذا الخيار إذا حذفت فئة وتريد إعادة استيرادها فوراً
-              </p>
-            </div>
+                {/* Bulk Input */}
+                <div className="mb-4">
+                  <label className="block text-sm font-bold mb-2">الأسئلة (بالتنسيق المطلوب):</label>
+                  <textarea
+                    value={bulkQuestions}
+                    onChange={(e) => setBulkQuestions(e.target.value)}
+                    className="w-full h-64 p-3 border rounded-lg font-mono text-sm"
+                    placeholder="أدخل الأسئلة هنا..."
+                    style={{ direction: 'ltr', textAlign: 'left' }}
+                  />
+                </div>
 
-            <button
-              onClick={handleBulkAdd}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg"
-            >
-              إضافة الأسئلة
-            </button>
+                {/* Force Import Option */}
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={forceImport}
+                      onChange={(e) => setForceImport(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-sm font-bold text-yellow-800">
+                      ⚠️ فرض الاستيراد (تجاهل الأسئلة المكررة)
+                    </span>
+                  </label>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    استخدم هذا الخيار إذا حذفت فئة وتريد إعادة استيرادها فوراً
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleBulkAdd}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg"
+                >
+                  إضافة الأسئلة
+                </button>
+              </>
+            )}
+
+            {/* XLSX Import Mode */}
+            {bulkImportType === 'xlsx' && (
+              <>
+                <div className="bg-green-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-bold text-green-800 mb-2">📊 استيراد من ملف Excel</h4>
+                  <div className="text-green-700 text-sm space-y-1">
+                    <p>• قم بتحميل ملف Excel (.xlsx) يحتوي على الأسئلة</p>
+                    <p>• يجب أن يحتوي الملف على الأعمدة التالية: السؤال، الإجابة، الخيارات، الصعوبة</p>
+                    <p>• سيتم إضافة جميع الأسئلة إلى الفئة المحددة أدناه</p>
+                    <p>• إذا كانت الأسئلة تحتوي على روابط وسائط، تأكد من وجود الملفات في المسارات الصحيحة</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-bold mb-2">اسم الفئة:</label>
+                    <input
+                      type="text"
+                      value={bulkCategoryName}
+                      onChange={(e) => setBulkCategoryName(e.target.value)}
+                      className="w-full p-3 border rounded-lg"
+                      placeholder="أدخل اسم الفئة (سيتم إنشاؤها إذا لم تكن موجودة)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold mb-2">ملف Excel:</label>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => setBulkFile(e.target.files[0])}
+                      className="w-full p-3 border rounded-lg"
+                    />
+                    {bulkFile && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ✅ تم اختيار: {bulkFile.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {isProcessingBulk && (
+                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <span className="font-bold text-blue-800">{bulkProgress.message}</span>
+                    </div>
+                    {bulkProgress.total > 0 && (
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    <p className="text-sm text-blue-600 mt-1">
+                      {bulkProgress.current} / {bulkProgress.total}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleFileBulkImport}
+                  disabled={isProcessingBulk}
+                  className={`font-bold py-3 px-6 rounded-lg ${
+                    isProcessingBulk
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {isProcessingBulk ? 'جاري الاستيراد...' : '📊 استيراد من Excel'}
+                </button>
+              </>
+            )}
+
+            {/* ZIP Import Mode */}
+            {bulkImportType === 'zip' && (
+              <>
+                <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-bold text-blue-800 mb-2">📦 استيراد من ملف مضغوط</h4>
+                  <div className="text-blue-700 text-sm space-y-1">
+                    <p>• قم بتحميل ملف ZIP يحتوي على:</p>
+                    <p className="mr-4">- ملف Excel (.xlsx) بالأسئلة</p>
+                    <p className="mr-4">- مجلد media يحتوي على الصور والأصوات والفيديوهات</p>
+                    <p>• سيتم رفع جميع الوسائط تلقائياً وربطها بالأسئلة</p>
+                    <p>• تأكد من أن أسماء الملفات في Excel تطابق أسماء ملفات الوسائط في المجلد</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-bold mb-2">اسم الفئة:</label>
+                    <input
+                      type="text"
+                      value={bulkCategoryName}
+                      onChange={(e) => setBulkCategoryName(e.target.value)}
+                      className="w-full p-3 border rounded-lg"
+                      placeholder="أدخل اسم الفئة (سيتم إنشاؤها إذا لم تكن موجودة)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold mb-2">ملف ZIP:</label>
+                    <input
+                      type="file"
+                      accept=".zip"
+                      onChange={(e) => setBulkFile(e.target.files[0])}
+                      className="w-full p-3 border rounded-lg"
+                    />
+                    {bulkFile && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ✅ تم اختيار: {bulkFile.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {isProcessingBulk && (
+                  <div className="bg-blue-50 p-4 rounded-lg mb-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                      <span className="font-bold text-blue-800">{bulkProgress.message}</span>
+                    </div>
+                    {bulkProgress.total > 0 && (
+                      <div className="w-full bg-blue-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    <p className="text-sm text-blue-600 mt-1">
+                      {bulkProgress.current} / {bulkProgress.total}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleFileBulkImport}
+                  disabled={isProcessingBulk}
+                  className={`font-bold py-3 px-6 rounded-lg ${
+                    isProcessingBulk
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {isProcessingBulk ? 'جاري الاستيراد...' : '📦 استيراد من ZIP'}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
