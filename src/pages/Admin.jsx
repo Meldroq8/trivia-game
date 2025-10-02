@@ -4,7 +4,8 @@ import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebas
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import { deleteField } from 'firebase/firestore'
+import { deleteField, doc, deleteDoc } from 'firebase/firestore'
+import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
 import { S3UploadService } from '../utils/s3Upload'
@@ -406,43 +407,100 @@ function CategoriesManager({ isAdmin, isModerator }) {
 
   const deleteCategory = async (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId)
-    const categoryQuestions = questions[categoryId] || []
-    const questionCount = categoryQuestions.length
+    const questionCount = (questions[categoryId] || []).length
 
     const confirmMessage = questionCount > 0
       ? `هل أنت متأكد من حذف فئة "${category?.name}" مع جميع أسئلتها (${questionCount} سؤال)؟\n\nلا يمكن التراجع عن هذا الإجراء!`
       : `هل أنت متأكد من حذف فئة "${category?.name}"؟`
 
-    if (!window.confirm(confirmMessage)) {
-      return
-    }
+    if (window.confirm(confirmMessage)) {
+      try {
+        console.log(`🗑️ Starting deletion of category: ${categoryId}`)
+        console.log(`📊 Category name: ${category?.name}`)
+        console.log(`📊 Questions to delete: ${questionCount}`)
 
-    try {
-      console.log(`🗑️ Starting deletion of category: ${categoryId}`)
+        // First, delete all questions with this categoryId
+        // This handles both regular categories and "orphaned" categories
+        console.log(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
+        const categoryQuestions = questions[categoryId] || []
+        let deletedQuestionsCount = 0
+        const errors = []
 
-      // Delete from Firebase (this will delete category and all its questions)
-      const result = await FirebaseQuestionsService.deleteCategory(categoryId)
+        for (const question of categoryQuestions) {
+          if (question.id) {
+            try {
+              await FirebaseQuestionsService.deleteQuestion(question.id)
+              deletedQuestionsCount++
+              console.log(`  ✅ Deleted question ${deletedQuestionsCount}/${categoryQuestions.length}: ${question.id}`)
+            } catch (error) {
+              console.error(`  ❌ Failed to delete question ${question.id}:`, error)
+              errors.push({ questionId: question.id, error: error.message })
+            }
+          }
+        }
 
-      console.log(`✅ Category deletion result:`, result)
+        console.log(`✅ Deleted ${deletedQuestionsCount} out of ${categoryQuestions.length} questions`)
+        if (errors.length > 0) {
+          console.error(`❌ Failed to delete ${errors.length} questions:`, errors)
+        }
 
-      // Update local state - remove category
-      const updatedCategories = categories.filter(cat => cat.id !== categoryId)
-      setCategories(updatedCategories)
+        // Now try to delete the category document itself (if it exists)
+        // This might fail if the category is "orphaned" (no document in Firebase)
+        let categoryDeleted = false
+        try {
+          console.log(`🗑️ Attempting to delete category document: ${categoryId}`)
+          // Check if category document exists in Firebase by looking at our categories list
+          const categoryExists = categories.some(c => c.id === categoryId && !c.isMystery)
 
-      // Update local state - remove all questions in this category
-      const updatedQuestions = { ...questions }
-      delete updatedQuestions[categoryId]
-      setQuestions(updatedQuestions)
+          if (categoryExists) {
+            const categoryRef = doc(db, 'categories', categoryId)
+            await deleteDoc(categoryRef)
+            categoryDeleted = true
+            console.log(`✅ Category document deleted from Firebase`)
+          } else {
+            console.log(`ℹ️ Category "${categoryId}" is orphaned (no document in Firebase), skipping category deletion`)
+          }
+        } catch (error) {
+          console.log(`⚠️ Could not delete category document:`, error.message)
+          // Don't throw - we still successfully deleted the questions
+        }
 
-      // Clear cache and reload from Firebase to ensure sync
-      GameDataLoader.clearCache()
-      await loadDataFromFirebase()
+        const result = {
+          success: true,
+          deletedQuestionsCount,
+          categoryId,
+          categoryDeleted,
+          errors: errors.length
+        }
 
-      alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
+        // Update local state - remove category
+        const updatedCategories = categories.filter(cat => cat.id !== categoryId)
+        setCategories(updatedCategories)
 
-    } catch (error) {
-      console.error('❌ Error deleting category:', error)
-      alert('حدث خطأ أثناء حذف الفئة. يرجى المحاولة مرة أخرى.')
+        // Update local state - remove all questions in this category
+        const updatedQuestions = { ...questions }
+        delete updatedQuestions[categoryId]
+        setQuestions(updatedQuestions)
+
+        // Clear cache and reload data from Firebase to verify deletion
+        console.log('🔄 Reloading data from Firebase to verify deletion...')
+        GameDataLoader.clearCache()
+
+        // Reload data from Firebase
+        const gameData = await GameDataLoader.loadGameData(true) // Force refresh
+        if (gameData) {
+          setCategories(gameData.categories || [])
+          setQuestions(gameData.questions || {})
+          console.log('✅ Data reloaded from Firebase')
+        }
+
+        alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
+
+      } catch (error) {
+        console.error('❌ Error deleting category:', error)
+        console.error('Error details:', error.message)
+        alert(`حدث خطأ أثناء حذف الفئة: ${error.message}\n\nيرجى المحاولة مرة أخرى.`)
+      }
     }
   }
 
@@ -1319,22 +1377,35 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       if (!targetCategoryId) {
         console.log(`🆕 Creating new category: ${bulkCategoryName}`)
-        const newCategory = await FirebaseQuestionsService.createCategory({
+        const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16)
+
+        // createCategory returns just the ID string, not an object
+        const newCategoryId = await FirebaseQuestionsService.createCategory({
           name: bulkCategoryName,
-          color: '#' + Math.floor(Math.random()*16777215).toString(16),
+          color: randomColor,
           icon: '❓'
         })
-        targetCategoryId = newCategory.id
+        targetCategoryId = newCategoryId
         console.log(`✅ Created category with ID: ${targetCategoryId}`)
+
+        if (!targetCategoryId) {
+          throw new Error('Failed to create category - no ID returned')
+        }
 
         // Add category to local state immediately so it doesn't get filtered out
         setCategories(prev => [...prev, {
-          id: newCategory.id,
+          id: newCategoryId,
           name: bulkCategoryName,
-          color: newCategory.color,
-          icon: newCategory.icon
+          color: randomColor,
+          icon: '❓'
         }])
       }
+
+      // Double-check we have a valid category ID before proceeding
+      if (!targetCategoryId) {
+        throw new Error(`Category "${bulkCategoryName}" not found and could not be created`)
+      }
+      console.log(`📂 Target category ID: ${targetCategoryId}`)
 
       // Add questions to Firebase
       let addedCount = 0
@@ -1350,10 +1421,15 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         })
 
         try {
-          console.log(`Adding question ${i + 1}:`, question.text)
-          await FirebaseQuestionsService.addQuestion(targetCategoryId, question)
+          console.log(`➕ Adding question ${i + 1} to category ${targetCategoryId}:`, {
+            text: question.text?.substring(0, 50) + '...',
+            categoryId: targetCategoryId,
+            categoryName: bulkCategoryName
+          })
+          // Use addSingleQuestion which properly associates the question with the category
+          const addedQuestionId = await FirebaseQuestionsService.addSingleQuestion(targetCategoryId, question)
+          console.log(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
           addedCount++
-          console.log(`✅ Question ${i + 1} added successfully`)
         } catch (error) {
           console.error(`Error adding question ${i + 1}:`, error)
           errors.push({ questionNumber: i + 1, text: question.text, error: error.message })
@@ -1392,10 +1468,20 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       setIsProcessingBulk(false)
       setBulkProgress({ current: 0, total: 0, message: '' })
 
+      console.log(`📊 Import complete: ${addedCount} added, ${skippedCount} skipped`)
+      console.log(`🔄 Refreshing data to show newly added questions in category: ${bulkCategoryName}`)
+
       alert(`✅ نجح الاستيراد!\n\n📊 تم إضافة: ${addedCount} سؤال\n⚠️ تم تخطي: ${skippedCount} سؤال\n📁 الفئة: ${bulkCategoryName}`)
+
+      // Clear ALL caches to ensure fresh data everywhere
+      console.log('🗑️ Clearing all caches to force fresh data load...')
+      GameDataLoader.clearCache()
 
       // Refresh data
       await loadDataForceRefresh()
+
+      console.log(`✅ Data refreshed. Checking questions in category ${targetCategoryId}...`)
+      console.log(`Questions in ${bulkCategoryName}:`, questions[targetCategoryId]?.length || 0)
 
     } catch (error) {
       console.error('❌ File bulk import error:', error)
@@ -1758,45 +1844,6 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       ...prev,
       [field]: value
     }))
-  }
-
-  const deleteCategory = async (categoryId) => {
-    const category = categories.find(cat => cat.id === categoryId)
-    const questionCount = (questions[categoryId] || []).length
-
-    const confirmMessage = questionCount > 0
-      ? `هل أنت متأكد من حذف فئة "${category?.name}" مع جميع أسئلتها (${questionCount} سؤال)؟\n\nلا يمكن التراجع عن هذا الإجراء!`
-      : `هل أنت متأكد من حذف فئة "${category?.name}"؟`
-
-    if (window.confirm(confirmMessage)) {
-      try {
-        console.log(`🗑️ Starting deletion of category: ${categoryId}`)
-
-        // Delete from Firebase (this will delete category and all its questions)
-        const result = await FirebaseQuestionsService.deleteCategory(categoryId)
-
-        console.log(`✅ Category deletion result:`, result)
-
-        // Update local state - remove category
-        const updatedCategories = categories.filter(cat => cat.id !== categoryId)
-        setCategories(updatedCategories)
-
-        // Update local state - remove all questions in this category
-        const updatedQuestions = { ...questions }
-        delete updatedQuestions[categoryId]
-        setQuestions(updatedQuestions)
-
-        // Clear cache and reload data from Firebase
-        GameDataLoader.clearCache()
-        await loadData()
-
-        alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
-
-      } catch (error) {
-        console.error('❌ Error deleting category:', error)
-        alert('حدث خطأ أثناء حذف الفئة. يرجى المحاولة مرة أخرى.')
-      }
-    }
   }
 
   const changeDifficulty = async (categoryId, questionIndex, newDifficulty) => {
