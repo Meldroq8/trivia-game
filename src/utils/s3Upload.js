@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 const S3_CONFIG = {
   region: import.meta.env.VITE_AWS_REGION || 'me-south-1',
@@ -227,14 +227,44 @@ export class S3UploadService {
   }
 
   /**
-   * Delete a file from S3 (optional - for cleanup)
-   * Note: This would require additional AWS SDK imports and DELETE permissions
-   * For now, we'll just log and skip deletion
+   * Delete a file from S3
+   * @param {string} fileUrl - The CloudFront URL of the file to delete
+   * @returns {Promise<boolean>} - True if deleted successfully
    */
   static async deleteFile(fileUrl) {
-    console.log('S3 file deletion not implemented yet:', fileUrl)
-    // TODO: Implement S3 deleteObject if needed
-    return
+    if (!fileUrl) {
+      throw new Error('No file URL provided')
+    }
+
+    try {
+      // Extract the S3 key from the CloudFront URL
+      // Example: https://drcqcbq3desis.cloudfront.net/images/questions/question_1234.webp
+      // Key should be: images/questions/question_1234.webp
+      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
+      const key = fileUrl.replace(`https://${cloudFrontDomain}/`, '')
+
+      console.log(`Deleting file from S3: ${key}`)
+
+      const client = getS3Client()
+      const command = new DeleteObjectCommand({
+        Bucket: S3_CONFIG.bucket,
+        Key: key
+      })
+
+      await client.send(command)
+      console.log('File deleted successfully from S3')
+
+      return true
+    } catch (error) {
+      console.error('Error deleting file from S3:', error)
+      console.error('Error details:', {
+        message: error.message,
+        code: error.Code || error.code,
+        statusCode: error.$metadata?.httpStatusCode,
+        requestId: error.$metadata?.requestId
+      })
+      throw new Error(`Failed to delete file: ${error.message}`)
+    }
   }
 
   /**
