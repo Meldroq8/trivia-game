@@ -1193,8 +1193,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {/* Helper Tools */}
                 <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
                   <button
-                    className="icon-nav-link border-2 rounded-full border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center"
-                    style={{ padding: styles.perkButtonPadding }}
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center`}
                     disabled={true}
                     title="متاح فقط في لوحة اللعبة"
                   >
@@ -1268,8 +1267,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {/* Helper Tools */}
                 <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
                   <button
-                    className="icon-nav-link border-2 rounded-full border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center"
-                    style={{ padding: styles.perkButtonPadding }}
+                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center`}
                     disabled={true}
                     title="متاح فقط في لوحة اللعبة"
                   >
