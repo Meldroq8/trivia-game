@@ -1340,38 +1340,40 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
               {/* Perk Timer Circle - Bottom Right */}
               {activeTimer.active && (
-                <div className="absolute bottom-4 right-4 z-50">
-                  <div className="relative w-20 h-20 md:w-24 md:h-24">
+                <div className="absolute bottom-16 right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28">
                     {/* Circular Progress SVG */}
-                    <svg className="transform -rotate-90 w-full h-full">
+                    <svg className="transform -rotate-90 w-full h-full drop-shadow-lg">
                       {/* Background circle */}
                       <circle
                         cx="50%"
                         cy="50%"
-                        r="38"
+                        r="40%"
                         stroke="#e5e7eb"
-                        strokeWidth="6"
-                        fill="none"
+                        strokeWidth="8%"
+                        fill="white"
+                        fillOpacity="0.9"
                       />
                       {/* Progress circle */}
                       <circle
                         cx="50%"
                         cy="50%"
-                        r="38"
+                        r="40%"
                         stroke="#dc2626"
-                        strokeWidth="6"
+                        strokeWidth="8%"
                         fill="none"
-                        strokeDasharray={`${2 * Math.PI * 38}`}
-                        strokeDashoffset={`${2 * Math.PI * 38 * (1 - activeTimer.timeLeft / (activeTimer.type === 'phone' ? 30 : 15))}`}
+                        strokeDasharray={`${2 * Math.PI * 40}`}
+                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - activeTimer.timeLeft / (activeTimer.type === 'phone' ? 30 : 15))}`}
                         strokeLinecap="round"
+                        className="transition-all duration-300"
                       />
                     </svg>
                     {/* Timer text */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="text-2xl md:text-3xl font-bold text-red-600">
+                      <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-red-600">
                         {activeTimer.timeLeft}
                       </div>
-                      <div className="text-xs md:text-sm text-gray-600">
+                      <div className="text-xs sm:text-sm md:text-base">
                         {activeTimer.type === 'phone' ? '📞' : '🔍'}
                       </div>
                     </div>
