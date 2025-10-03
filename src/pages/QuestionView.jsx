@@ -1337,6 +1337,48 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                    paddingBottom: `${styles.bottomPadding}px`,
                    backgroundColor: '#f7f2e6'
                  }}>
+
+              {/* Perk Timer Circle - Bottom Right */}
+              {activeTimer.active && (
+                <div className="absolute bottom-4 right-4 z-50">
+                  <div className="relative w-20 h-20 md:w-24 md:h-24">
+                    {/* Circular Progress SVG */}
+                    <svg className="transform -rotate-90 w-full h-full">
+                      {/* Background circle */}
+                      <circle
+                        cx="50%"
+                        cy="50%"
+                        r="38"
+                        stroke="#e5e7eb"
+                        strokeWidth="6"
+                        fill="none"
+                      />
+                      {/* Progress circle */}
+                      <circle
+                        cx="50%"
+                        cy="50%"
+                        r="38"
+                        stroke="#dc2626"
+                        strokeWidth="6"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 38}`}
+                        strokeDashoffset={`${2 * Math.PI * 38 * (1 - activeTimer.timeLeft / (activeTimer.type === 'phone' ? 30 : 15))}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    {/* Timer text */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="text-2xl md:text-3xl font-bold text-red-600">
+                        {activeTimer.timeLeft}
+                      </div>
+                      <div className="text-xs md:text-sm text-gray-600">
+                        {activeTimer.type === 'phone' ? '📞' : '🔍'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper">
 
                 {/* Question Content - Only show when not in answer mode */}
