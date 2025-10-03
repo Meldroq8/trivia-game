@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
+import { GameDataLoader } from '../utils/gameDataLoader'
 
 function MyGames({ gameState, setGameState }) {
   const [games, setGames] = useState([])
@@ -12,6 +13,7 @@ function MyGames({ gameState, setGameState }) {
   const [gameToDelete, setGameToDelete] = useState(null)
   const [indexError, setIndexError] = useState(null)
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const [categories, setCategories] = useState([])
   const navigate = useNavigate()
   const { isAuthenticated, user, getUserGames, deleteGame, loading: authLoading } = useAuth()
 
@@ -44,6 +46,22 @@ function MyGames({ gameState, setGameState }) {
       return
     }
   }, [authLoading, isAuthenticated, navigate])
+
+  // Load categories from Firebase
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const gameData = await GameDataLoader.loadGameData()
+        if (gameData && gameData.categories) {
+          setCategories(gameData.categories)
+          console.log('📂 Loaded categories for MyGames:', gameData.categories)
+        }
+      } catch (error) {
+        console.error('❌ Error loading categories:', error)
+      }
+    }
+    loadCategories()
+  }, [])
 
   // Load user's games
   useEffect(() => {
@@ -408,6 +426,10 @@ function MyGames({ gameState, setGameState }) {
                           {game.gameData.selectedCategories?.map((categoryId, idx) => {
                             // Map category IDs to proper Arabic names
                             const getCategoryName = (id) => {
+                              const category = categories.find(cat => cat.id === id)
+                              if (category) {
+                                return category.name
+                              }
                               if (id === 'mystery') {
                                 return 'الفئة الغامضة'
                               }
