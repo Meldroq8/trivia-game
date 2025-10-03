@@ -1361,8 +1361,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-red-600">
                         {activeTimer.timeLeft}
                       </div>
-                      <div className="text-xs sm:text-sm md:text-base">
-                        {activeTimer.type === 'phone' ? '📞' : '🔍'}
+                      <div className="mt-1">
+                        {activeTimer.type === 'phone' ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6">
+                            <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill="#dc2626" stroke="none"/>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6">
+                            <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill="#dc2626" stroke="none"/>
+                          </svg>
+                        )}
                       </div>
                     </div>
                   </div>
