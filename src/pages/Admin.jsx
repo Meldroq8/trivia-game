@@ -1051,6 +1051,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     loadData()
   }, [])
 
+  // Helper function to get category name from ID
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId)
+    return category ? category.name : 'فئة غير معروفة'
+  }
+
 
   // Collapse all categories when categories are loaded (but not during editing, saving, or after editing)
   useEffect(() => {
@@ -3657,9 +3663,9 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                             <span className="px-2 py-1 bg-red-100 text-red-800 rounded">
                               {question.type === 'multiple_choice' ? 'متعدد الخيارات' : 'نصي'}
                             </span>
-                            {question.category && (
+                            {(question.categoryId || question.category) && (
                               <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
-                                {question.category}
+                                {getCategoryName(question.categoryId || question.category)}
                               </span>
                             )}
                           </div>
