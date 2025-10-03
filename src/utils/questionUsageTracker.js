@@ -258,9 +258,9 @@ class QuestionUsageTracker {
    */
   getQuestionId(question) {
     // Use text + answer combination to create unique ID
-    const text = question.text || question.question?.text || ''
-    const answer = question.answer || question.question?.answer || ''
-    const category = question.category || question.categoryId || ''
+    const text = String(question.text || question.question?.text || '')
+    const answer = String(question.answer || question.question?.answer || '')
+    const category = String(question.category || question.categoryId || '')
     return `${category}-${text.substring(0, 50)}-${answer.substring(0, 20)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
   }
 
