@@ -1193,19 +1193,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {/* Helper Tools */}
                 <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
                   <button
-                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
-                      (gameState.perkUsage?.team1?.double || 0) >= 1
-                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                        : gameState.currentTurn !== 'team1'
-                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                    }`}
-                    disabled={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1'}
-                    onClick={() => handlePerkClick('double', 'team1')}
-                    title="ضعف النقاط"
+                    className="icon-nav-link border-2 rounded-full border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center"
+                    style={{ padding: styles.perkButtonPadding }}
+                    disabled={true}
+                    title="متاح فقط في لوحة اللعبة"
                   >
                     <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
+                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#6b7280" stroke="none"/>
                       <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" dominantBaseline="middle">2</text>
                     </svg>
                   </button>
@@ -1274,19 +1268,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {/* Helper Tools */}
                 <div className={`flex justify-center gap-1 sm:gap-2 md:gap-3 ${styles.perkContainerSpacing}`}>
                   <button
-                    className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
-                      (gameState.perkUsage?.team2?.double || 0) >= 1
-                        ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                        : gameState.currentTurn !== 'team2'
-                        ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                        : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                    }`}
-                    disabled={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2'}
-                    onClick={() => handlePerkClick('double', 'team2')}
-                    title="ضعف النقاط"
+                    className="icon-nav-link border-2 rounded-full border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed flex items-center justify-center"
+                    style={{ padding: styles.perkButtonPadding }}
+                    disabled={true}
+                    title="متاح فقط في لوحة اللعبة"
                   >
                     <svg width={styles.perkIconSize} height={styles.perkIconSize} viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
+                      <path d="M12 2L15.09 8.26L22 9L17 14L18.18 21L12 17.77L5.82 21L7 14L2 9L8.91 8.26L12 2Z" fill="#6b7280" stroke="none"/>
                       <text x="12" y="16" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold" dominantBaseline="middle">2</text>
                     </svg>
                   </button>
