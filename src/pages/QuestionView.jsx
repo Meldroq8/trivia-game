@@ -1229,13 +1229,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   <button
                     className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
-                      (gameState.perkUsage?.team1?.google || 0) >= 1
+                      (gameState.perkUsage?.team1?.search || 0) >= 1
                         ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                         : gameState.currentTurn !== 'team1'
                         ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                         : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                     }`}
-                    disabled={(gameState.perkUsage?.team1?.google || 0) >= 1 || gameState.currentTurn !== 'team1'}
+                    disabled={(gameState.perkUsage?.team1?.search || 0) >= 1 || gameState.currentTurn !== 'team1'}
                     onClick={() => handlePerkClick('search', 'team1')}
                     title="البحث في جوجل"
                   >
@@ -1310,13 +1310,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   <button
                     className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
-                      (gameState.perkUsage?.team2?.google || 0) >= 1
+                      (gameState.perkUsage?.team2?.search || 0) >= 1
                         ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                         : gameState.currentTurn !== 'team2'
                         ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                         : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                     }`}
-                    disabled={(gameState.perkUsage?.team2?.google || 0) >= 1 || gameState.currentTurn !== 'team2'}
+                    disabled={(gameState.perkUsage?.team2?.search || 0) >= 1 || gameState.currentTurn !== 'team2'}
                     onClick={() => handlePerkClick('search', 'team2')}
                     title="البحث في جوجل"
                   >
