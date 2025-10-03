@@ -817,14 +817,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Perk handling functions
   const handlePerkClick = (perkType, team) => {
-    // Double points perk can only be used before selecting a question (in GameBoard)
-    if (perkType === 'double') return
+    console.log(`🔧 Perk clicked in QuestionView: ${perkType} for ${team}`)
+    console.log(`  - Current question:`, currentQuestion ? 'Available' : 'None')
+    console.log(`  - Current turn:`, gameState.currentTurn)
+    console.log(`  - Team:`, team)
 
-    if (!currentQuestion) return // Only allow phone/search perks when question is visible
+    // Double points perk can only be used before selecting a question (in GameBoard)
+    if (perkType === 'double') {
+      console.warn('❌ Double points perk should only be used in GameBoard')
+      return
+    }
+
+    if (!currentQuestion) {
+      console.warn('❌ No current question - perks only work when a question is visible')
+      return
+    }
 
     // Only allow the current team to use perks
-    if (gameState.currentTurn !== team) return
+    if (gameState.currentTurn !== team) {
+      console.warn(`❌ Not ${team}'s turn (current turn: ${gameState.currentTurn})`)
+      return
+    }
 
+    console.log('✅ Opening perk modal...')
     setActivePerk({ type: perkType, team })
     setPerkModalOpen(true)
   }
@@ -1664,6 +1679,18 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           </div>
         </div>
       </div>
+
+      {/* Perk Modal */}
+      <PerkModal
+        isOpen={perkModalOpen}
+        onClose={handlePerkModalClose}
+        perkType={activePerk.type}
+        teamName={activePerk.team === 'team1' ? gameState.team1.name : gameState.team2.name}
+        onConfirm={handlePerkConfirm}
+        usageCount={gameState.perkUsage?.[activePerk.team]?.[activePerk.type] || 0}
+        maxUses={1}
+        readOnly={false}
+      />
     </div>
   )
 }
