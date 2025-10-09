@@ -6,8 +6,12 @@ import { auth } from '../firebase/config'
  * AWS credentials are stored securely on the server, never exposed to clients
  */
 
-const FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL ||
-  `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID}.web.app/api`
+// Use direct Cloud Run function URLs to avoid hosting rewrite issues with multipart uploads
+// Firebase Functions v2 uses Cloud Run URLs
+const FUNCTION_URLS = {
+  s3Upload: 'https://s3upload-swxv7kjpya-uc.a.run.app',
+  s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app'
+}
 
 export class S3UploadServiceSecure {
   /**
@@ -75,8 +79,8 @@ export class S3UploadServiceSecure {
 
       devLog(`Uploading file to S3 via Firebase Function: ${folder}/${fileName || file.name}`)
 
-      // Upload via Firebase Function
-      const response = await fetch(`${FUNCTIONS_BASE_URL}/s3Upload`, {
+      // Upload via direct Firebase Function URL (Cloud Run v2)
+      const response = await fetch(FUNCTION_URLS.s3Upload, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
@@ -185,8 +189,8 @@ export class S3UploadServiceSecure {
 
       devLog(`Deleting file from S3: ${fileUrl}`)
 
-      // Delete via Firebase Function
-      const response = await fetch(`${FUNCTIONS_BASE_URL}/s3Delete`, {
+      // Delete via direct Firebase Function URL (Cloud Run v2)
+      const response = await fetch(FUNCTION_URLS.s3Delete, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${idToken}`,
