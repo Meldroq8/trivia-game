@@ -8,7 +8,14 @@ import { auth } from '../firebase/config'
 
 // Use direct Cloud Run function URLs to avoid hosting rewrite issues with multipart uploads
 // Firebase Functions v2 uses Cloud Run URLs
-const FUNCTION_URLS = {
+// For local development with emulator, set VITE_USE_FIREBASE_EMULATOR=true in .env
+const isDevelopment = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true'
+const EMULATOR_BASE_URL = 'http://127.0.0.1:5001/lamah-357f3/us-central1'
+
+const FUNCTION_URLS = isDevelopment ? {
+  s3Upload: `${EMULATOR_BASE_URL}/s3Upload`,
+  s3Delete: `${EMULATOR_BASE_URL}/s3Delete`
+} : {
   s3Upload: 'https://s3upload-swxv7kjpya-uc.a.run.app',
   s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app'
 }
