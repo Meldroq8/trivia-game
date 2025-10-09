@@ -1,14 +1,25 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-// AI Service for question improvement and image search
-// Uses OpenAI API and Google Custom Search API
+
+/**
+ * ⚠️ DEPRECATED: This service uses client-side API keys which is INSECURE
+ *
+ * Use AIServiceSecure (from aiServiceSecure.js) instead, which calls AI services
+ * via Firebase Functions and keeps API keys on the server.
+ *
+ * This file is kept for backward compatibility and local development only.
+ * It will NOT work in production deployments without exposing your API keys.
+ */
 
 class AIService {
   constructor() {
-    // API keys should be stored in environment variables
-    // For development, you can set them here temporarily, but move to .env for production
+    // Check if API keys are available (local development only)
     this.openAIKey = import.meta.env.VITE_OPENAI_API_KEY || ''
     this.googleSearchKey = import.meta.env.VITE_GOOGLE_SEARCH_API_KEY || ''
     this.googleSearchEngineId = import.meta.env.VITE_GOOGLE_SEARCH_ENGINE_ID || ''
+
+    if (this.openAIKey || this.googleSearchKey) {
+      devWarn('⚠️ Using insecure client-side AI service. Switch to AIServiceSecure for production!')
+    }
   }
 
   /**
