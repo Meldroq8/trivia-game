@@ -1,47 +1,30 @@
 import { devLog, devWarn, prodError } from "./devLog.js"
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { auth } from '../firebase/config'
 
 /**
- * ⚠️ DEPRECATED: This service uses client-side AWS credentials which is INSECURE
- *
- * Use S3UploadServiceSecure instead, which uploads via Firebase Functions
- * and keeps AWS credentials on the server.
- *
- * This file is kept for backward compatibility and local development only.
- * It will NOT work in production deployments without exposing your AWS credentials.
+ * Secure S3 Upload Service using Firebase Functions
+ * AWS credentials are stored securely on the server, never exposed to clients
  */
 
-const S3_CONFIG = {
-  region: import.meta.env.VITE_AWS_REGION || 'me-south-1',
-  bucket: import.meta.env.VITE_AWS_S3_BUCKET || 'trivia-game-media-cdn'
-}
+const FUNCTIONS_BASE_URL = import.meta.env.VITE_FIREBASE_FUNCTIONS_URL ||
+  `https://${import.meta.env.VITE_FIREBASE_PROJECT_ID}.web.app/api`
 
-let s3Client = null
-
-const getS3Client = () => {
-  // Check if credentials are available (local development only)
-  if (!import.meta.env.VITE_AWS_ACCESS_KEY_ID || !import.meta.env.VITE_AWS_SECRET_ACCESS_KEY) {
-    throw new Error('AWS credentials not available. This service only works in local development. Use S3UploadServiceSecure for production.')
-  }
-
-  if (!s3Client) {
-    devWarn('⚠️ Using insecure client-side S3 upload. Switch to S3UploadServiceSecure for production!')
-    s3Client = new S3Client({
-      region: S3_CONFIG.region,
-      credentials: {
-        accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
-        secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY
-      }
-    })
-  }
-  return s3Client
-}
-
-export class S3UploadService {
+export class S3UploadServiceSecure {
   /**
-   * Upload a media file (image, audio, video) to S3
+   * Get the current user's ID token for authentication
+   */
+  static async getIdToken() {
+    const user = auth.currentUser
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+    return await user.getIdToken()
+  }
+
+  /**
+   * Upload a media file (image, audio, video) to S3 via Firebase Function
    * @param {File} file - The media file to upload
-   * @param {string} folder - The folder path (e.g., 'categories', 'questions', 'media')
+   * @param {string} folder - The folder path (e.g., 'categories', 'questions', 'audio', 'video')
    * @param {string} fileName - Optional custom filename
    * @returns {Promise<string>} - The CloudFront URL of the uploaded file
    */
@@ -79,53 +62,40 @@ export class S3UploadService {
     }
 
     try {
-      // Generate filename if not provided
-      if (!fileName) {
-        const timestamp = Date.now()
-        const extension = file.name.split('.').pop()
-        fileName = `${timestamp}_${Math.random().toString(36).substring(2)}.${extension}`
+      // Get authentication token
+      const idToken = await this.getIdToken()
+
+      // Prepare form data
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', folder)
+      if (fileName) {
+        formData.append('fileName', fileName)
       }
 
-      // Create S3 key
-      const key = `${folder}/${fileName}`
+      devLog(`Uploading file to S3 via Firebase Function: ${folder}/${fileName || file.name}`)
 
-      // Determine content type
-      const contentType = file.type || 'application/octet-stream'
-
-      // Convert File to ArrayBuffer for AWS SDK compatibility
-      devLog(`Converting file to ArrayBuffer for S3 upload: ${key}`)
-      const fileBuffer = await file.arrayBuffer()
-
-      // Upload to S3
-      devLog(`Uploading media to S3: ${key}`)
-      const client = getS3Client()
-      const command = new PutObjectCommand({
-        Bucket: S3_CONFIG.bucket,
-        Key: key,
-        Body: fileBuffer,
-        ContentType: contentType,
-        CacheControl: 'max-age=31536000' // 1 year cache
-        // Removed ACL: public-read - bucket policy should handle public access
+      // Upload via Firebase Function
+      const response = await fetch(`${FUNCTIONS_BASE_URL}/s3Upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: formData,
       })
 
-      await client.send(command)
-      devLog('Upload completed successfully')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `Upload failed with status ${response.status}`)
+      }
 
-      // Return CloudFront URL instead of S3 URL
-      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
-      const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
-      devLog('CloudFront URL:', cloudFrontUrl)
+      const result = await response.json()
+      devLog('Upload completed successfully:', result.url)
 
-      return cloudFrontUrl
+      return result.url
     } catch (error) {
-      prodError('Error uploading media to S3:', error)
-      prodError('Error details:', {
-        message: error.message,
-        code: error.Code || error.code,
-        statusCode: error.$metadata?.httpStatusCode,
-        requestId: error.$metadata?.requestId
-      })
-      throw new Error(`Failed to upload media: ${error.message}`)
+      prodError('Error uploading file via Firebase Function:', error)
+      throw new Error(`Failed to upload file: ${error.message}`)
     }
   }
 
@@ -152,52 +122,7 @@ export class S3UploadService {
       throw new Error('Image size must be less than 5MB')
     }
 
-    try {
-      // Generate filename if not provided
-      if (!fileName) {
-        const timestamp = Date.now()
-        const extension = file.name.split('.').pop()
-        fileName = `${timestamp}_${Math.random().toString(36).substring(2)}.${extension}`
-      }
-
-      // Create S3 key
-      const key = `${folder}/${fileName}`
-
-      // Convert File to ArrayBuffer for AWS SDK compatibility
-      devLog(`Converting file to ArrayBuffer for S3 upload: ${key}`)
-      const fileBuffer = await file.arrayBuffer()
-
-      // Upload to S3
-      devLog(`Uploading image to S3: ${key}`)
-      const client = getS3Client()
-      const command = new PutObjectCommand({
-        Bucket: S3_CONFIG.bucket,
-        Key: key,
-        Body: fileBuffer,
-        ContentType: file.type,
-        CacheControl: 'max-age=31536000' // 1 year cache
-        // Removed ACL: public-read - bucket policy should handle public access
-      })
-
-      await client.send(command)
-      devLog('Upload completed successfully')
-
-      // Return CloudFront URL instead of S3 URL
-      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
-      const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
-      devLog('CloudFront URL:', cloudFrontUrl)
-
-      return cloudFrontUrl
-    } catch (error) {
-      prodError('Error uploading image to S3:', error)
-      prodError('Error details:', {
-        message: error.message,
-        code: error.Code || error.code,
-        statusCode: error.$metadata?.httpStatusCode,
-        requestId: error.$metadata?.requestId
-      })
-      throw new Error(`Failed to upload image: ${error.message}`)
-    }
+    return this.uploadMedia(file, folder, fileName)
   }
 
   /**
@@ -255,32 +180,32 @@ export class S3UploadService {
     }
 
     try {
-      // Extract the S3 key from the CloudFront URL
-      // Example: https://drcqcbq3desis.cloudfront.net/images/questions/question_1234.webp
-      // Key should be: images/questions/question_1234.webp
-      const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
-      const key = fileUrl.replace(`https://${cloudFrontDomain}/`, '')
+      // Get authentication token
+      const idToken = await this.getIdToken()
 
-      devLog(`Deleting file from S3: ${key}`)
+      devLog(`Deleting file from S3: ${fileUrl}`)
 
-      const client = getS3Client()
-      const command = new DeleteObjectCommand({
-        Bucket: S3_CONFIG.bucket,
-        Key: key
+      // Delete via Firebase Function
+      const response = await fetch(`${FUNCTIONS_BASE_URL}/s3Delete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: fileUrl }),
       })
 
-      await client.send(command)
-      devLog('File deleted successfully from S3')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || `Delete failed with status ${response.status}`)
+      }
+
+      const result = await response.json()
+      devLog('File deleted successfully:', result.key)
 
       return true
     } catch (error) {
-      prodError('Error deleting file from S3:', error)
-      prodError('Error details:', {
-        message: error.message,
-        code: error.Code || error.code,
-        statusCode: error.$metadata?.httpStatusCode,
-        requestId: error.$metadata?.requestId
-      })
+      prodError('Error deleting file via Firebase Function:', error)
       throw new Error(`Failed to delete file: ${error.message}`)
     }
   }
@@ -329,4 +254,4 @@ export class S3UploadService {
   }
 }
 
-export default S3UploadService
+export default S3UploadServiceSecure
