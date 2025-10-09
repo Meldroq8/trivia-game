@@ -2,18 +2,33 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow everyone to read/view images
+    // Allow everyone to read/view all files (images, audio, video)
     match /{allPaths=**} {
       allow read: if true;
     }
 
-    // Temporarily allow any authenticated user (for debugging)
+    // SECURITY: Only admins can upload/delete category images
     match /categories/{imageId} {
-      allow write, delete: if request.auth != null;
+      allow write, delete: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // SECURITY: Only admins can upload/delete question images
     match /questions/{imageId} {
-      allow write, delete: if request.auth != null;
+      allow write, delete: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // SECURITY: Only admins can upload/delete audio files
+    match /audio/{fileId} {
+      allow write, delete: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // SECURITY: Only admins can upload/delete video files
+    match /video/{fileId} {
+      allow write, delete: if request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
   }
 }
