@@ -1,8 +1,8 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import aiService from '../services/aiService'
-import S3UploadService from '../utils/s3Upload'
+import aiService from '../services/aiServiceSecure'
+import S3UploadService from '../utils/s3UploadSecure'
 import { processQuestionImage } from '../utils/imageProcessor'
 
 /**

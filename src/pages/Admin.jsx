@@ -9,7 +9,7 @@ import { deleteField, doc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
-import { S3UploadService } from '../utils/s3Upload'
+import { S3UploadServiceSecure as S3UploadService } from '../utils/s3UploadSecure'
 import { parseExcelFile, extractZipFile, processBulkQuestions } from '../utils/bulkImport'
 import AudioPlayer from '../components/AudioPlayer'
 import LazyMediaPlayer from '../components/LazyMediaPlayer'
@@ -20,7 +20,7 @@ import { getCategoryImageUrl, getQuestionImageUrl, getThumbnailUrl } from '../ut
 import MediaUploadManager from '../components/MediaUploadManager'
 import loaderService from '../firebase/loaderService'
 import AIEnhancementModal from '../components/AIEnhancementModal'
-import aiService from '../services/aiService'
+import aiService from '../services/aiServiceSecure'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
