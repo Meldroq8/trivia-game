@@ -13,6 +13,11 @@ initializeApp()
 const awsAccessKeyId = defineSecret('AWS_ACCESS_KEY_ID')
 const awsSecretAccessKey = defineSecret('AWS_SECRET_ACCESS_KEY')
 
+// Define secrets for AI services
+const openaiApiKey = defineSecret('OPENAI_API_KEY')
+const googleSearchApiKey = defineSecret('GOOGLE_SEARCH_API_KEY')
+const googleSearchEngineId = defineSecret('GOOGLE_SEARCH_ENGINE_ID')
+
 // S3 Upload Proxy - Secure server-side uploads
 export const s3Upload = onRequest(
   {
@@ -226,6 +231,219 @@ export const s3Delete = onRequest(
     } catch (error) {
       console.error('S3 delete error:', error)
       res.status(500).json({ error: `Delete failed: ${error.message}` })
+    }
+  }
+)
+
+// AI Service - Improve Question using OpenAI
+export const aiImproveQuestion = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+    timeoutSeconds: 60,
+    secrets: [openaiApiKey],
+  },
+  async (req, res) => {
+    try {
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Verify authentication
+      const authHeader = req.headers.authorization
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized: Missing token' })
+        return
+      }
+
+      const idToken = authHeader.split('Bearer ')[1]
+
+      // Verify the ID token
+      let decodedToken
+      try {
+        decodedToken = await getAuth().verifyIdToken(idToken)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        res.status(401).json({ error: 'Unauthorized: Invalid token' })
+        return
+      }
+
+      const userId = decodedToken.uid
+
+      // Check if user is admin
+      const db = getFirestore()
+      const userDoc = await db.collection('users').doc(userId).get()
+
+      if (!userDoc.exists || !userDoc.data().isAdmin) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' })
+        return
+      }
+
+      const { questionText, answerText, categoryName, difficulty } = req.body
+
+      if (!questionText) {
+        res.status(400).json({ error: 'Missing questionText' })
+        return
+      }
+
+      // Call OpenAI API
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiApiKey.value()}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `أنت خبير صارم جداً في تحسين أسئلة الترفيه والمعلومات العامة بالعربية وتقييم صعوبتها بدقة عالية.
+
+قواعد صارمة:
+1. حسّن صياغة السؤال لتكون أوضح وأدق (لكن احتفظ بالمعنى الأساسي)
+2. أضف الأسماء الإنجليزية بين قوسين () بعد الأسماء العربية
+3. حسّن الإجابة لتكون مختصرة ومباشرة ودقيقة
+4. قيّم صعوبة السؤال بواقعية شديدة
+5. يجب أن يكون الرد JSON صحيح`
+            },
+            {
+              role: 'user',
+              content: `حسّن هذا السؤال والإجابة:
+
+السؤال: ${questionText}
+الإجابة: ${answerText || 'غير محدد'}
+الفئة: ${categoryName || 'عام'}
+الصعوبة الحالية: ${difficulty || 'medium'}
+
+أرجع JSON فقط:
+{
+  "improvedQuestion": "السؤال المحسّن",
+  "improvedAnswer": "الإجابة المحسّنة",
+  "suggestedDifficulty": "easy أو medium أو hard",
+  "explanation": "ملخص التحسينات"
+}`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+          response_format: { type: "json_object" }
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'OpenAI API failed')
+      }
+
+      const data = await response.json()
+      const result = JSON.parse(data.choices[0].message.content)
+
+      res.status(200).json(result)
+
+    } catch (error) {
+      console.error('AI improve question error:', error)
+      res.status(500).json({ error: `Failed: ${error.message}` })
+    }
+  }
+)
+
+// AI Service - Search Images using Google Custom Search
+export const aiSearchImages = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+    timeoutSeconds: 30,
+    secrets: [googleSearchApiKey, googleSearchEngineId],
+  },
+  async (req, res) => {
+    try {
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Verify authentication
+      const authHeader = req.headers.authorization
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized: Missing token' })
+        return
+      }
+
+      const idToken = authHeader.split('Bearer ')[1]
+
+      // Verify the ID token
+      let decodedToken
+      try {
+        decodedToken = await getAuth().verifyIdToken(idToken)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        res.status(401).json({ error: 'Unauthorized: Invalid token' })
+        return
+      }
+
+      const userId = decodedToken.uid
+
+      // Check if user is admin
+      const db = getFirestore()
+      const userDoc = await db.collection('users').doc(userId).get()
+
+      if (!userDoc.exists || !userDoc.data().isAdmin) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' })
+        return
+      }
+
+      const { searchQuery, numResults = 8, startIndex = 1 } = req.body
+
+      if (!searchQuery) {
+        res.status(400).json({ error: 'Missing searchQuery' })
+        return
+      }
+
+      // Call Google Custom Search API
+      const url = new URL('https://www.googleapis.com/customsearch/v1')
+      url.searchParams.append('key', googleSearchApiKey.value())
+      url.searchParams.append('cx', googleSearchEngineId.value())
+      url.searchParams.append('q', searchQuery)
+      url.searchParams.append('searchType', 'image')
+      url.searchParams.append('num', Math.min(numResults, 10).toString())
+      url.searchParams.append('start', startIndex.toString())
+      url.searchParams.append('safe', 'active')
+      url.searchParams.append('imgSize', 'large')
+      url.searchParams.append('imgType', 'photo')
+
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error?.message || 'Google Search API failed')
+      }
+
+      const data = await response.json()
+
+      if (!data.items || data.items.length === 0) {
+        res.status(200).json({ images: [] })
+        return
+      }
+
+      const images = data.items.map(item => ({
+        url: item.link,
+        thumbnail: item.image.thumbnailLink,
+        title: item.title,
+        source: item.displayLink,
+        width: item.image.width,
+        height: item.image.height,
+        contextLink: item.image.contextLink
+      }))
+
+      res.status(200).json({ images })
+
+    } catch (error) {
+      console.error('AI search images error:', error)
+      res.status(500).json({ error: `Failed: ${error.message}` })
     }
   }
 )
