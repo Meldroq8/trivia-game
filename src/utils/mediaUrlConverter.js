@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 /**
  * Enhanced utility to convert Firebase Storage URLs to optimized media paths
  * Supports CloudFront CDN with fallback to local static files
@@ -12,8 +13,8 @@ const CLOUDFRONT_CONFIG = {
   baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://drcqcbq3desis.cloudfront.net'
 }
 
-console.log('🌐 CloudFront config:', CLOUDFRONT_CONFIG)
-console.log('🌐 Raw env vars:', {
+devLog('🌐 CloudFront config:', CLOUDFRONT_CONFIG)
+devLog('🌐 Raw env vars:', {
   enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED,
   domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN,
   baseUrl: import.meta.env.VITE_CDN_BASE_URL
@@ -34,7 +35,7 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
       const url = new URL(mediaUrl)
       return url.pathname
     } catch (error) {
-      console.warn('⚠️ Invalid CloudFront URL format:', mediaUrl)
+      devWarn('⚠️ Invalid CloudFront URL format:', mediaUrl)
       return null
     }
   }
@@ -44,7 +45,7 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
     const url = new URL(mediaUrl)
     const pathPart = url.pathname.split('/o/')[1]
     if (!pathPart) {
-      console.warn('⚠️ Invalid Firebase Storage URL format:', mediaUrl)
+      devWarn('⚠️ Invalid Firebase Storage URL format:', mediaUrl)
       return mediaUrl
     }
 
@@ -80,9 +81,9 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
       // Special handling for mystery category (الفئة الغامضة)
       // Mystery category files are stored as "category_mystery_*" but displayed as "الفئة الغامضة"
       if (filename.includes('mystery')) {
-        console.log(`🔍 Mystery category detected: ${filename}`)
+        devLog(`🔍 Mystery category detected: ${filename}`)
         const localPath = `/images/categories/${filename}`
-        console.log(`✅ Using mystery category file: ${localPath}`)
+        devLog(`✅ Using mystery category file: ${localPath}`)
         return localPath
       }
 
@@ -92,13 +93,13 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
       if (hasExistingSuffix) {
         // Use the downloaded filename as-is, since it already has the size
         const localPath = `/images/categories/${filename}`
-        console.log(`✅ Using downloaded file: ${localPath}`)
+        devLog(`✅ Using downloaded file: ${localPath}`)
         return localPath
       } else {
         // For files uploaded to S3, they don't have size suffixes
         // Try the exact filename first (what's actually in S3)
         const exactPath = `/images/categories/${filename}`
-        console.log(`🎯 Using exact S3 filename: ${exactPath}`)
+        devLog(`🎯 Using exact S3 filename: ${exactPath}`)
         return exactPath
       }
     }
@@ -112,12 +113,12 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
       if (hasExistingSuffix) {
         // Use the downloaded filename as-is
         const localPath = `/images/questions/${filename}`
-        console.log(`✅ Using downloaded file: ${localPath}`)
+        devLog(`✅ Using downloaded file: ${localPath}`)
         return localPath
       } else {
         // For files uploaded to S3, try the exact filename first
         const exactPath = `/images/questions/${filename}`
-        console.log(`🎯 Using exact S3 filename: ${exactPath}`)
+        devLog(`🎯 Using exact S3 filename: ${exactPath}`)
         return exactPath
       }
     }
@@ -137,7 +138,7 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
     const baseName = filename.split('.')[0]
     const processedPath = `/images/${baseName}_${optimalSize}.webp`
 
-    console.warn('⚠️ Unknown path format, using generic conversion:', {
+    devWarn('⚠️ Unknown path format, using generic conversion:', {
       original: firebaseUrl,
       decodedPath,
       processedPath
@@ -146,7 +147,7 @@ export const convertToLocalMediaUrl = (mediaUrl, size = 'medium', context = 'def
     return processedPath
 
   } catch (error) {
-    console.warn('❌ Failed to convert media URL to local path:', mediaUrl, error)
+    devWarn('❌ Failed to convert media URL to local path:', mediaUrl, error)
     return mediaUrl // Fallback to original URL
   }
 }
@@ -195,7 +196,7 @@ export const convertToCloudFrontUrl = (filepath, size = 'medium') => {
   const encodedPath = encodeURI(cleanPath)
   const cloudFrontUrl = `${CLOUDFRONT_CONFIG.baseUrl}/${encodedPath}`
 
-  console.log(`☁️ CloudFront URL: ${cloudFrontUrl}`)
+  devLog(`☁️ CloudFront URL: ${cloudFrontUrl}`)
   return cloudFrontUrl
 }
 
@@ -223,7 +224,7 @@ export const generateCloudFrontUrlAlternatives = (filepath) => {
     alternatives.push(`${CLOUDFRONT_CONFIG.baseUrl}/${utf8Encoded}`)
   }
 
-  console.log(`☁️ CloudFront URL alternatives:`, alternatives)
+  devLog(`☁️ CloudFront URL alternatives:`, alternatives)
   return alternatives
 }
 
@@ -247,7 +248,7 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
       const normalizedPath = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`
       const cloudFrontUrl = convertToCloudFrontUrl(normalizedPath)
       if (cloudFrontUrl) {
-        console.log(`🚀 Local path to CloudFront: ${cloudFrontUrl}`)
+        devLog(`🚀 Local path to CloudFront: ${cloudFrontUrl}`)
         return cloudFrontUrl
       }
     }
@@ -257,7 +258,7 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
     if (localPath) {
       const cloudFrontUrl = convertToCloudFrontUrl(localPath)
       if (cloudFrontUrl) {
-        console.log(`🚀 Using CloudFront: ${cloudFrontUrl}`)
+        devLog(`🚀 Using CloudFront: ${cloudFrontUrl}`)
         return cloudFrontUrl
       }
     }
@@ -265,7 +266,7 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
 
   // Fallback to local path only
   const localUrl = convertToLocalMediaUrl(mediaUrl, size, context)
-  console.log(`💾 Using local: ${localUrl}`)
+  devLog(`💾 Using local: ${localUrl}`)
   return localUrl
 }
 
@@ -279,11 +280,11 @@ export const testImageUrl = (url) => {
 
     const img = new Image();
     img.onload = () => {
-      console.log(`✅ URL test passed: ${url}`);
+      devLog(`✅ URL test passed: ${url}`);
       resolve(url);
     };
     img.onerror = () => {
-      console.log(`❌ URL test failed: ${url}`);
+      devLog(`❌ URL test failed: ${url}`);
       reject(new Error(`Failed to load: ${url}`));
     };
     img.src = url;
@@ -292,27 +293,27 @@ export const testImageUrl = (url) => {
 
 // Comprehensive URL testing with multiple fallbacks
 export const testUrlWithFallbacks = async (primaryUrl, fallbackUrls = []) => {
-  console.log(`🔍 Testing primary URL: ${primaryUrl}`);
+  devLog(`🔍 Testing primary URL: ${primaryUrl}`);
 
   try {
     await testImageUrl(primaryUrl);
     return primaryUrl;
   } catch (error) {
-    console.log(`⚠️ Primary URL failed: ${primaryUrl}`);
+    devLog(`⚠️ Primary URL failed: ${primaryUrl}`);
 
     for (let i = 0; i < fallbackUrls.length; i++) {
       const fallbackUrl = fallbackUrls[i];
-      console.log(`🔄 Testing fallback ${i + 1}/${fallbackUrls.length}: ${fallbackUrl}`);
+      devLog(`🔄 Testing fallback ${i + 1}/${fallbackUrls.length}: ${fallbackUrl}`);
 
       try {
         await testImageUrl(fallbackUrl);
         return fallbackUrl;
       } catch (fallbackError) {
-        console.log(`❌ Fallback ${i + 1} failed: ${fallbackUrl}`);
+        devLog(`❌ Fallback ${i + 1} failed: ${fallbackUrl}`);
       }
     }
 
-    console.log(`💥 All URLs failed. Primary: ${primaryUrl}, Fallbacks: ${fallbackUrls.length}`);
+    devLog(`💥 All URLs failed. Primary: ${primaryUrl}, Fallbacks: ${fallbackUrls.length}`);
     throw new Error('All URL options failed');
   }
 };
@@ -320,17 +321,17 @@ export const testUrlWithFallbacks = async (primaryUrl, fallbackUrls = []) => {
 // CloudFront health check
 export const checkCloudFrontHealth = async () => {
   if (!CLOUDFRONT_CONFIG.enabled) {
-    console.log('☁️ CloudFront is disabled');
+    devLog('☁️ CloudFront is disabled');
     return false;
   }
 
   try {
     const testUrl = `${CLOUDFRONT_CONFIG.baseUrl}/images/categories/category_mystery_1758939021986.webp`;
     await testImageUrl(testUrl);
-    console.log('✅ CloudFront health check passed');
+    devLog('✅ CloudFront health check passed');
     return true;
   } catch (error) {
-    console.log('❌ CloudFront health check failed:', error.message);
+    devLog('❌ CloudFront health check failed:', error.message);
     return false;
   }
 };
@@ -345,7 +346,7 @@ export const getVerifiedMediaUrl = async (mediaUrl, size = 'medium', context = '
       await testImageUrl(mediaUrl);
       return mediaUrl;
     } catch (error) {
-      console.log(`❌ Local path failed: ${mediaUrl}`);
+      devLog(`❌ Local path failed: ${mediaUrl}`);
       return null;
     }
   }
@@ -364,7 +365,7 @@ export const getVerifiedMediaUrl = async (mediaUrl, size = 'medium', context = '
   try {
     return await testUrlWithFallbacks(urlsToTest[0], urlsToTest.slice(1));
   } catch (error) {
-    console.log(`💥 All URLs failed for: ${mediaUrl}`);
+    devLog(`💥 All URLs failed for: ${mediaUrl}`);
     return mediaUrl; // Return original as last resort
   }
 };

@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import { FirebaseQuestionsService } from './firebaseQuestions'
 
 /**
@@ -88,7 +89,7 @@ function isAudioUrl(url) {
 
 // Parse bulk questions from text input and import to Firebase
 export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
-  console.log('Starting bulk question import to Firebase...')
+  devLog('Starting bulk question import to Firebase...')
 
   try {
     if (!bulkQuestionsText || typeof bulkQuestionsText !== 'string') {
@@ -194,7 +195,7 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
         if (questionText && correctAnswer) {
           // Debug log for media questions
           if (audioUrl || videoUrl || answerAudioUrl || answerImageUrl || answerVideoUrl) {
-            console.log('🎵🎬 Importing question with media:', {
+            devLog('🎵🎬 Importing question with media:', {
               text: questionText.substring(0, 50) + '...',
               questionMedia: {
                 audio: audioUrl || 'none',
@@ -219,17 +220,17 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
       throw new Error('لم يتم العثور على أسئلة صالحة')
     }
 
-    console.log(`Parsed ${parsedQuestions.length} questions for Firebase import`)
+    devLog(`Parsed ${parsedQuestions.length} questions for Firebase import`)
 
     // Create categories first
-    console.log('Creating categories in Firebase...')
+    devLog('Creating categories in Firebase...')
     const categoryResults = await FirebaseQuestionsService.createCategoriesFromQuestions(parsedQuestions)
 
     // Import questions to Firebase with duplicate detection
-    console.log('Importing questions to Firebase...')
+    devLog('Importing questions to Firebase...')
     const importResults = await FirebaseQuestionsService.importQuestions(parsedQuestions)
 
-    console.log('Bulk import to Firebase completed successfully')
+    devLog('Bulk import to Firebase completed successfully')
 
     return {
       parsedQuestions,
@@ -240,14 +241,14 @@ export const importBulkQuestionsToFirebase = async (bulkQuestionsText) => {
     }
 
   } catch (error) {
-    console.error('Error in bulk import to Firebase:', error)
+    prodError('Error in bulk import to Firebase:', error)
     throw error
   }
 }
 
 // Utility to import questions from CSV data
 export const importAllQuestions = async () => {
-  console.log('Starting automatic question import...')
+  devLog('Starting automatic question import...')
 
   try {
     // Read the CSV file content
@@ -262,7 +263,7 @@ export const importAllQuestions = async () => {
     const lines = csvContent.trim().split('\n').filter(line => line && line.trim())
     const questionLines = lines.slice(1) // Skip header
 
-    console.log(`Found ${questionLines.length} questions to import`)
+    devLog(`Found ${questionLines.length} questions to import`)
 
     // Parse each question line
     const allQuestions = []
@@ -330,19 +331,19 @@ export const importAllQuestions = async () => {
           }
         }
       } catch (error) {
-        console.error(`Error parsing line ${index + 2}:`, error, line)
+        prodError(`Error parsing line ${index + 2}:`, error, line)
       }
     })
 
-    console.log(`Parsed ${allQuestions.length} valid questions`)
-    console.log(`Found ${newCategories.size} unique categories:`, Array.from(newCategories))
+    devLog(`Parsed ${allQuestions.length} valid questions`)
+    devLog(`Found ${newCategories.size} unique categories:`, Array.from(newCategories))
 
     // Create categories first
-    console.log('Creating categories in Firebase...')
+    devLog('Creating categories in Firebase...')
     const categoryResults = await FirebaseQuestionsService.createCategoriesFromQuestions(allQuestions)
 
     // Import questions to Firebase with duplicate detection
-    console.log('Importing questions to Firebase...')
+    devLog('Importing questions to Firebase...')
     const importResults = await FirebaseQuestionsService.importQuestions(allQuestions)
 
     // Also save to localStorage for backward compatibility
@@ -351,7 +352,7 @@ export const importAllQuestions = async () => {
       categories: Array.from(newCategories)
     }
     addQuestionsToStorage(parsedData)
-    console.log('✅ CSV data also saved to localStorage for backward compatibility')
+    devLog('✅ CSV data also saved to localStorage for backward compatibility')
 
     // Return combined results
     return {
@@ -363,13 +364,13 @@ export const importAllQuestions = async () => {
     }
 
   } catch (error) {
-    console.error('Error importing questions:', error)
+    prodError('Error importing questions:', error)
     throw error
   }
 }
 
 export const addQuestionsToStorage = (parsedData) => {
-  console.log('Adding questions to localStorage...')
+  devLog('Adding questions to localStorage...')
 
   // Get current data
   const savedData = localStorage.getItem('triviaData')
@@ -435,7 +436,7 @@ export const addQuestionsToStorage = (parsedData) => {
       )
     })
 
-    console.log(`Adding ${newQuestions.length} new questions to ${categoryId} (${questionsByCategory[categoryId].length - newQuestions.length} duplicates skipped)`)
+    devLog(`Adding ${newQuestions.length} new questions to ${categoryId} (${questionsByCategory[categoryId].length - newQuestions.length} duplicates skipped)`)
 
     data.questions[categoryId] = [
       ...data.questions[categoryId],
@@ -447,11 +448,11 @@ export const addQuestionsToStorage = (parsedData) => {
   try {
     const dataString = JSON.stringify(data)
     const dataSize = new Blob([dataString]).size
-    console.log(`Data size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`)
+    devLog(`Data size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`)
 
     // Check if data is too large (localStorage limit is typically 5-10MB)
     if (dataSize > 5 * 1024 * 1024) { // 5MB limit
-      console.warn('Data too large for localStorage, compressing...')
+      devWarn('Data too large for localStorage, compressing...')
 
       // Try to reduce data by removing unnecessary fields or limiting questions per category
       const compressedData = {
@@ -466,13 +467,13 @@ export const addQuestionsToStorage = (parsedData) => {
       })
 
       localStorage.setItem('triviaData', JSON.stringify(compressedData))
-      console.log('Saved compressed data with limited questions per category')
+      devLog('Saved compressed data with limited questions per category')
     } else {
       localStorage.setItem('triviaData', dataString)
     }
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
-      console.error('localStorage quota exceeded. Trying to save with reduced data...')
+      prodError('localStorage quota exceeded. Trying to save with reduced data...')
 
       // Emergency fallback: save only essential data
       const minimalData = {
@@ -488,9 +489,9 @@ export const addQuestionsToStorage = (parsedData) => {
 
       try {
         localStorage.setItem('triviaData', JSON.stringify(minimalData))
-        console.log('Saved minimal data set (20 questions per category)')
+        devLog('Saved minimal data set (20 questions per category)')
       } catch (e) {
-        console.error('Cannot save even minimal data:', e)
+        prodError('Cannot save even minimal data:', e)
         alert('Storage full. Please clear browser data or use fewer questions.')
         throw e
       }
@@ -499,8 +500,8 @@ export const addQuestionsToStorage = (parsedData) => {
     }
   }
 
-  console.log(`Added ${parsedData.questions.length} questions`)
-  console.log(`Created ${createdCategories.length} new categories:`, createdCategories)
+  devLog(`Added ${parsedData.questions.length} questions`)
+  devLog(`Created ${createdCategories.length} new categories:`, createdCategories)
 
   return {
     questionsAdded: parsedData.questions.length,
@@ -511,7 +512,7 @@ export const addQuestionsToStorage = (parsedData) => {
 
 // Force import version that bypasses duplicate detection
 export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => {
-  console.log('Starting FORCED bulk question import to Firebase (bypassing duplicate detection)...')
+  devLog('Starting FORCED bulk question import to Firebase (bypassing duplicate detection)...')
 
   try {
     if (!bulkQuestionsText || typeof bulkQuestionsText !== 'string') {
@@ -615,7 +616,7 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
         if (questionText && correctAnswer) {
           // Debug log for audio questions
           if (audioUrl) {
-            console.log('🎵 Force importing question with audio:', {
+            devLog('🎵 Force importing question with audio:', {
               text: questionText,
               audioUrl: audioUrl,
               imageUrl: imageUrl
@@ -630,17 +631,17 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
       throw new Error('لم يتم العثور على أسئلة صالحة')
     }
 
-    console.log(`Parsed ${parsedQuestions.length} questions for FORCED Firebase import`)
+    devLog(`Parsed ${parsedQuestions.length} questions for FORCED Firebase import`)
 
     // Create categories first
-    console.log('Creating categories in Firebase...')
+    devLog('Creating categories in Firebase...')
     const categoryResults = await FirebaseQuestionsService.createCategoriesFromQuestions(parsedQuestions)
 
     // Import questions to Firebase WITHOUT duplicate detection - force add all
-    console.log('FORCE importing questions to Firebase (bypassing duplicate detection)...')
+    devLog('FORCE importing questions to Firebase (bypassing duplicate detection)...')
     const importResults = await FirebaseQuestionsService.forceImportQuestions(parsedQuestions)
 
-    console.log('FORCED bulk import to Firebase completed successfully')
+    devLog('FORCED bulk import to Firebase completed successfully')
 
     return {
       firebaseResults: {
@@ -650,7 +651,7 @@ export const importBulkQuestionsToFirebaseForced = async (bulkQuestionsText) => 
     }
 
   } catch (error) {
-    console.error('Error in forced bulk import to Firebase:', error)
+    prodError('Error in forced bulk import to Firebase:', error)
     throw error
   }
 }

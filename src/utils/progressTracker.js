@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 /**
  * Simple progress tracker for long-running operations
  */
@@ -51,7 +52,7 @@ export class ProgressTracker {
       message += ` - ${detail}`
     }
 
-    console.log(message)
+    devLog(message)
   }
 
   /**
@@ -68,7 +69,7 @@ export class ProgressTracker {
       message += ` - ${summary}`
     }
 
-    console.log(message)
+    devLog(message)
   }
 
   /**

@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "hosting": {
     "public": "dist",
     "ignore": [
@@ -7,6 +10,10 @@
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/imageProxy",
+        "function": "imageProxy"
+      },
       {
         "source": "**",
         "destination": "/index.html"
@@ -35,7 +42,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "max-age=31536000, immutable"
+            "value": "max-age=3600, must-revalidate"
           }
         ]
       },

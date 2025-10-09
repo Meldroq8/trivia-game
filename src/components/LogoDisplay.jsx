@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, memo } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
@@ -55,7 +56,7 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
           }
         })
       } catch (error) {
-        console.error('Error loading logo:', error)
+        prodError('Error loading logo:', error)
         // Don't change UI on error - keep showing cached/current logo
       }
     }

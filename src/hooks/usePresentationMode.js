@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react'
 
 export function usePresentationMode() {
@@ -56,7 +57,7 @@ export function usePresentationMode() {
       }
 
     } catch (error) {
-      console.error('Failed to enter presentation mode:', error)
+      prodError('Failed to enter presentation mode:', error)
     }
   }
 
@@ -76,7 +77,7 @@ export function usePresentationMode() {
       setIsPresentationMode(false)
 
     } catch (error) {
-      console.error('Failed to exit presentation mode:', error)
+      prodError('Failed to exit presentation mode:', error)
     }
   }
 

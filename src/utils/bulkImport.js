@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
 import { S3UploadService } from './s3Upload'
@@ -24,10 +25,10 @@ export const parseExcelFile = async (file) => {
         // Convert to JSON
         const jsonData = XLSX.utils.sheet_to_json(worksheet)
 
-        console.log(`📊 Parsed ${jsonData.length} questions from Excel`)
+        devLog(`📊 Parsed ${jsonData.length} questions from Excel`)
         resolve(jsonData)
       } catch (error) {
-        console.error('Error parsing Excel:', error)
+        prodError('Error parsing Excel:', error)
         reject(new Error('فشل في قراءة ملف Excel: ' + error.message))
       }
     }
@@ -41,23 +42,37 @@ export const parseExcelFile = async (file) => {
 }
 
 /**
- * Extract files from ZIP archive
+ * Extract files from ZIP archive with memory optimization
  * @param {File} zipFile - The ZIP file
+ * @param {Function} onProgress - Progress callback
  * @returns {Promise<Object>} - Object with xlsx and media files
  */
-export const extractZipFile = async (zipFile) => {
+export const extractZipFile = async (zipFile, onProgress = null) => {
   try {
+    if (onProgress) onProgress(0, 100, 'جاري تحميل الملف المضغوط...')
+
     const zip = new JSZip()
-    const zipData = await zip.loadAsync(zipFile)
+    const zipData = await zip.loadAsync(zipFile, {
+      // Process files one by one instead of loading all at once
+      createFolders: false
+    })
 
     const result = {
       xlsx: null,
       media: {}
     }
 
-    // Extract all files
-    for (const [filename, file] of Object.entries(zipData.files)) {
+    const files = Object.entries(zipData.files)
+    const totalFiles = files.length
+    let processedFiles = 0
+
+    // Extract all files one by one to reduce memory usage
+    for (const [filename, file] of files) {
       if (file.dir) continue // Skip directories
+
+      processedFiles++
+      const progress = Math.floor((processedFiles / totalFiles) * 50) // 0-50%
+      if (onProgress) onProgress(progress, 100, `فك ضغط الملفات... (${processedFiles}/${totalFiles})`)
 
       // Get file extension
       const ext = filename.split('.').pop().toLowerCase()
@@ -68,7 +83,7 @@ export const extractZipFile = async (zipFile) => {
         result.xlsx = new File([arrayBuffer], filename, {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         })
-        console.log(`📄 Found Excel file: ${filename}`)
+        devLog(`📄 Found Excel file: ${filename}`)
       }
       // Check if it's a media file
       else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp3', 'wav', 'ogg', 'mp4', 'webm', 'mov'].includes(ext)) {
@@ -92,14 +107,15 @@ export const extractZipFile = async (zipFile) => {
         // Store with just the filename (no path)
         const justFilename = filename.split('/').pop().split('\\').pop()
         result.media[justFilename] = mediaFile
-        console.log(`🎬 Found media file: ${justFilename} (${mimeType})`)
+        devLog(`🎬 Found media file: ${justFilename} (${mimeType})`)
       }
     }
 
-    console.log(`📦 Extracted: 1 Excel file, ${Object.keys(result.media).length} media files`)
+    if (onProgress) onProgress(50, 100, 'تم فك الضغط بنجاح!')
+    devLog(`📦 Extracted: 1 Excel file, ${Object.keys(result.media).length} media files`)
     return result
   } catch (error) {
-    console.error('Error extracting ZIP:', error)
+    prodError('Error extracting ZIP:', error)
     throw new Error('فشل في فك ضغط الملف: ' + error.message)
   }
 }
@@ -114,7 +130,7 @@ const uploadMediaFile = async (file, folder) => {
   try {
     // Process images before upload
     if (file.type.startsWith('image/')) {
-      console.log(`🖼️ Processing image: ${file.name}`)
+      devLog(`🖼️ Processing image: ${file.name}`)
       const { blob } = await processQuestionImage(file)
 
       const extension = 'webp'
@@ -130,13 +146,13 @@ const uploadMediaFile = async (file, folder) => {
     // Upload audio/video directly
     return await S3UploadService.uploadMedia(file, folder)
   } catch (error) {
-    console.error(`Error uploading ${file.name}:`, error)
+    prodError(`Error uploading ${file.name}:`, error)
     throw error
   }
 }
 
 /**
- * Process bulk questions from Excel data
+ * Process bulk questions from Excel data with batching
  * @param {Array} excelData - Parsed Excel data
  * @param {Object} mediaFiles - Object with media files (filename -> File)
  * @param {Function} onProgress - Progress callback (current, total, message)
@@ -145,12 +161,21 @@ const uploadMediaFile = async (file, folder) => {
 export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgress = null) => {
   const questions = []
   const total = excelData.length
+  const BATCH_SIZE = 10 // Process 10 questions at a time
 
   for (let i = 0; i < excelData.length; i++) {
     const row = excelData[i]
 
+    // Progress: 50% base + 50% for processing
+    const progressPercent = 50 + Math.floor(((i + 1) / total) * 50)
     if (onProgress) {
-      onProgress(i + 1, total, `جاري معالجة السؤال ${i + 1} من ${total}...`)
+      onProgress(progressPercent, 100, `جاري معالجة السؤال ${i + 1} من ${total}...`)
+    }
+
+    // Add a small delay every BATCH_SIZE questions to prevent memory issues
+    if (i > 0 && i % BATCH_SIZE === 0) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+      devLog(`✅ Processed batch: ${i - BATCH_SIZE + 1}-${i}`)
     }
 
     const question = {
@@ -172,52 +197,84 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
       question.options = wrongOptions
     }
 
-    // Process media files
-    try {
-      // Question Image
-      const qImageFilename = row.Question_Image || row.question_image || row.صورة_السؤال
-      if (qImageFilename && mediaFiles[qImageFilename]) {
-        console.log(`📤 Uploading question image: ${qImageFilename}`)
+    // Process media files individually with error handling for each
+    const failedUploads = []
+
+    // Question Image
+    const qImageFilename = row.Question_Image || row.question_image || row.صورة_السؤال
+    if (qImageFilename && mediaFiles[qImageFilename]) {
+      try {
+        devLog(`📤 Uploading question image: ${qImageFilename}`)
         question.imageUrl = await uploadMediaFile(mediaFiles[qImageFilename], 'images/questions')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload question image ${qImageFilename}:`, error.message)
+        failedUploads.push(`صورة السؤال: ${qImageFilename} (${error.message})`)
       }
+    }
 
-      // Question Audio
-      const qAudioFilename = row.Question_Audio || row.question_audio || row.صوت_السؤال
-      if (qAudioFilename && mediaFiles[qAudioFilename]) {
-        console.log(`📤 Uploading question audio: ${qAudioFilename}`)
+    // Question Audio
+    const qAudioFilename = row.Question_Audio || row.question_audio || row.صوت_السؤال
+    if (qAudioFilename && mediaFiles[qAudioFilename]) {
+      try {
+        devLog(`📤 Uploading question audio: ${qAudioFilename}`)
         question.audioUrl = await uploadMediaFile(mediaFiles[qAudioFilename], 'audio')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload question audio ${qAudioFilename}:`, error.message)
+        failedUploads.push(`صوت السؤال: ${qAudioFilename} (${error.message})`)
       }
+    }
 
-      // Question Video
-      const qVideoFilename = row.Question_Video || row.question_video || row.فيديو_السؤال
-      if (qVideoFilename && mediaFiles[qVideoFilename]) {
-        console.log(`📤 Uploading question video: ${qVideoFilename}`)
+    // Question Video
+    const qVideoFilename = row.Question_Video || row.question_video || row.فيديو_السؤال
+    if (qVideoFilename && mediaFiles[qVideoFilename]) {
+      try {
+        devLog(`📤 Uploading question video: ${qVideoFilename}`)
         question.videoUrl = await uploadMediaFile(mediaFiles[qVideoFilename], 'video')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload question video ${qVideoFilename}:`, error.message)
+        failedUploads.push(`فيديو السؤال: ${qVideoFilename} (${error.message})`)
       }
+    }
 
-      // Answer Image
-      const aImageFilename = row.Answer_Image || row.answer_image || row.صورة_الإجابة
-      if (aImageFilename && mediaFiles[aImageFilename]) {
-        console.log(`📤 Uploading answer image: ${aImageFilename}`)
+    // Answer Image
+    const aImageFilename = row.Answer_Image || row.answer_image || row.صورة_الإجابة
+    if (aImageFilename && mediaFiles[aImageFilename]) {
+      try {
+        devLog(`📤 Uploading answer image: ${aImageFilename}`)
         question.answerImageUrl = await uploadMediaFile(mediaFiles[aImageFilename], 'images/questions')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload answer image ${aImageFilename}:`, error.message)
+        failedUploads.push(`صورة الإجابة: ${aImageFilename} (${error.message})`)
       }
+    }
 
-      // Answer Audio
-      const aAudioFilename = row.Answer_Audio || row.answer_audio || row.صوت_الإجابة
-      if (aAudioFilename && mediaFiles[aAudioFilename]) {
-        console.log(`📤 Uploading answer audio: ${aAudioFilename}`)
+    // Answer Audio
+    const aAudioFilename = row.Answer_Audio || row.answer_audio || row.صوت_الإجابة
+    if (aAudioFilename && mediaFiles[aAudioFilename]) {
+      try {
+        devLog(`📤 Uploading answer audio: ${aAudioFilename}`)
         question.answerAudioUrl = await uploadMediaFile(mediaFiles[aAudioFilename], 'audio')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload answer audio ${aAudioFilename}:`, error.message)
+        failedUploads.push(`صوت الإجابة: ${aAudioFilename} (${error.message})`)
       }
+    }
 
-      // Answer Video
-      const aVideoFilename = row.Answer_Video || row.answer_video || row.فيديو_الإجابة
-      if (aVideoFilename && mediaFiles[aVideoFilename]) {
-        console.log(`📤 Uploading answer video: ${aVideoFilename}`)
+    // Answer Video
+    const aVideoFilename = row.Answer_Video || row.answer_video || row.فيديو_الإجابة
+    if (aVideoFilename && mediaFiles[aVideoFilename]) {
+      try {
+        devLog(`📤 Uploading answer video: ${aVideoFilename}`)
         question.answerVideoUrl = await uploadMediaFile(mediaFiles[aVideoFilename], 'video')
+      } catch (error) {
+        devWarn(`⚠️ Failed to upload answer video ${aVideoFilename}:`, error.message)
+        failedUploads.push(`فيديو الإجابة: ${aVideoFilename} (${error.message})`)
       }
-    } catch (error) {
-      console.error(`Error uploading media for question ${i + 1}:`, error)
-      // Continue with next question even if media upload fails
+    }
+
+    // Log any failed uploads for this question
+    if (failedUploads.length > 0) {
+      devWarn(`⚠️ Question ${i + 1} had ${failedUploads.length} failed media uploads:`, failedUploads)
     }
 
     // Assign points based on difficulty

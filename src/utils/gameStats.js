@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 // Game Statistics and History Management
 
 export const STORAGE_KEYS = {
@@ -7,10 +8,10 @@ export const STORAGE_KEYS = {
 
 // Save a completed game to history
 export const saveGameToHistory = (gameData) => {
-  console.log('💾 saveGameToHistory called with:', gameData)
+  devLog('💾 saveGameToHistory called with:', gameData)
 
   const history = getGameHistory()
-  console.log('📖 Current history length:', history.length)
+  devLog('📖 Current history length:', history.length)
 
   const gameRecord = {
     id: Date.now(),
@@ -26,7 +27,7 @@ export const saveGameToHistory = (gameData) => {
     duration: calculateGameDuration(gameData.gameHistory)
   }
 
-  console.log('📋 Game record created:', gameRecord)
+  devLog('📋 Game record created:', gameRecord)
 
   history.unshift(gameRecord) // Add to beginning of array
 
@@ -34,11 +35,11 @@ export const saveGameToHistory = (gameData) => {
   const trimmedHistory = history.slice(0, 50)
 
   localStorage.setItem(STORAGE_KEYS.GAME_HISTORY, JSON.stringify(trimmedHistory))
-  console.log('💾 Game saved to localStorage. New history length:', trimmedHistory.length)
+  devLog('💾 Game saved to localStorage. New history length:', trimmedHistory.length)
 
   // Update team statistics
   updateTeamStats(gameRecord)
-  console.log('📊 Team statistics updated')
+  devLog('📊 Team statistics updated')
 
   return gameRecord
 }
@@ -49,7 +50,7 @@ export const getGameHistory = () => {
     const history = localStorage.getItem(STORAGE_KEYS.GAME_HISTORY)
     return history ? JSON.parse(history) : []
   } catch (error) {
-    console.error('Error loading game history:', error)
+    prodError('Error loading game history:', error)
     return []
   }
 }
@@ -60,7 +61,7 @@ export const getTeamStats = () => {
     const stats = localStorage.getItem(STORAGE_KEYS.TEAM_STATS)
     return stats ? JSON.parse(stats) : {}
   } catch (error) {
-    console.error('Error loading team stats:', error)
+    prodError('Error loading team stats:', error)
     return {}
   }
 }

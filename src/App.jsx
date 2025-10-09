@@ -4,6 +4,7 @@ import { usePresentationMode } from './hooks/usePresentationMode'
 import { useAuth } from './hooks/useAuth'
 import componentPreloader from './utils/componentPreloader'
 
+import { devLog, devWarn, prodError } from "./utils/devLog"
 // Core game flow components - loaded immediately for instant navigation
 import Index from './pages/Index'
 import GameSetup from './pages/GameSetup'
@@ -17,6 +18,7 @@ const Statistics = lazy(() => import('./pages/Statistics'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const MyGames = lazy(() => import('./pages/MyGames'))
 const Admin = lazy(() => import('./pages/Admin'))
+const Loader = lazy(() => import('./pages/Loader'))
 
 // Reusable loading fallback component
 const PageLoading = ({ message = "جاري التحميل..." }) => (
@@ -52,7 +54,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
       if (location.pathname === '/game-setup' || location.pathname === '/categories') {
         newState.userExplicitlyExited = false
         localStorage.removeItem('trivia_user_exited')
-        console.log('🔄 Resetting explicit exit flags (gameState + localStorage) - user starting new game flow')
+        devLog('🔄 Resetting explicit exit flags (gameState + localStorage) - user starting new game flow')
       }
 
       setGameState(prev => ({
@@ -69,13 +71,13 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     // Check immediate localStorage flag for explicit exit
     const userExplicitlyExited = localStorage.getItem('trivia_user_exited') === 'true'
     if (userExplicitlyExited) {
-      console.log('🚫 BULLETPROOF: User explicitly exited (localStorage check) - skipping route restoration')
+      devLog('🚫 BULLETPROOF: User explicitly exited (localStorage check) - skipping route restoration')
       return
     }
 
     // Don't restore routes if user explicitly exited the game (gameState check)
     if (gameState.userExplicitlyExited) {
-      console.log('🚫 BULLETPROOF: User explicitly exited (gameState check) - skipping route restoration')
+      devLog('🚫 BULLETPROOF: User explicitly exited (gameState check) - skipping route restoration')
       return
     }
 
@@ -85,7 +87,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     // Only restore if we have a saved route AND we're currently on index
     if (gameState.currentRoute && location.pathname === '/' && gameState.currentRoute !== '/') {
       if (validRoutesToRestore.includes(gameState.currentRoute)) {
-        console.log(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
+        devLog(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
         navigate(gameState.currentRoute, { replace: true })
       }
     }
@@ -103,16 +105,16 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
       window.history.pushState({ page: currentPath, timestamp: Date.now() }, '', currentPath)
 
       const handlePopState = (event) => {
-        console.log('🔄 PopState detected on', currentPath, 'event:', event)
+        devLog('🔄 PopState detected on', currentPath, 'event:', event)
 
         // Prevent the default behavior
         if (isNavigatingAway) return
 
         if (currentPath === '/game') {
-          console.log('🔄 Back button from gameboard → showing warning')
+          devLog('🔄 Back button from gameboard → showing warning')
           const confirmed = window.confirm('هل أنت متأكد من الخروج من اللعبة؟ سيتم إغلاق اللعبة والعودة للصفحة الرئيسية.')
           if (confirmed) {
-            console.log('✅ User confirmed exit from gameboard → setting immediate exit flag and redirecting to index')
+            devLog('✅ User confirmed exit from gameboard → setting immediate exit flag and redirecting to index')
             isNavigatingAway = true
             window.removeEventListener('popstate', handlePopState)
 
@@ -129,15 +131,15 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
             // Navigate immediately - no delay needed
             window.location.href = '/'  // Force navigation to index
           } else {
-            console.log('❌ User cancelled exit from gameboard → staying on page')
+            devLog('❌ User cancelled exit from gameboard → staying on page')
             // Push current state back
             window.history.pushState({ page: currentPath, timestamp: Date.now() }, '', currentPath)
           }
         } else if (currentPath === '/question') {
-          console.log('🔄 Back button from question → showing warning')
+          devLog('🔄 Back button from question → showing warning')
           const confirmed = window.confirm('هل أنت متأكد من الخروج من السؤال؟ ستعود للوحة اللعبة وسيتم إنهاء الوقت المحدد.')
           if (confirmed) {
-            console.log('✅ User confirmed exit from question → updating route and redirecting to gameboard')
+            devLog('✅ User confirmed exit from question → updating route and redirecting to gameboard')
             isNavigatingAway = true
             window.removeEventListener('popstate', handlePopState)
             // Update the currentRoute to gameboard to prevent conflicts
@@ -147,7 +149,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
             }))
             navigate('/game', { replace: true })
           } else {
-            console.log('❌ User cancelled exit from question → staying on page')
+            devLog('❌ User cancelled exit from question → staying on page')
             // Push current state back
             window.history.pushState({ page: currentPath, timestamp: Date.now() }, '', currentPath)
           }
@@ -262,7 +264,7 @@ function App() {
           }
         }
       } catch (error) {
-        console.error('❌ Error loading game state:', error)
+        prodError('❌ Error loading game state:', error)
       } finally {
         setStateLoaded(true)
       }
@@ -286,7 +288,7 @@ function App() {
 
         await saveGameState(stateToSave)
       } catch (error) {
-        console.error('❌ Error saving game state:', error)
+        prodError('❌ Error saving game state:', error)
       }
     }, 1000) // Debounce saves by 1 second
 
@@ -363,6 +365,10 @@ function App() {
             <Route
               path="/my-games"
               element={withSuspense(MyGames, { gameState, setGameState }, "جاري تحميل ألعابي...")}
+            />
+            <Route
+              path="/loader/:inviteCode"
+              element={withSuspense(Loader, {}, "جاري التحقق من الدعوة...")}
             />
           </Routes>
         </div>

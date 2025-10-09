@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import {
   collection,
   doc,
@@ -41,10 +42,10 @@ export class FirebaseQuestionsService {
         })
       })
 
-      console.log(`Retrieved ${questions.length} questions from Firebase`)
+      devLog(`Retrieved ${questions.length} questions from Firebase`)
       return questions
     } catch (error) {
-      console.error('Error getting questions from Firebase:', error)
+      prodError('Error getting questions from Firebase:', error)
       throw error
     }
   }
@@ -70,7 +71,7 @@ export class FirebaseQuestionsService {
 
       return questions
     } catch (error) {
-      console.error('Error getting questions by category:', error)
+      prodError('Error getting questions by category:', error)
       throw error
     }
   }
@@ -101,7 +102,7 @@ export class FirebaseQuestionsService {
 
       return null
     } catch (error) {
-      console.error('Error checking for duplicate question:', error)
+      prodError('Error checking for duplicate question:', error)
       throw error
     }
   }
@@ -127,7 +128,7 @@ export class FirebaseQuestionsService {
 
       return questions
     } catch (error) {
-      console.error('Error finding similar questions:', error)
+      prodError('Error finding similar questions:', error)
       throw error
     }
   }
@@ -148,10 +149,10 @@ export class FirebaseQuestionsService {
       }
 
       const docRef = await addDoc(collection(db, this.COLLECTIONS.QUESTIONS), questionWithTimestamp)
-      console.log('Question added with ID:', docRef.id)
+      devLog('Question added with ID:', docRef.id)
       return docRef.id
     } catch (error) {
-      console.error('Error adding question:', error)
+      prodError('Error adding question:', error)
       throw error
     }
   }
@@ -164,7 +165,7 @@ export class FirebaseQuestionsService {
    */
   static async addSingleQuestion(categoryId, questionData) {
     try {
-      console.log('Adding single question to category:', categoryId, questionData)
+      devLog('Adding single question to category:', categoryId, questionData)
 
       // Prepare the question data with all required fields
       const questionWithMetadata = {
@@ -176,11 +177,11 @@ export class FirebaseQuestionsService {
 
       // Add the question to Firebase
       const docRef = await addDoc(collection(db, this.COLLECTIONS.QUESTIONS), questionWithMetadata)
-      console.log('Single question added with ID:', docRef.id)
+      devLog('Single question added with ID:', docRef.id)
 
       return docRef.id
     } catch (error) {
-      console.error('Error adding single question:', error)
+      prodError('Error adding single question:', error)
       throw error
     }
   }
@@ -191,7 +192,7 @@ export class FirebaseQuestionsService {
    * @returns {Promise<Object>} Import results with statistics
    */
   static async importQuestions(questions) {
-    console.log(`Starting optimized import of ${questions.length} questions...`)
+    devLog(`Starting optimized import of ${questions.length} questions...`)
 
     const results = {
       total: questions.length,
@@ -205,7 +206,7 @@ export class FirebaseQuestionsService {
 
     try {
       // Step 1: Get all existing questions in one batch to check for duplicates
-      console.log('📥 Loading existing questions for duplicate detection...')
+      devLog('📥 Loading existing questions for duplicate detection...')
       const existingQuestions = await this.getAllQuestions()
 
       // Create lookup maps for faster duplicate detection
@@ -222,10 +223,10 @@ export class FirebaseQuestionsService {
         textMap.get(q.text).push(q)
       })
 
-      console.log(`📊 Found ${existingQuestions.length} existing questions`)
+      devLog(`📊 Found ${existingQuestions.length} existing questions`)
 
       // Step 2: Process questions in memory to determine what to import
-      console.log('🔍 Processing questions for duplicate detection...')
+      devLog('🔍 Processing questions for duplicate detection...')
       const questionsToImport = []
       const processTracker = createProgressTracker(questions.length, 'Duplicate Detection')
 
@@ -281,7 +282,7 @@ export class FirebaseQuestionsService {
           textMap.get(question.text).push(question)
 
         } catch (error) {
-          console.error(`Error processing question ${i + 1}:`, error)
+          prodError(`Error processing question ${i + 1}:`, error)
           results.errors.push({
             questionIndex: i,
             question: question.text,
@@ -293,11 +294,11 @@ export class FirebaseQuestionsService {
 
       processTracker.complete(`${questionsToImport.length} questions ready for import`)
 
-      console.log(`📋 Prepared ${questionsToImport.length} questions for import`)
+      devLog(`📋 Prepared ${questionsToImport.length} questions for import`)
 
       // Step 3: Import questions in batches
       if (questionsToImport.length > 0) {
-        console.log('💾 Starting batch import to Firebase...')
+        devLog('💾 Starting batch import to Firebase...')
         const importTracker = createProgressTracker(questionsToImport.length, 'Firebase Import')
 
         const batch = writeBatch(db)
@@ -354,7 +355,7 @@ export class FirebaseQuestionsService {
             }
 
           } catch (error) {
-            console.error(`Error preparing question ${i + 1} for batch:`, error)
+            prodError(`Error preparing question ${i + 1} for batch:`, error)
             results.errors.push({
               questionIndex: i,
               question: question.text,
@@ -371,7 +372,7 @@ export class FirebaseQuestionsService {
             results.added += batchOperations
             importTracker.update(batchOperations, `Committed final batch of ${batchOperations} questions`)
           } catch (error) {
-            console.error('Error committing final batch:', error)
+            prodError('Error committing final batch:', error)
             results.errors.push({
               error: `Failed to commit final batch: ${error.message}`
             })
@@ -381,11 +382,11 @@ export class FirebaseQuestionsService {
         importTracker.complete(`Successfully imported ${results.added} questions`)
       }
 
-      console.log('✅ Import completed:', results)
+      devLog('✅ Import completed:', results)
       return results
 
     } catch (error) {
-      console.error('❌ Import failed:', error)
+      prodError('❌ Import failed:', error)
       results.errors.push({
         error: `Import process failed: ${error.message}`
       })
@@ -412,7 +413,7 @@ export class FirebaseQuestionsService {
 
       return categories
     } catch (error) {
-      console.error('Error getting categories from Firebase:', error)
+      prodError('Error getting categories from Firebase:', error)
       throw error
     }
   }
@@ -424,7 +425,7 @@ export class FirebaseQuestionsService {
    */
   static async createCategory(categoryData) {
     try {
-      console.log('Creating new category:', categoryData)
+      devLog('Creating new category:', categoryData)
 
       const categoryWithTimestamp = {
         ...categoryData,
@@ -438,10 +439,10 @@ export class FirebaseQuestionsService {
       delete categoryWithTimestamp.categoryId
 
       const docRef = await addDoc(collection(db, this.COLLECTIONS.CATEGORIES), categoryWithTimestamp)
-      console.log(`✅ Category created with ID: ${docRef.id}`)
+      devLog(`✅ Category created with ID: ${docRef.id}`)
       return docRef.id
     } catch (error) {
-      console.error('Error creating category:', error)
+      prodError('Error creating category:', error)
       throw error
     }
   }
@@ -487,7 +488,7 @@ export class FirebaseQuestionsService {
         return docRef.id
       }
     } catch (error) {
-      console.error('Error saving category:', error)
+      prodError('Error saving category:', error)
       throw error
     }
   }
@@ -498,7 +499,7 @@ export class FirebaseQuestionsService {
    * @returns {Promise<Object>} Results with created categories
    */
   static async createCategoriesFromQuestions(questions) {
-    console.log('Creating categories from questions...')
+    devLog('Creating categories from questions...')
 
     // Get existing categories
     const existingCategories = await this.getAllCategories()
@@ -542,17 +543,17 @@ export class FirebaseQuestionsService {
             id: docId,
             name: categoryData.name
           })
-          console.log(`Created category: ${categoryData.name} with ID: ${docId}`)
+          devLog(`Created category: ${categoryData.name} with ID: ${docId}`)
         } catch (error) {
-          console.error(`Error creating category ${categoryData.name}:`, error)
+          prodError(`Error creating category ${categoryData.name}:`, error)
         }
       } else {
         results.skipped++
-        console.log(`Skipped existing category: ${categoryData.name}`)
+        devLog(`Skipped existing category: ${categoryData.name}`)
       }
     }
 
-    console.log('Category creation completed:', results)
+    devLog('Category creation completed:', results)
     return results
   }
 
@@ -562,7 +563,7 @@ export class FirebaseQuestionsService {
    * @returns {Promise<Object>} Import results with statistics
    */
   static async forceImportQuestions(questions) {
-    console.log(`Starting FORCE import of ${questions.length} questions (bypassing duplicate detection)...`)
+    devLog(`Starting FORCE import of ${questions.length} questions (bypassing duplicate detection)...`)
 
     const results = {
       total: questions.length,
@@ -608,7 +609,7 @@ export class FirebaseQuestionsService {
           // Commit batch when it reaches size limit
           if (batchCount >= BATCH_SIZE) {
             await batch.commit()
-            console.log(`✅ Committed batch of ${batchCount} questions`)
+            devLog(`✅ Committed batch of ${batchCount} questions`)
             // Create new batch
             const newBatch = writeBatch(db)
             Object.assign(batch, newBatch)
@@ -620,7 +621,7 @@ export class FirebaseQuestionsService {
             question: question.text,
             error: error.message
           })
-          console.error(`Error force importing question "${question.text}":`, error)
+          prodError(`Error force importing question "${question.text}":`, error)
           progressTracker.update(1, `Error: "${question.text.substring(0, 30)}..."`)
         }
       }
@@ -628,17 +629,17 @@ export class FirebaseQuestionsService {
       // Commit remaining questions in batch
       if (batchCount > 0) {
         await batch.commit()
-        console.log(`✅ Committed final batch of ${batchCount} questions`)
+        devLog(`✅ Committed final batch of ${batchCount} questions`)
       }
 
       progressTracker.complete()
 
-      console.log(`✅ Force import completed: ${results.added} questions added, ${results.errors.length} errors`)
+      devLog(`✅ Force import completed: ${results.added} questions added, ${results.errors.length} errors`)
 
       return results
 
     } catch (error) {
-      console.error('Error in force import:', error)
+      prodError('Error in force import:', error)
       throw error
     }
   }
@@ -651,9 +652,9 @@ export class FirebaseQuestionsService {
   static async deleteQuestion(questionId) {
     try {
       await deleteDoc(doc(db, this.COLLECTIONS.QUESTIONS, questionId))
-      console.log(`Question ${questionId} deleted successfully`)
+      devLog(`Question ${questionId} deleted successfully`)
     } catch (error) {
-      console.error('Error deleting question:', error)
+      prodError('Error deleting question:', error)
       throw error
     }
   }
@@ -671,9 +672,9 @@ export class FirebaseQuestionsService {
         ...updateData,
         updatedAt: serverTimestamp()
       })
-      console.log(`Question ${questionId} updated successfully`)
+      devLog(`Question ${questionId} updated successfully`)
     } catch (error) {
-      console.error('Error updating question:', error)
+      prodError('Error updating question:', error)
       throw error
     }
   }
@@ -716,7 +717,7 @@ export class FirebaseQuestionsService {
 
       return stats
     } catch (error) {
-      console.error('Error getting question stats:', error)
+      prodError('Error getting question stats:', error)
       throw error
     }
   }
@@ -728,7 +729,7 @@ export class FirebaseQuestionsService {
    */
   static async deleteCategory(categoryId) {
     try {
-      console.log(`🗑️ Deleting category: ${categoryId}`)
+      devLog(`🗑️ Deleting category: ${categoryId}`)
 
       // First, get all questions in this category
       const questionsRef = collection(db, this.COLLECTIONS.QUESTIONS)
@@ -751,7 +752,7 @@ export class FirebaseQuestionsService {
       // Commit the batch
       await batch.commit()
 
-      console.log(`✅ Category ${categoryId} deleted with ${deletedQuestionsCount} questions`)
+      devLog(`✅ Category ${categoryId} deleted with ${deletedQuestionsCount} questions`)
 
       return {
         categoryId,
@@ -759,7 +760,7 @@ export class FirebaseQuestionsService {
         success: true
       }
     } catch (error) {
-      console.error('Error deleting category:', error)
+      prodError('Error deleting category:', error)
       throw error
     }
   }
@@ -777,9 +778,9 @@ export class FirebaseQuestionsService {
         ...updateData,
         updatedAt: serverTimestamp()
       })
-      console.log(`✅ Category ${categoryId} updated in Firebase`)
+      devLog(`✅ Category ${categoryId} updated in Firebase`)
     } catch (error) {
-      console.error('Error updating category:', error)
+      prodError('Error updating category:', error)
       throw error
     }
   }
@@ -807,9 +808,9 @@ export class FirebaseQuestionsService {
             updatedAt: serverTimestamp()
           }, { merge: true })
           result.created++
-          console.log(`✅ Category ${categoryData.id} created/updated in Firebase`)
+          devLog(`✅ Category ${categoryData.id} created/updated in Firebase`)
         } catch (error) {
-          console.error(`❌ Error creating category ${categoryData.id}:`, error)
+          prodError(`❌ Error creating category ${categoryData.id}:`, error)
           result.errors.push({
             categoryId: categoryData.id,
             error: error.message
@@ -819,7 +820,7 @@ export class FirebaseQuestionsService {
 
       return result
     } catch (error) {
-      console.error('Error creating categories from data:', error)
+      prodError('Error creating categories from data:', error)
       throw error
     }
   }
@@ -834,7 +835,7 @@ export class FirebaseQuestionsService {
    */
   static async submitQuestionForApproval(categoryId, questionData) {
     try {
-      console.log('📤 Submitting question for approval:', questionData)
+      devLog('📤 Submitting question for approval:', questionData)
 
       const pendingQuestion = {
         ...questionData,
@@ -845,10 +846,10 @@ export class FirebaseQuestionsService {
       }
 
       const docRef = await addDoc(collection(db, this.COLLECTIONS.PENDING_QUESTIONS), pendingQuestion)
-      console.log('✅ Question submitted for approval with ID:', docRef.id)
+      devLog('✅ Question submitted for approval with ID:', docRef.id)
       return docRef.id
     } catch (error) {
-      console.error('❌ Error submitting question for approval:', error)
+      prodError('❌ Error submitting question for approval:', error)
       throw error
     }
   }
@@ -859,7 +860,7 @@ export class FirebaseQuestionsService {
    */
   static async getPendingQuestions() {
     try {
-      console.log('📥 Fetching pending questions...')
+      devLog('📥 Fetching pending questions...')
 
       const q = query(
         collection(db, this.COLLECTIONS.PENDING_QUESTIONS),
@@ -878,10 +879,10 @@ export class FirebaseQuestionsService {
         })
       })
 
-      console.log(`✅ Loaded ${pendingQuestions.length} pending questions`)
+      devLog(`✅ Loaded ${pendingQuestions.length} pending questions`)
       return pendingQuestions
     } catch (error) {
-      console.error('❌ Error fetching pending questions:', error)
+      prodError('❌ Error fetching pending questions:', error)
       throw error
     }
   }
@@ -893,7 +894,7 @@ export class FirebaseQuestionsService {
    */
   static async approveQuestion(pendingQuestionId) {
     try {
-      console.log('✅ Approving question:', pendingQuestionId)
+      devLog('✅ Approving question:', pendingQuestionId)
 
       // Get the pending question data
       const pendingDoc = await this.getDocument(this.COLLECTIONS.PENDING_QUESTIONS, pendingQuestionId)
@@ -920,10 +921,10 @@ export class FirebaseQuestionsService {
         questionId: docRef.id
       })
 
-      console.log('✅ Question approved and added with ID:', docRef.id)
+      devLog('✅ Question approved and added with ID:', docRef.id)
       return docRef.id
     } catch (error) {
-      console.error('❌ Error approving question:', error)
+      prodError('❌ Error approving question:', error)
       throw error
     }
   }
@@ -936,7 +937,7 @@ export class FirebaseQuestionsService {
    */
   static async denyQuestion(pendingQuestionId, reason = '') {
     try {
-      console.log('❌ Denying question:', pendingQuestionId, reason ? `Reason: ${reason}` : '')
+      devLog('❌ Denying question:', pendingQuestionId, reason ? `Reason: ${reason}` : '')
 
       await updateDoc(doc(db, this.COLLECTIONS.PENDING_QUESTIONS, pendingQuestionId), {
         status: 'denied',
@@ -944,9 +945,9 @@ export class FirebaseQuestionsService {
         denialReason: reason
       })
 
-      console.log('✅ Question denied')
+      devLog('✅ Question denied')
     } catch (error) {
-      console.error('❌ Error denying question:', error)
+      prodError('❌ Error denying question:', error)
       throw error
     }
   }
@@ -958,13 +959,13 @@ export class FirebaseQuestionsService {
    */
   static async deletePendingQuestion(pendingQuestionId) {
     try {
-      console.log('🗑️ Deleting pending question:', pendingQuestionId)
+      devLog('🗑️ Deleting pending question:', pendingQuestionId)
 
       await deleteDoc(doc(db, this.COLLECTIONS.PENDING_QUESTIONS, pendingQuestionId))
 
-      console.log('✅ Pending question deleted')
+      devLog('✅ Pending question deleted')
     } catch (error) {
-      console.error('❌ Error deleting pending question:', error)
+      prodError('❌ Error deleting pending question:', error)
       throw error
     }
   }

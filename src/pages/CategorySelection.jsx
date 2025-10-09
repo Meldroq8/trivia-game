@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
@@ -17,14 +18,14 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    console.log('🔧 CategorySelection: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
+    devLog('🔧 CategorySelection: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      console.log('✅ CategorySelection: Set questionUsageTracker user ID to:', user.uid)
+      devLog('✅ CategorySelection: Set questionUsageTracker user ID to:', user.uid)
 
       // If we have game data but hadn't set up question tracking yet, do it now
       if (gameData) {
-        console.log('🔄 CategorySelection: Updating question pool after user authentication')
+        devLog('🔄 CategorySelection: Updating question pool after user authentication')
         questionUsageTracker.updateQuestionPool(gameData)
       }
     }
@@ -43,32 +44,32 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       try {
         setLoadingError(null)
 
-        console.log('🎮 CategorySelection: Loading game data...')
+        devLog('🎮 CategorySelection: Loading game data...')
         const gameData = await GameDataLoader.loadGameData()
 
         if (gameData && gameData.categories) {
-          console.log('🔍 CategorySelection: All categories loaded:', gameData.categories)
+          devLog('🔍 CategorySelection: All categories loaded:', gameData.categories)
           const mysteryCategory = gameData.categories.find(cat => cat.id === 'mystery')
           if (mysteryCategory) {
-            console.log('🔍 CategorySelection: Mystery category found:', mysteryCategory)
-            console.log('🔍 CategorySelection: Mystery imageUrl:', mysteryCategory.imageUrl)
+            devLog('🔍 CategorySelection: Mystery category found:', mysteryCategory)
+            devLog('🔍 CategorySelection: Mystery imageUrl:', mysteryCategory.imageUrl)
           }
           setAvailableCategories(gameData.categories)
           setGameData(gameData)
-          console.log('✅ CategorySelection: Loaded', gameData.categories.length, 'categories')
+          devLog('✅ CategorySelection: Loaded', gameData.categories.length, 'categories')
 
           // Update question pool for global usage tracking (only if user is set)
           if (user?.uid) {
             questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
             questionUsageTracker.updateQuestionPool(gameData)
           } else {
-            console.log('⏳ CategorySelection: Delaying questionUsageTracker until user is authenticated')
+            devLog('⏳ CategorySelection: Delaying questionUsageTracker until user is authenticated')
           }
         } else {
           throw new Error('No categories found in game data')
         }
       } catch (error) {
-        console.error('❌ CategorySelection: Error loading data:', error)
+        prodError('❌ CategorySelection: Error loading data:', error)
         setLoadingError(error.message)
 
         // Try to load fallback data
@@ -76,17 +77,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           const fallbackData = await GameDataLoader.loadSampleData()
           setAvailableCategories(fallbackData.categories || [])
           setGameData(fallbackData)
-          console.log('🔄 CategorySelection: Using fallback data')
+          devLog('🔄 CategorySelection: Using fallback data')
 
           // Update question pool for global usage tracking with fallback data (only if user is set)
           if (user?.uid) {
             questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
             questionUsageTracker.updateQuestionPool(fallbackData)
           } else {
-            console.log('⏳ CategorySelection: Delaying questionUsageTracker (fallback) until user is authenticated')
+            devLog('⏳ CategorySelection: Delaying questionUsageTracker (fallback) until user is authenticated')
           }
         } catch (fallbackError) {
-          console.error('❌ CategorySelection: Fallback also failed:', fallbackError)
+          prodError('❌ CategorySelection: Fallback also failed:', fallbackError)
           setAvailableCategories([])
           setLoadingError('Unable to load categories. Please refresh the page.')
         }
@@ -141,15 +142,15 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     for (const categoryId of Object.keys(gameData.questions)) {
       try {
         const categoryQuestions = gameData.questions[categoryId]
-        console.log(`📊 Counting questions for category ${categoryId}:`, categoryQuestions.length, 'total')
+        devLog(`📊 Counting questions for category ${categoryId}:`, categoryQuestions.length, 'total')
 
         const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
-        console.log(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
+        devLog(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
 
         // Divide by 3 for the 3 difficulties to get average per difficulty
         counts[categoryId] = Math.round(availableQuestions.length / 3)
       } catch (error) {
-        console.error('Error calculating question count for category:', categoryId, error)
+        prodError('Error calculating question count for category:', categoryId, error)
         counts[categoryId] = 0
       }
     }
@@ -159,7 +160,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       counts['mystery'] = '?' // Show question mark for mystery category count
     }
 
-    console.log('📊 Final question counts:', counts)
+    devLog('📊 Final question counts:', counts)
     setQuestionCounts(counts)
   }
 
@@ -228,7 +229,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             Array.from({ length: 12 }).map((_, index) => (
               <div
                 key={`skeleton-${index}`}
-                className="relative p-0 rounded-lg min-h-[150px] md:min-h-[180px] flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse"
+                className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
               >
                 <div className="flex-1 relative flex items-center justify-center">
                   <div className="w-8 h-8 bg-gray-300 rounded"></div>
@@ -249,7 +250,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 onClick={() => canSelect && toggleCategory(category.id)}
                 disabled={!canSelect}
                 className={`
-                  relative p-0 rounded-lg font-bold text-sm md:text-xl transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 min-h-[150px] md:min-h-[180px] flex flex-col
+                  relative p-0 rounded-lg font-bold text-sm md:text-xl transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4]
                   ${selected
                     ? 'text-white shadow-lg scale-105 border-red-600'
                     : canSelect

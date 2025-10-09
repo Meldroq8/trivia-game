@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { db, auth } from './config'
 import {
   doc,
@@ -65,10 +66,10 @@ class SettingsService {
       }, { merge: true })
 
       this.appSettingsCache = { ...this.appSettingsCache, ...cleanedSettings }
-      console.log('✅ App settings saved to Firebase')
+      devLog('✅ App settings saved to Firebase')
       return true
     } catch (error) {
-      console.error('❌ Error saving app settings:', error)
+      prodError('❌ Error saving app settings:', error)
       return false
     }
   }
@@ -92,7 +93,7 @@ class SettingsService {
 
       return {}
     } catch (error) {
-      console.error('❌ Error loading app settings:', error)
+      prodError('❌ Error loading app settings:', error)
       return {}
     }
   }
@@ -120,7 +121,7 @@ class SettingsService {
     try {
       const uid = userId || this.currentUser?.uid
       if (!uid) {
-        console.warn('⚠️ No user ID for saving settings')
+        devWarn('⚠️ No user ID for saving settings')
         return false
       }
 
@@ -134,10 +135,10 @@ class SettingsService {
       }, { merge: true })
 
       this.userSettingsCache = { ...this.userSettingsCache, ...cleanedSettings }
-      console.log('✅ User settings saved to Firebase')
+      devLog('✅ User settings saved to Firebase')
       return true
     } catch (error) {
-      console.error('❌ Error saving user settings:', error)
+      prodError('❌ Error saving user settings:', error)
       return false
     }
   }
@@ -164,7 +165,7 @@ class SettingsService {
 
       return {}
     } catch (error) {
-      console.error('❌ Error loading user settings:', error)
+      prodError('❌ Error loading user settings:', error)
       return {}
     }
   }
@@ -216,7 +217,7 @@ class SettingsService {
     try {
       const uid = userId || this.currentUser?.uid
       if (!uid) {
-        console.warn('⚠️ No user ID for saving game state')
+        devWarn('⚠️ No user ID for saving game state')
         return false
       }
 
@@ -229,10 +230,10 @@ class SettingsService {
         savedAt: new Date().toISOString()
       })
 
-      console.log('✅ Game state saved to Firebase')
+      devLog('✅ Game state saved to Firebase')
       return true
     } catch (error) {
-      console.error('❌ Error saving game state:', error)
+      prodError('❌ Error saving game state:', error)
       return false
     }
   }
@@ -255,7 +256,7 @@ class SettingsService {
 
       return null
     } catch (error) {
-      console.error('❌ Error loading game state:', error)
+      prodError('❌ Error loading game state:', error)
       return null
     }
   }
@@ -279,10 +280,10 @@ class SettingsService {
         updatedAt: new Date().toISOString()
       }, { merge: true })
 
-      console.log('✅ User stats saved to Firebase')
+      devLog('✅ User stats saved to Firebase')
       return true
     } catch (error) {
-      console.error('❌ Error saving user stats:', error)
+      prodError('❌ Error saving user stats:', error)
       return false
     }
   }
@@ -304,7 +305,7 @@ class SettingsService {
 
       return {}
     } catch (error) {
-      console.error('❌ Error loading user stats:', error)
+      prodError('❌ Error loading user stats:', error)
       return {}
     }
   }
@@ -316,7 +317,7 @@ class SettingsService {
    */
   async migrateFromLocalStorage() {
     try {
-      console.log('🔄 Starting localStorage to Firebase migration...')
+      devLog('🔄 Starting localStorage to Firebase migration...')
 
       // Migrate app settings (logo)
       const logo = localStorage.getItem('trivia-game-logo')
@@ -326,7 +327,7 @@ class SettingsService {
           logo: logo || null,
           logoSize: logoSize || 'medium'
         })
-        console.log('✅ Migrated logo settings')
+        devLog('✅ Migrated logo settings')
       }
 
       if (this.currentUser) {
@@ -336,9 +337,9 @@ class SettingsService {
           try {
             const parsedState = JSON.parse(gameState)
             await this.saveGameState(parsedState)
-            console.log('✅ Migrated game state')
+            devLog('✅ Migrated game state')
           } catch (e) {
-            console.warn('⚠️ Could not migrate game state:', e)
+            devWarn('⚠️ Could not migrate game state:', e)
           }
         }
 
@@ -346,14 +347,14 @@ class SettingsService {
         const adminTab = localStorage.getItem('adminActiveTab')
         if (adminTab) {
           await this.saveUserSettings({ adminActiveTab: adminTab })
-          console.log('✅ Migrated admin tab preference')
+          devLog('✅ Migrated admin tab preference')
         }
       }
 
-      console.log('✅ Migration completed')
+      devLog('✅ Migration completed')
       return true
     } catch (error) {
-      console.error('❌ Migration failed:', error)
+      prodError('❌ Migration failed:', error)
       return false
     }
   }
@@ -373,7 +374,7 @@ class SettingsService {
       localStorage.removeItem(key)
     })
 
-    console.log('🗑️ Cleared migrated localStorage keys')
+    devLog('🗑️ Cleared migrated localStorage keys')
   }
 
   // ===== CLEANUP =====
@@ -398,10 +399,10 @@ class SettingsService {
       ])
 
       this.userSettingsCache = null
-      console.log('🗑️ Cleared all user data from Firebase')
+      devLog('🗑️ Cleared all user data from Firebase')
       return true
     } catch (error) {
-      console.error('❌ Error clearing user data:', error)
+      prodError('❌ Error clearing user data:', error)
       return false
     }
   }

@@ -1,38 +1,54 @@
-const functions = require('firebase-functions');
-const { Octokit } = require('@octokit/rest');
+import { onRequest } from 'firebase-functions/v2/https'
 
-// GitHub configuration
-const GITHUB_TOKEN = functions.config().github.token; // Set via: firebase functions:config:set github.token="your_token"
-const GITHUB_OWNER = 'Meldroq8';
-const GITHUB_REPO = 'trivia-game';
-
-const octokit = new Octokit({
-  auth: GITHUB_TOKEN,
-});
-
-// Trigger deployment when images are uploaded to Firebase Storage
-exports.onImageUpload = functions.storage.object().onFinalize(async (object) => {
-  const filePath = object.name;
-
-  // Only trigger for category or question images
-  if (filePath.startsWith('categories/') || filePath.startsWith('questions/')) {
-    console.log(`🖼️ New image uploaded: ${filePath}`);
-
+// CORS proxy to bypass image CORS restrictions
+export const imageProxy = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+    timeoutSeconds: 30,
+  },
+  async (req, res) => {
     try {
-      // Trigger GitHub Actions workflow
-      await octokit.rest.actions.createWorkflowDispatch({
-        owner: GITHUB_OWNER,
-        repo: GITHUB_REPO,
-        workflow_id: 'simple-deploy.yml', // Your workflow file name
-        ref: 'main',
-        inputs: {
-          reason: `Auto-deploy for new image: ${filePath}`
-        }
-      });
+      // Only allow GET requests
+      if (req.method !== 'GET') {
+        res.status(405).send('Method not allowed')
+        return
+      }
 
-      console.log('✅ GitHub Actions deployment triggered successfully');
+      const imageUrl = req.query.url
+      
+      if (!imageUrl) {
+        res.status(400).send('Missing url parameter')
+        return
+      }
+
+      // Fetch the image from the external URL
+      const response = await fetch(imageUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      })
+
+      if (!response.ok) {
+        res.status(response.status).send(`Failed to fetch image: ${response.statusText}`)
+        return
+      }
+
+      // Get the image as array buffer
+      const arrayBuffer = await response.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      // Set appropriate headers
+      const contentType = response.headers.get('content-type') || 'image/jpeg'
+      res.set('Content-Type', contentType)
+      res.set('Cache-Control', 'public, max-age=86400') // Cache for 1 day
+      res.set('Access-Control-Allow-Origin', '*')
+      
+      // Send the image
+      res.send(buffer)
     } catch (error) {
-      console.error('❌ Failed to trigger deployment:', error);
+      console.error('Image proxy error:', error)
+      res.status(500).send(`Error fetching image: ${error.message}`)
     }
   }
-});
+)

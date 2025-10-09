@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 const S3_CONFIG = {
@@ -48,16 +49,17 @@ export class S3UploadService {
     }
 
     // Check file size based on type
-    let maxSize = 5 * 1024 * 1024 // 5MB for images
+    let maxSize = 10 * 1024 * 1024 // 10MB for images
     if (file.type.startsWith('audio/')) {
-      maxSize = 50 * 1024 * 1024 // 50MB for audio
+      maxSize = 100 * 1024 * 1024 // 100MB for audio
     } else if (file.type.startsWith('video/')) {
-      maxSize = 100 * 1024 * 1024 // 100MB for video
+      maxSize = 500 * 1024 * 1024 // 500MB for video
     }
 
     if (file.size > maxSize) {
       const maxSizeMB = Math.round(maxSize / (1024 * 1024))
-      throw new Error(`File size must be less than ${maxSizeMB}MB`)
+      devWarn(`File ${file.name} exceeds ${maxSizeMB}MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)`)
+      throw new Error(`حجم الملف كبير جداً: ${(file.size / (1024 * 1024)).toFixed(1)}MB. الحد الأقصى: ${maxSizeMB}MB`)
     }
 
     try {
@@ -75,11 +77,11 @@ export class S3UploadService {
       const contentType = file.type || 'application/octet-stream'
 
       // Convert File to ArrayBuffer for AWS SDK compatibility
-      console.log(`Converting file to ArrayBuffer for S3 upload: ${key}`)
+      devLog(`Converting file to ArrayBuffer for S3 upload: ${key}`)
       const fileBuffer = await file.arrayBuffer()
 
       // Upload to S3
-      console.log(`Uploading media to S3: ${key}`)
+      devLog(`Uploading media to S3: ${key}`)
       const client = getS3Client()
       const command = new PutObjectCommand({
         Bucket: S3_CONFIG.bucket,
@@ -91,17 +93,17 @@ export class S3UploadService {
       })
 
       await client.send(command)
-      console.log('Upload completed successfully')
+      devLog('Upload completed successfully')
 
       // Return CloudFront URL instead of S3 URL
       const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
       const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
-      console.log('CloudFront URL:', cloudFrontUrl)
+      devLog('CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading media to S3:', error)
-      console.error('Error details:', {
+      prodError('Error uploading media to S3:', error)
+      prodError('Error details:', {
         message: error.message,
         code: error.Code || error.code,
         statusCode: error.$metadata?.httpStatusCode,
@@ -146,11 +148,11 @@ export class S3UploadService {
       const key = `${folder}/${fileName}`
 
       // Convert File to ArrayBuffer for AWS SDK compatibility
-      console.log(`Converting file to ArrayBuffer for S3 upload: ${key}`)
+      devLog(`Converting file to ArrayBuffer for S3 upload: ${key}`)
       const fileBuffer = await file.arrayBuffer()
 
       // Upload to S3
-      console.log(`Uploading image to S3: ${key}`)
+      devLog(`Uploading image to S3: ${key}`)
       const client = getS3Client()
       const command = new PutObjectCommand({
         Bucket: S3_CONFIG.bucket,
@@ -162,17 +164,17 @@ export class S3UploadService {
       })
 
       await client.send(command)
-      console.log('Upload completed successfully')
+      devLog('Upload completed successfully')
 
       // Return CloudFront URL instead of S3 URL
       const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
       const cloudFrontUrl = `https://${cloudFrontDomain}/${key}`
-      console.log('CloudFront URL:', cloudFrontUrl)
+      devLog('CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading image to S3:', error)
-      console.error('Error details:', {
+      prodError('Error uploading image to S3:', error)
+      prodError('Error details:', {
         message: error.message,
         code: error.Code || error.code,
         statusCode: error.$metadata?.httpStatusCode,
@@ -243,7 +245,7 @@ export class S3UploadService {
       const cloudFrontDomain = import.meta.env.VITE_CLOUDFRONT_DOMAIN
       const key = fileUrl.replace(`https://${cloudFrontDomain}/`, '')
 
-      console.log(`Deleting file from S3: ${key}`)
+      devLog(`Deleting file from S3: ${key}`)
 
       const client = getS3Client()
       const command = new DeleteObjectCommand({
@@ -252,12 +254,12 @@ export class S3UploadService {
       })
 
       await client.send(command)
-      console.log('File deleted successfully from S3')
+      devLog('File deleted successfully from S3')
 
       return true
     } catch (error) {
-      console.error('Error deleting file from S3:', error)
-      console.error('Error details:', {
+      prodError('Error deleting file from S3:', error)
+      prodError('Error details:', {
         message: error.message,
         code: error.Code || error.code,
         statusCode: error.$metadata?.httpStatusCode,

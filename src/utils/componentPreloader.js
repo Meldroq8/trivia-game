@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 // Component preloading utility
 class ComponentPreloader {
   constructor() {
@@ -15,7 +16,7 @@ class ComponentPreloader {
       this.preloadedComponents.add(componentName)
       return module
     }).catch(error => {
-      console.warn(`Failed to preload ${componentName}:`, error)
+      devWarn(`Failed to preload ${componentName}:`, error)
       throw error
     })
 
@@ -42,12 +43,12 @@ class ComponentPreloader {
     try {
       await Promise.all(highPriority)
     } catch (error) {
-      console.warn('Some high priority components failed to preload:', error)
+      devWarn('Some high priority components failed to preload:', error)
     }
 
     // Then load low priority components (don't wait for them)
     Promise.all(lowPriority).catch(error => {
-      console.warn('Some low priority components failed to preload:', error)
+      devWarn('Some low priority components failed to preload:', error)
     })
   }
 

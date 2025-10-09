@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import { FirebaseQuestionsService } from './firebaseQuestions'
 
 /**
@@ -5,7 +6,7 @@ import { FirebaseQuestionsService } from './firebaseQuestions'
  * This can be run from the browser console to test the implementation
  */
 export const testFirebaseImport = async () => {
-  console.log('🧪 Testing Firebase Questions Service...')
+  devLog('🧪 Testing Firebase Questions Service...')
 
   try {
     // Test data
@@ -49,37 +50,37 @@ export const testFirebaseImport = async () => {
       }
     ]
 
-    console.log('📊 Test data prepared:', testQuestions)
+    devLog('📊 Test data prepared:', testQuestions)
 
     // Test 1: Create categories
-    console.log('\n🧪 Test 1: Creating categories...')
+    devLog('\n🧪 Test 1: Creating categories...')
     const categoryResult = await FirebaseQuestionsService.createCategoriesFromQuestions(testQuestions)
-    console.log('✅ Category creation result:', categoryResult)
+    devLog('✅ Category creation result:', categoryResult)
 
     // Test 2: Import questions with duplicate detection
-    console.log('\n🧪 Test 2: Importing questions...')
+    devLog('\n🧪 Test 2: Importing questions...')
     const importResult = await FirebaseQuestionsService.importQuestions(testQuestions)
-    console.log('✅ Import result:', importResult)
+    devLog('✅ Import result:', importResult)
 
     // Test 3: Get question statistics
-    console.log('\n🧪 Test 3: Getting statistics...')
+    devLog('\n🧪 Test 3: Getting statistics...')
     const stats = await FirebaseQuestionsService.getQuestionStats()
-    console.log('✅ Statistics:', stats)
+    devLog('✅ Statistics:', stats)
 
     // Test 4: Get all questions
-    console.log('\n🧪 Test 4: Getting all questions...')
+    devLog('\n🧪 Test 4: Getting all questions...')
     const allQuestions = await FirebaseQuestionsService.getAllQuestions()
-    console.log('✅ All questions:', allQuestions)
+    devLog('✅ All questions:', allQuestions)
 
     // Test 5: Test duplicate detection
-    console.log('\n🧪 Test 5: Testing duplicate detection...')
+    devLog('\n🧪 Test 5: Testing duplicate detection...')
     const duplicate = await FirebaseQuestionsService.findDuplicateQuestion('ما هي عاصمة مصر؟', 'القاهرة')
-    console.log('✅ Duplicate found:', duplicate)
+    devLog('✅ Duplicate found:', duplicate)
 
     const similar = await FirebaseQuestionsService.findSimilarQuestions('ما هي عاصمة مصر؟')
-    console.log('✅ Similar questions:', similar)
+    devLog('✅ Similar questions:', similar)
 
-    console.log('\n🎉 All tests completed successfully!')
+    devLog('\n🎉 All tests completed successfully!')
 
     return {
       categoryResult,
@@ -91,7 +92,7 @@ export const testFirebaseImport = async () => {
     }
 
   } catch (error) {
-    console.error('❌ Test failed:', error)
+    prodError('❌ Test failed:', error)
     throw error
   }
 }
@@ -100,7 +101,7 @@ export const testFirebaseImport = async () => {
  * Test bulk import functionality
  */
 export const testBulkImport = async () => {
-  console.log('🧪 Testing bulk import functionality...')
+  devLog('🧪 Testing bulk import functionality...')
 
   const testBulkText = `من هو مؤسس شركة مايكروسوفت؟؛بيل غيتس؛بيل غيتس؛ستيف جوبز؛مارك زوكربيرغ؛إيلون ماسك؛تكنولوجيا؛؛سهل
 ما هي عاصمة اليابان؟؛طوكيو؛طوكيو؛كيوتو؛أوساكا؛هيروشيما؛جغرافيا؛؛متوسط
@@ -109,10 +110,10 @@ export const testBulkImport = async () => {
   try {
     const { importBulkQuestionsToFirebase } = await import('./importQuestions')
     const result = await importBulkQuestionsToFirebase(testBulkText)
-    console.log('✅ Bulk import result:', result)
+    devLog('✅ Bulk import result:', result)
     return result
   } catch (error) {
-    console.error('❌ Bulk import test failed:', error)
+    prodError('❌ Bulk import test failed:', error)
     throw error
   }
 }

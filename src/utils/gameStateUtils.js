@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 // Game state utility functions
 
 /**

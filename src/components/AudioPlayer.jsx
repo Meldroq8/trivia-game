@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useRef, useEffect } from 'react'
 import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 
@@ -7,7 +8,7 @@ function AudioPlayer({ src, className = '' }) {
 
   // Log CloudFront configuration on first load
   useEffect(() => {
-    console.log('🔧 CloudFront Config Check:', {
+    devLog('🔧 CloudFront Config Check:', {
       enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED,
       domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN,
       baseUrl: import.meta.env.VITE_CDN_BASE_URL
@@ -28,7 +29,7 @@ function AudioPlayer({ src, className = '' }) {
     if (!audio) return
 
     // Log URL conversion for debugging
-    console.log('🎵 AudioPlayer URL conversion:', {
+    devLog('🎵 AudioPlayer URL conversion:', {
       original: src,
       optimized: optimizedSrc
     })
@@ -48,7 +49,7 @@ function AudioPlayer({ src, className = '' }) {
     }
 
     const handleError = (e) => {
-      console.error('Audio loading error:', e, 'Original Source:', src, 'Optimized Source:', optimizedSrc)
+      prodError('Audio loading error:', e, 'Original Source:', src, 'Optimized Source:', optimizedSrc)
       setError('الملف الصوتي غير موجود: ' + optimizedSrc)
       setIsLoading(false)
     }
@@ -74,7 +75,7 @@ function AudioPlayer({ src, className = '' }) {
       audio.pause()
     } else {
       audio.play().catch((err) => {
-        console.error('Audio play error:', err)
+        prodError('Audio play error:', err)
         setError('خطأ في تشغيل الملف الصوتي - الملف غير موجود')
       })
     }

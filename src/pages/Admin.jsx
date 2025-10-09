@@ -1,10 +1,11 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebase, importBulkQuestionsToFirebaseForced } from '../utils/importQuestions'
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import { deleteField, doc, deleteDoc } from 'firebase/firestore'
+import { deleteField, doc, deleteDoc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
@@ -17,14 +18,39 @@ import BackgroundImage from '../components/BackgroundImage'
 import { processCategoryImage, processQuestionImage, isValidImage, createPreviewUrl, cleanupPreviewUrl } from '../utils/imageProcessor'
 import { getCategoryImageUrl, getQuestionImageUrl, getThumbnailUrl } from '../utils/mediaUrlConverter'
 import MediaUploadManager from '../components/MediaUploadManager'
+import loaderService from '../firebase/loaderService'
+import AIEnhancementModal from '../components/AIEnhancementModal'
+import aiService from '../services/aiService'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('adminActiveTab') || 'categories'
   })
+  const [pendingCount, setPendingCount] = useState(0)
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [aiEditingCategory, setAiEditingCategory] = useState(null)
   const navigate = useNavigate()
   const { isAdmin, isModerator, isAdminOrModerator, user, isAuthenticated, loading, userProfile, getAllUsers, updateUserRole, searchUsers } = useAuth()
+
+  // Load pending count for notification badge
+  useEffect(() => {
+    const loadPendingCount = async () => {
+      if (isAdmin) {
+        try {
+          const count = await loaderService.getPendingCount()
+          setPendingCount(count)
+        } catch (error) {
+          prodError('Error loading pending count:', error)
+        }
+      }
+    }
+
+    loadPendingCount()
+    // Refresh count every 30 seconds
+    const interval = setInterval(loadPendingCount, 30000)
+    return () => clearInterval(interval)
+  }, [isAdmin])
 
   // Function to change tab and save to localStorage
   const changeTab = (newTab) => {
@@ -131,13 +157,30 @@ function Admin() {
           {isAdmin && (
             <button
               onClick={() => changeTab('pending')}
-              className={`flex-1 py-4 px-6 font-bold ${
+              className={`flex-1 py-4 px-6 font-bold relative ${
                 activeTab === 'pending'
                   ? 'bg-blue-600 text-white'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               مراجعة الأسئلة
+              {pendingCount > 0 && (
+                <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {pendingCount > 9 ? '9+' : pendingCount}
+                </span>
+              )}
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => changeTab('invites')}
+              className={`flex-1 py-4 px-6 font-bold ${
+                activeTab === 'invites'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              إدارة الدعوات
             </button>
           )}
           {isAdminOrModerator && (
@@ -168,19 +211,34 @@ function Admin() {
 
         {/* Tab Content */}
         <div className="p-8">
-          {activeTab === 'categories' && <CategoriesManager isAdmin={isAdmin} isModerator={isModerator} />}
-          {activeTab === 'questions' && <QuestionsManager isAdmin={isAdmin} isModerator={isModerator} user={user} />}
+          {activeTab === 'categories' && <CategoriesManager isAdmin={isAdmin} isModerator={isModerator} showAIModal={showAIModal} setShowAIModal={setShowAIModal} setAiEditingCategory={setAiEditingCategory} />}
+          {activeTab === 'questions' && <QuestionsManager isAdmin={isAdmin} isModerator={isModerator} user={user} showAIModal={showAIModal} setShowAIModal={setShowAIModal} setAiEditingCategory={setAiEditingCategory} />}
           {activeTab === 'users' && isAdmin && <UsersManager getAllUsers={getAllUsers} updateUserRole={updateUserRole} searchUsers={searchUsers} />}
           {activeTab === 'pending' && isAdmin && <PendingQuestionsManager />}
+          {activeTab === 'invites' && isAdmin && <InviteCodesManager user={user} />}
           {activeTab === 'media' && isAdminOrModerator && <MediaUploadManager />}
           {activeTab === 'settings' && isAdmin && <SettingsManager isAdmin={isAdmin} isModerator={isModerator} />}
         </div>
       </div>
+
+      {/* AI Enhancement Modal */}
+      {aiEditingCategory && (
+        <AIEnhancementModal
+          isOpen={showAIModal}
+          onClose={() => {
+            setShowAIModal(false)
+            setAiEditingCategory(null)
+          }}
+          questionData={aiEditingCategory.questionData}
+          categoryName={aiEditingCategory.categoryName}
+          onApplyChanges={aiEditingCategory.onApplyChanges}
+        />
+      )}
     </div>
   )
 }
 
-function CategoriesManager({ isAdmin, isModerator }) {
+function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, setAiEditingCategory }) {
   const [categories, setCategories] = useState([])
   const [questions, setQuestions] = useState({})
   const [uploadingImages, setUploadingImages] = useState({})
@@ -198,23 +256,23 @@ function CategoriesManager({ isAdmin, isModerator }) {
 
   const loadDataFromFirebase = async () => {
     try {
-      console.log('🔥 Loading categories manager data from Firebase...')
+      devLog('🔥 Loading categories manager data from Firebase...')
       const gameData = await GameDataLoader.loadGameData(true) // Force refresh
 
       if (gameData) {
         setCategories(gameData.categories || [])
         setQuestions(gameData.questions || {})
-        console.log('✅ Categories manager data loaded from Firebase')
+        devLog('✅ Categories manager data loaded from Firebase')
       }
     } catch (error) {
-      console.error('❌ Error loading categories manager data:', error)
+      prodError('❌ Error loading categories manager data:', error)
       // Only fallback to sample data if Firebase completely fails
       try {
         const module = await import('../data/sampleQuestions.json')
         setCategories(module.default.categories || [])
         setQuestions(module.default.questions || {})
       } catch (sampleError) {
-        console.error('❌ Error loading sample data:', sampleError)
+        prodError('❌ Error loading sample data:', sampleError)
       }
     }
   }
@@ -223,12 +281,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
     setCategories(newCategories)
     // Save directly to Firebase - no localStorage
     try {
-      console.log('🔥 Saving categories to Firebase...')
+      devLog('🔥 Saving categories to Firebase...')
       // Update each category in Firebase (skip mystery category)
       for (const category of newCategories) {
         // Handle mystery category separately - save to localStorage
         if (category.id === 'mystery') {
-          console.log('💾 Saving mystery category to localStorage')
+          devLog('💾 Saving mystery category to localStorage')
           localStorage.setItem('mystery_category_settings', JSON.stringify({
             name: category.name,
             color: category.color,
@@ -248,12 +306,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
           showImageInAnswer: category.showImageInAnswer
         })
       }
-      console.log('✅ Categories saved to Firebase')
+      devLog('✅ Categories saved to Firebase')
 
       // Clear game data cache to force reload with updated mystery category
       GameDataLoader.clearCache()
     } catch (error) {
-      console.error('❌ Error saving categories to Firebase:', error)
+      prodError('❌ Error saving categories to Firebase:', error)
     }
   }
 
@@ -284,12 +342,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
       // Set loading state
       setUploadingImages(prev => ({ ...prev, [categoryId]: true }))
 
-      console.log('Processing category image...')
+      devLog('Processing category image...')
 
       // Process the image (resize to 400x300 WebP)
       const { blob, info } = await processCategoryImage(file)
 
-      console.log('Image processed:', info)
+      devLog('Image processed:', info)
 
       // Convert blob to file for upload
       const processedFile = new File([blob], `category_${categoryId}_${Date.now()}.webp`, {
@@ -298,17 +356,17 @@ function CategoriesManager({ isAdmin, isModerator }) {
       })
 
       // Upload to CloudFront/S3
-      console.log('Uploading processed category image to CloudFront/S3...')
+      devLog('Uploading processed category image to CloudFront/S3...')
       const downloadURL = await ImageUploadService.uploadCategoryImage(processedFile, categoryId)
 
       // Update category with new image URL
       handleImageUrlChange(categoryId, downloadURL)
 
-      console.log('Category image uploaded successfully:', downloadURL)
+      devLog('Category image uploaded successfully:', downloadURL)
       alert(`تم رفع الصورة بنجاح!\n📏 الأبعاد: ${info.dimensions}\n📦 الحجم الأصلي: ${info.originalSize}\n🗜️ الحجم الجديد: ${info.newSize}\n📉 نسبة الضغط: ${info.compression}`)
 
     } catch (error) {
-      console.error('Error processing/uploading category image:', error)
+      prodError('Error processing/uploading category image:', error)
       alert('فشل في معالجة أو رفع الصورة: ' + error.message)
     } finally {
       // Clear loading state
@@ -415,13 +473,13 @@ function CategoriesManager({ isAdmin, isModerator }) {
 
     if (window.confirm(confirmMessage)) {
       try {
-        console.log(`🗑️ Starting deletion of category: ${categoryId}`)
-        console.log(`📊 Category name: ${category?.name}`)
-        console.log(`📊 Questions to delete: ${questionCount}`)
+        devLog(`🗑️ Starting deletion of category: ${categoryId}`)
+        devLog(`📊 Category name: ${category?.name}`)
+        devLog(`📊 Questions to delete: ${questionCount}`)
 
         // First, delete all questions with this categoryId
         // This handles both regular categories and "orphaned" categories
-        console.log(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
+        devLog(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
         const categoryQuestions = questions[categoryId] || []
         let deletedQuestionsCount = 0
         const errors = []
@@ -431,24 +489,24 @@ function CategoriesManager({ isAdmin, isModerator }) {
             try {
               await FirebaseQuestionsService.deleteQuestion(question.id)
               deletedQuestionsCount++
-              console.log(`  ✅ Deleted question ${deletedQuestionsCount}/${categoryQuestions.length}: ${question.id}`)
+              devLog(`  ✅ Deleted question ${deletedQuestionsCount}/${categoryQuestions.length}: ${question.id}`)
             } catch (error) {
-              console.error(`  ❌ Failed to delete question ${question.id}:`, error)
+              prodError(`  ❌ Failed to delete question ${question.id}:`, error)
               errors.push({ questionId: question.id, error: error.message })
             }
           }
         }
 
-        console.log(`✅ Deleted ${deletedQuestionsCount} out of ${categoryQuestions.length} questions`)
+        devLog(`✅ Deleted ${deletedQuestionsCount} out of ${categoryQuestions.length} questions`)
         if (errors.length > 0) {
-          console.error(`❌ Failed to delete ${errors.length} questions:`, errors)
+          prodError(`❌ Failed to delete ${errors.length} questions:`, errors)
         }
 
         // Now try to delete the category document itself (if it exists)
         // This might fail if the category is "orphaned" (no document in Firebase)
         let categoryDeleted = false
         try {
-          console.log(`🗑️ Attempting to delete category document: ${categoryId}`)
+          devLog(`🗑️ Attempting to delete category document: ${categoryId}`)
           // Check if category document exists in Firebase by looking at our categories list
           const categoryExists = categories.some(c => c.id === categoryId && !c.isMystery)
 
@@ -456,12 +514,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
             const categoryRef = doc(db, 'categories', categoryId)
             await deleteDoc(categoryRef)
             categoryDeleted = true
-            console.log(`✅ Category document deleted from Firebase`)
+            devLog(`✅ Category document deleted from Firebase`)
           } else {
-            console.log(`ℹ️ Category "${categoryId}" is orphaned (no document in Firebase), skipping category deletion`)
+            devLog(`ℹ️ Category "${categoryId}" is orphaned (no document in Firebase), skipping category deletion`)
           }
         } catch (error) {
-          console.log(`⚠️ Could not delete category document:`, error.message)
+          devLog(`⚠️ Could not delete category document:`, error.message)
           // Don't throw - we still successfully deleted the questions
         }
 
@@ -483,7 +541,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
         setQuestions(updatedQuestions)
 
         // Clear cache and reload data from Firebase to verify deletion
-        console.log('🔄 Reloading data from Firebase to verify deletion...')
+        devLog('🔄 Reloading data from Firebase to verify deletion...')
         GameDataLoader.clearCache()
 
         // Reload data from Firebase
@@ -491,14 +549,14 @@ function CategoriesManager({ isAdmin, isModerator }) {
         if (gameData) {
           setCategories(gameData.categories || [])
           setQuestions(gameData.questions || {})
-          console.log('✅ Data reloaded from Firebase')
+          devLog('✅ Data reloaded from Firebase')
         }
 
         alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
 
       } catch (error) {
-        console.error('❌ Error deleting category:', error)
-        console.error('Error details:', error.message)
+        prodError('❌ Error deleting category:', error)
+        prodError('Error details:', error.message)
         alert(`حدث خطأ أثناء حذف الفئة: ${error.message}\n\nيرجى المحاولة مرة أخرى.`)
       }
     }
@@ -538,7 +596,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
       setShowCategoryAdd(false)
       alert('تم إنشاء الفئة بنجاح!')
     } catch (error) {
-      console.error('Error creating category:', error)
+      prodError('Error creating category:', error)
       alert('حدث خطأ في إنشاء الفئة')
     }
   }
@@ -555,12 +613,12 @@ function CategoriesManager({ isAdmin, isModerator }) {
     try {
       // Show processing message
       const processingMsg = 'جاري معالجة الصورة...'
-      console.log(processingMsg)
+      devLog(processingMsg)
 
       // Process the image (resize to 400x300 WebP)
       const { blob, info } = await processCategoryImage(file)
 
-      console.log('Image processed:', info)
+      devLog('Image processed:', info)
 
       // Convert blob to file for upload
       const processedFile = new File([blob], `category_${Date.now()}.webp`, {
@@ -578,7 +636,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
       alert(`تم رفع الصورة بنجاح!\n📏 الأبعاد: ${info.dimensions}\n📦 الحجم الأصلي: ${info.originalSize}\n🗜️ الحجم الجديد: ${info.newSize}\n📉 نسبة الضغط: ${info.compression}`)
 
     } catch (error) {
-      console.error('Error processing/uploading category image:', error)
+      prodError('Error processing/uploading category image:', error)
       alert('فشل في معالجة أو رفع الصورة: ' + error.message)
     }
   }
@@ -928,7 +986,7 @@ function CategoriesManager({ isAdmin, isModerator }) {
   )
 }
 
-function QuestionsManager({ isAdmin, isModerator, user }) {
+function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIModal, setAiEditingCategory }) {
   const [questions, setQuestions] = useState({})
   const [categories, setCategories] = useState([])
   const [bulkQuestions, setBulkQuestions] = useState('')
@@ -966,14 +1024,14 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   const [savedScrollPosition, setSavedScrollPosition] = useState(null)
 
   const loadData = async () => {
-    console.log('🔄 Admin loadData called')
+    devLog('🔄 Admin loadData called')
     try {
       // Load from Firebase first, with localStorage as cache
-      console.log('📥 Loading data from Firebase...')
+      devLog('📥 Loading data from Firebase...')
       const gameData = await GameDataLoader.loadGameData()
 
       if (gameData) {
-        console.log('✅ Admin: Loaded data from Firebase:', {
+        devLog('✅ Admin: Loaded data from Firebase:', {
           categories: gameData.categories?.length || 0,
           questions: Object.keys(gameData.questions || {}).length
         })
@@ -988,25 +1046,25 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         Object.entries(transformedQuestions).forEach(([categoryId, categoryQuestions]) => {
           categoryQuestions.forEach((question, index) => {
             if (!question.id) {
-              console.warn(`⚠️ Question at ${categoryId}[${index}] has no Firebase ID:`, question.text)
+              devWarn(`⚠️ Question at ${categoryId}[${index}] has no Firebase ID:`, question.text)
             }
           })
         })
 
-        console.log('📊 Admin data loaded successfully')
+        devLog('📊 Admin data loaded successfully')
       } else {
         throw new Error('No game data received from Firebase')
       }
     } catch (error) {
-      console.error('❌ Admin: Error loading from Firebase:', error)
+      prodError('❌ Admin: Error loading from Firebase:', error)
 
       // Fallback to localStorage
-      console.log('🔄 Admin: Falling back to localStorage...')
+      devLog('🔄 Admin: Falling back to localStorage...')
       const savedData = localStorage.getItem('triviaData')
       if (savedData) {
         try {
           const data = JSON.parse(savedData)
-          console.log('📦 Admin: Using localStorage fallback')
+          devLog('📦 Admin: Using localStorage fallback')
 
           // Ensure questions object exists
           if (!data.questions) {
@@ -1017,7 +1075,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           setQuestions(data.questions || {})
           setCategories(data.categories || [])
         } catch (parseError) {
-          console.error('❌ Error parsing localStorage:', parseError)
+          prodError('❌ Error parsing localStorage:', parseError)
           await loadSampleDataFallback()
         }
       } else {
@@ -1027,7 +1085,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   }
 
   const loadSampleDataFallback = async () => {
-    console.log('📄 Admin: Loading sample data as final fallback')
+    devLog('📄 Admin: Loading sample data as final fallback')
     try {
       const module = await import('../data/sampleQuestions.json')
       const sampleData = module.default
@@ -1039,9 +1097,9 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         categories: sampleData.categories,
         questions: sampleData.questions
       }))
-      console.log('💾 Sample data saved to localStorage')
+      devLog('💾 Sample data saved to localStorage')
     } catch (error) {
-      console.error('❌ Error loading sample data:', error)
+      prodError('❌ Error loading sample data:', error)
       setQuestions({})
       setCategories([])
     }
@@ -1086,32 +1144,32 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   }, [])
 
   const saveQuestions = async (newQuestions) => {
-    console.log('💾 saveQuestions called with:', newQuestions)
-    console.log('🔍 Current questions state before update:', questions)
+    devLog('💾 saveQuestions called with:', newQuestions)
+    devLog('🔍 Current questions state before update:', questions)
 
     setQuestions(newQuestions)
-    console.log('✅ setQuestions called')
+    devLog('✅ setQuestions called')
 
     // Save directly to Firebase - no localStorage
     try {
-      console.log('🔥 Saving questions to Firebase...')
+      devLog('🔥 Saving questions to Firebase...')
       // Note: Individual question updates will be handled by the question editing functions
       // This is just for updating the local state
-      console.log('✅ Questions state updated')
+      devLog('✅ Questions state updated')
     } catch (error) {
-      console.error('❌ Error updating questions state:', error)
+      prodError('❌ Error updating questions state:', error)
     }
   }
 
   const loadDataForceRefresh = async () => {
-    console.log('🔄 Admin loadDataForceRefresh called - bypassing cache')
+    devLog('🔄 Admin loadDataForceRefresh called - bypassing cache')
     try {
       // Force refresh from Firebase by passing forceRefresh = true
-      console.log('📥 Loading data from Firebase with force refresh...')
+      devLog('📥 Loading data from Firebase with force refresh...')
       const gameData = await GameDataLoader.loadGameData(true)
 
       if (gameData) {
-        console.log('✅ Admin: Loaded data from Firebase (force refresh):', {
+        devLog('✅ Admin: Loaded data from Firebase (force refresh):', {
           categories: gameData.categories?.length || 0,
           questions: Object.keys(gameData.questions || {}).length
         })
@@ -1119,19 +1177,19 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         setCategories(gameData.categories || [])
         setQuestions(gameData.questions || {})
 
-        console.log('📊 Admin data loaded successfully (force refresh)')
+        devLog('📊 Admin data loaded successfully (force refresh)')
       } else {
         throw new Error('No game data received from Firebase')
       }
     } catch (error) {
-      console.error('❌ Admin: Error loading from Firebase (force refresh):', error)
+      prodError('❌ Admin: Error loading from Firebase (force refresh):', error)
       alert('حدث خطأ أثناء تحديث البيانات من Firebase')
     }
   }
 
   const parseBulkQuestions = (text) => {
     if (!text || typeof text !== 'string') {
-      console.error('❌ Invalid text provided to parseBulkQuestions:', text)
+      prodError('❌ Invalid text provided to parseBulkQuestions:', text)
       return []
     }
     const lines = text.trim().split('\n').filter(line => line && line.trim())
@@ -1182,7 +1240,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
         // Debug logging for audio questions
         if (audioUrl) {
-          console.log('🎵 Importing question with audio:', {
+          devLog('🎵 Importing question with audio:', {
             text: questionText,
             audioUrl: audioUrl,
             imageUrl: imageUrl
@@ -1229,12 +1287,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     setCategories(newCategories)
     // Save directly to Firebase - no localStorage
     try {
-      console.log('🔥 Saving categories to Firebase...')
+      devLog('🔥 Saving categories to Firebase...')
       // Update each category in Firebase (skip mystery category)
       for (const category of newCategories) {
         // Handle mystery category separately - save to localStorage
         if (category.id === 'mystery') {
-          console.log('💾 Saving mystery category to localStorage')
+          devLog('💾 Saving mystery category to localStorage')
           localStorage.setItem('mystery_category_settings', JSON.stringify({
             name: category.name,
             color: category.color,
@@ -1254,12 +1312,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           showImageInAnswer: category.showImageInAnswer
         })
       }
-      console.log('✅ Categories saved to Firebase')
+      devLog('✅ Categories saved to Firebase')
 
       // Clear game data cache to force reload with updated mystery category
       GameDataLoader.clearCache()
     } catch (error) {
-      console.error('❌ Error saving categories to Firebase:', error)
+      prodError('❌ Error saving categories to Firebase:', error)
     }
   }
 
@@ -1270,12 +1328,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     }
 
     try {
-      console.log('🔥 Starting Firebase-only bulk add process...')
-      console.log('Bulk questions input length:', bulkQuestions.length)
+      devLog('🔥 Starting Firebase-only bulk add process...')
+      devLog('Bulk questions input length:', bulkQuestions.length)
 
       // Clear cache before import to ensure fresh data for duplicate detection
       GameDataLoader.clearCache()
-      console.log('🗑️ Cleared cache before import for fresh duplicate detection')
+      devLog('🗑️ Cleared cache before import for fresh duplicate detection')
 
       // Small delay to ensure Firebase consistency after recent deletions
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -1284,7 +1342,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       const firebaseResult = forceImport
         ? await importBulkQuestionsToFirebaseForced(bulkQuestions)
         : await importBulkQuestionsToFirebase(bulkQuestions)
-      console.log('Firebase import result:', firebaseResult)
+      devLog('Firebase import result:', firebaseResult)
 
       if (!firebaseResult || !firebaseResult.firebaseResults) {
         throw new Error('فشل في الاستيراد إلى Firebase')
@@ -1310,17 +1368,17 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       if (fbResults.questions.errors.length > 0) {
         message += `\n\n⚠️ تحذير: ${fbResults.questions.errors.length} خطأ في الاستيراد (راجع وحدة التحكم للتفاصيل)`
-        console.error('Import errors:', fbResults.questions.errors)
+        prodError('Import errors:', fbResults.questions.errors)
       }
 
       alert(message)
 
       // Refresh data from Firebase to show new questions immediately
-      console.log('🔄 Refreshing data from Firebase...')
+      devLog('🔄 Refreshing data from Firebase...')
       await loadDataForceRefresh()
 
     } catch (error) {
-      console.error('❌ Firebase bulk add error:', error)
+      prodError('❌ Firebase bulk add error:', error)
       alert('فشل في إضافة الأسئلة إلى Firebase: ' + error.message)
     }
   }
@@ -1346,8 +1404,10 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       // Handle ZIP file (contains both XLSX and media)
       if (bulkImportType === 'zip') {
-        console.log('📦 Extracting ZIP file...')
-        const extracted = await extractZipFile(bulkFile)
+        devLog('📦 Extracting ZIP file...')
+        const extracted = await extractZipFile(bulkFile, (progress, total, message) => {
+          setBulkProgress({ current: progress, total, message })
+        })
 
         if (!extracted.xlsx) {
           throw new Error('لم يتم العثور على ملف Excel في ملف ZIP')
@@ -1355,11 +1415,11 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
         excelData = await parseExcelFile(extracted.xlsx)
         mediaFiles = extracted.media
-        console.log(`✅ Extracted ${Object.keys(mediaFiles).length} media files from ZIP`)
+        devLog(`✅ Extracted ${Object.keys(mediaFiles).length} media files from ZIP`)
       }
       // Handle XLSX file only
       else if (bulkImportType === 'xlsx') {
-        console.log('📄 Parsing XLSX file...')
+        devLog('📄 Parsing XLSX file...')
         excelData = await parseExcelFile(bulkFile)
       }
 
@@ -1367,7 +1427,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         throw new Error('لم يتم العثور على أسئلة في الملف')
       }
 
-      console.log(`📊 Processing ${excelData.length} questions...`)
+      devLog(`📊 Processing ${excelData.length} questions...`)
 
       // Process questions with media upload
       const processedQuestions = await processBulkQuestions(
@@ -1382,7 +1442,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       let targetCategoryId = categories.find(c => c.name === bulkCategoryName)?.id
 
       if (!targetCategoryId) {
-        console.log(`🆕 Creating new category: ${bulkCategoryName}`)
+        devLog(`🆕 Creating new category: ${bulkCategoryName}`)
         const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16)
 
         // createCategory returns just the ID string, not an object
@@ -1392,7 +1452,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           icon: '❓'
         })
         targetCategoryId = newCategoryId
-        console.log(`✅ Created category with ID: ${targetCategoryId}`)
+        devLog(`✅ Created category with ID: ${targetCategoryId}`)
 
         if (!targetCategoryId) {
           throw new Error('Failed to create category - no ID returned')
@@ -1411,7 +1471,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       if (!targetCategoryId) {
         throw new Error(`Category "${bulkCategoryName}" not found and could not be created`)
       }
-      console.log(`📂 Target category ID: ${targetCategoryId}`)
+      devLog(`📂 Target category ID: ${targetCategoryId}`)
 
       // Add questions to Firebase
       let addedCount = 0
@@ -1427,22 +1487,22 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         })
 
         try {
-          console.log(`➕ Adding question ${i + 1} to category ${targetCategoryId}:`, {
+          devLog(`➕ Adding question ${i + 1} to category ${targetCategoryId}:`, {
             text: question.text?.substring(0, 50) + '...',
             categoryId: targetCategoryId,
             categoryName: bulkCategoryName
           })
           // Use addSingleQuestion which properly associates the question with the category
           const addedQuestionId = await FirebaseQuestionsService.addSingleQuestion(targetCategoryId, question)
-          console.log(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
+          devLog(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
           addedCount++
         } catch (error) {
-          console.error(`Error adding question ${i + 1}:`, error)
+          prodError(`Error adding question ${i + 1}:`, error)
           errors.push({ questionNumber: i + 1, text: question.text, error: error.message })
           skippedCount++
 
           // Delete uploaded media files for this failed question
-          console.log(`🗑️ Cleaning up media files for failed question ${i + 1}...`)
+          devLog(`🗑️ Cleaning up media files for failed question ${i + 1}...`)
           const mediaUrls = [
             question.imageUrl,
             question.audioUrl,
@@ -1455,9 +1515,9 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           for (const url of mediaUrls) {
             try {
               await S3UploadService.deleteFile(url)
-              console.log(`✅ Deleted: ${url}`)
+              devLog(`✅ Deleted: ${url}`)
             } catch (deleteError) {
-              console.error(`Failed to delete ${url}:`, deleteError)
+              prodError(`Failed to delete ${url}:`, deleteError)
             }
           }
         }
@@ -1465,7 +1525,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       // Log errors if any
       if (errors.length > 0) {
-        console.error('Failed questions:', errors)
+        prodError('Failed questions:', errors)
       }
 
       // Reset state
@@ -1474,23 +1534,23 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       setIsProcessingBulk(false)
       setBulkProgress({ current: 0, total: 0, message: '' })
 
-      console.log(`📊 Import complete: ${addedCount} added, ${skippedCount} skipped`)
-      console.log(`🔄 Refreshing data to show newly added questions in category: ${bulkCategoryName}`)
+      devLog(`📊 Import complete: ${addedCount} added, ${skippedCount} skipped`)
+      devLog(`🔄 Refreshing data to show newly added questions in category: ${bulkCategoryName}`)
 
       alert(`✅ نجح الاستيراد!\n\n📊 تم إضافة: ${addedCount} سؤال\n⚠️ تم تخطي: ${skippedCount} سؤال\n📁 الفئة: ${bulkCategoryName}`)
 
       // Clear ALL caches to ensure fresh data everywhere
-      console.log('🗑️ Clearing all caches to force fresh data load...')
+      devLog('🗑️ Clearing all caches to force fresh data load...')
       GameDataLoader.clearCache()
 
       // Refresh data
       await loadDataForceRefresh()
 
-      console.log(`✅ Data refreshed. Checking questions in category ${targetCategoryId}...`)
-      console.log(`Questions in ${bulkCategoryName}:`, questions[targetCategoryId]?.length || 0)
+      devLog(`✅ Data refreshed. Checking questions in category ${targetCategoryId}...`)
+      devLog(`Questions in ${bulkCategoryName}:`, questions[targetCategoryId]?.length || 0)
 
     } catch (error) {
-      console.error('❌ File bulk import error:', error)
+      prodError('❌ File bulk import error:', error)
       const errorMessage = error?.message || error?.toString() || 'خطأ غير معروف'
       alert('فشل في استيراد الملف: ' + errorMessage)
     } finally {
@@ -1513,12 +1573,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         const questionToDelete = questions[categoryId][questionIndex]
 
         if (questionToDelete?.id) {
-          console.log(`🗑️ Deleting question from Firebase: ${questionToDelete.id}`)
+          devLog(`🗑️ Deleting question from Firebase: ${questionToDelete.id}`)
           // Delete from Firebase first
           await FirebaseQuestionsService.deleteQuestion(questionToDelete.id)
-          console.log(`✅ Question deleted from Firebase successfully`)
+          devLog(`✅ Question deleted from Firebase successfully`)
         } else {
-          console.warn('⚠️ Question has no Firebase ID, skipping Firebase deletion')
+          devWarn('⚠️ Question has no Firebase ID, skipping Firebase deletion')
         }
 
         // Update local state immediately without page refresh
@@ -1526,10 +1586,10 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         updatedQuestions[categoryId].splice(questionIndex, 1)
         setQuestions(updatedQuestions)
 
-        console.log(`✅ Question deleted successfully from ${categoryId} at index ${questionIndex}`)
+        devLog(`✅ Question deleted successfully from ${categoryId} at index ${questionIndex}`)
 
       } catch (error) {
-        console.error('❌ Error deleting question:', error)
+        prodError('❌ Error deleting question:', error)
         alert('حدث خطأ أثناء حذف السؤال. يرجى المحاولة مرة أخرى.')
       }
     }
@@ -1576,7 +1636,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       // Process images before upload
       if (mediaType === 'image') {
-        console.log('Processing image before upload...')
+        devLog('Processing image before upload...')
         const { blob, info } = await processQuestionImage(file)
 
         // Convert blob to File for upload
@@ -1588,7 +1648,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         })
 
         compressionInfo = info
-        console.log('Image processed:', info)
+        devLog('Image processed:', info)
       }
 
       // Determine folder based on media type
@@ -1614,7 +1674,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         alert(`تم رفع ${mediaType === 'audio' ? 'الصوت' : 'الفيديو'} بنجاح!`)
       }
     } catch (error) {
-      console.error('Error uploading media:', error)
+      prodError('Error uploading media:', error)
       alert('فشل في رفع الملف: ' + error.message)
     } finally {
       setUploadingMedia(prev => ({ ...prev, [fieldName]: false }))
@@ -1638,7 +1698,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       // Always clear the field regardless of choice
       updateFunction(fieldName, '')
     } catch (error) {
-      console.error('Error deleting file:', error)
+      prodError('Error deleting file:', error)
       alert('⚠️ فشل حذف الملف من التخزين: ' + error.message + '\n\nتم إزالة الرابط من السؤال فقط.')
       // Still clear the field even if deletion failed
       updateFunction(fieldName, '')
@@ -1672,8 +1732,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       }, 100)
     }
 
-    // Clear the last edited category flag after a short delay
-    setTimeout(() => setLastEditedCategory(null), 100)
+    // Don't clear lastEditedCategory - keep category expanded after cancel
   }
 
   const saveEdit = async (categoryId, questionIndex) => {
@@ -1724,7 +1783,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       } else {
         delete updatedQuestion.imageUrl
         firebaseUpdate.imageUrl = deleteField()
-        console.log('🗑️ Deleted imageUrl from updatedQuestion')
+        devLog('🗑️ Deleted imageUrl from updatedQuestion')
       }
 
       if (editingData.videoUrl && editingData.videoUrl.trim()) {
@@ -1769,20 +1828,20 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       // Update in Firebase if question has ID
       if (question.id) {
-        console.log(`💾 Updating question in Firebase: ${question.id}`)
-        console.log(`🔥 Firebase update object:`, firebaseUpdate)
+        devLog(`💾 Updating question in Firebase: ${question.id}`)
+        devLog(`🔥 Firebase update object:`, firebaseUpdate)
         await FirebaseQuestionsService.updateQuestion(question.id, firebaseUpdate)
-        console.log(`✅ Question updated in Firebase successfully`)
+        devLog(`✅ Question updated in Firebase successfully`)
       }
 
       // Update local state
-      console.log('📝 Final updatedQuestion object:', updatedQuestion)
-      console.log('🖼️ imageUrl in updatedQuestion:', updatedQuestion.imageUrl)
+      devLog('📝 Final updatedQuestion object:', updatedQuestion)
+      devLog('🖼️ imageUrl in updatedQuestion:', updatedQuestion.imageUrl)
 
       const updatedQuestions = { ...questions }
       updatedQuestions[categoryId][questionIndex] = updatedQuestion
 
-      console.log('📋 Updated questions state:', updatedQuestions[categoryId][questionIndex])
+      devLog('📋 Updated questions state:', updatedQuestions[categoryId][questionIndex])
 
       setQuestions(updatedQuestions)
       saveQuestions(updatedQuestions)
@@ -1833,12 +1892,11 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         }, 200)
       }
 
-      // Clear the last edited category flag after a VERY long delay to prevent auto-collapse
-      setTimeout(() => setLastEditedCategory(null), 10000)
+      // Don't clear lastEditedCategory - keep category expanded permanently after save
 
-      console.log('✅ Question updated successfully')
+      devLog('✅ Question updated successfully')
     } catch (error) {
-      console.error('❌ Error updating question:', error)
+      prodError('❌ Error updating question:', error)
       alert('حدث خطأ أثناء حفظ التعديلات: ' + error.message)
     } finally {
       setSavingEdit(false)
@@ -1850,6 +1908,33 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleAIChanges = (changes) => {
+    setEditingData(prev => {
+      // If difficulty changed, calculate new points BEFORE merging
+      let newPoints = prev.points
+      if (changes.difficulty) {
+        if (changes.difficulty === 'easy') {
+          newPoints = 200
+        } else if (changes.difficulty === 'medium') {
+          newPoints = 400
+        } else if (changes.difficulty === 'hard') {
+          newPoints = 600
+        }
+        devLog(`🎯 AI changed difficulty to ${changes.difficulty}, points will be ${newPoints}`)
+      }
+
+      // Merge changes and force the new points
+      const updated = {
+        ...prev,
+        ...changes,
+        ...(changes.difficulty ? { points: newPoints } : {})
+      }
+
+      devLog('📝 AI Changes applied:', updated)
+      return updated
+    })
   }
 
   const changeDifficulty = async (categoryId, questionIndex, newDifficulty) => {
@@ -1879,14 +1964,14 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     try {
       // Update in Firebase if question has ID
       if (question.id) {
-        console.log(`💾 Updating question difficulty in Firebase: ${question.id}`)
+        devLog(`💾 Updating question difficulty in Firebase: ${question.id}`)
         await FirebaseQuestionsService.updateQuestion(question.id, {
           difficulty: question.difficulty,
           points: question.points
         })
-        console.log(`✅ Question difficulty updated in Firebase successfully`)
+        devLog(`✅ Question difficulty updated in Firebase successfully`)
       } else {
-        console.warn(`⚠️ Question has no Firebase ID, cannot save to Firebase`)
+        devWarn(`⚠️ Question has no Firebase ID, cannot save to Firebase`)
       }
 
       // Update local state immediately
@@ -1895,10 +1980,10 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       // Clear cache to ensure fresh data on next reload
       GameDataLoader.clearCache()
 
-      console.log(`✅ Difficulty changed from ${oldDifficulty} (${oldPoints} pts) to ${newDifficulty} (${question.points} pts)`)
-      console.log(`🔥 Firebase update completed, cache cleared for fresh data on reload`)
+      devLog(`✅ Difficulty changed from ${oldDifficulty} (${oldPoints} pts) to ${newDifficulty} (${question.points} pts)`)
+      devLog(`🔥 Firebase update completed, cache cleared for fresh data on reload`)
     } catch (error) {
-      console.error('❌ Error updating question difficulty:', error)
+      prodError('❌ Error updating question difficulty:', error)
       // Revert local changes if Firebase update failed
       question.difficulty = oldDifficulty
       question.points = oldPoints
@@ -1919,6 +2004,129 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       ...prev,
       [dropdownKey]: !prev[dropdownKey]
     }))
+  }
+
+  const distributeDifficultiesEvenly = async (categoryId) => {
+    if (!confirm('هل تريد استخدام الذكاء الاصطناعي لتوزيع صعوبة الأسئلة بشكل واقعي؟\n\nسيقوم الذكاء الاصطناعي بتحليل كل سؤال وتحديد صعوبته الحقيقية ثم توزيعها بالتساوي (ثلث سهل، ثلث متوسط، ثلث صعب)')) {
+      return
+    }
+
+    const categoryQuestions = questions[categoryId] || []
+    const totalQuestions = categoryQuestions.length
+
+    if (totalQuestions === 0) {
+      alert('لا توجد أسئلة في هذه الفئة')
+      return
+    }
+
+    const categoryName = categories.find(c => c.id === categoryId)?.name || 'عام'
+    const updatedQuestions = { ...questions }
+
+    try {
+      // Step 1: Use AI to analyze each question and get realistic difficulty
+      devLog(`🤖 AI analyzing ${totalQuestions} questions...`)
+      const analyzedQuestions = []
+
+      for (let i = 0; i < categoryQuestions.length; i++) {
+        const question = categoryQuestions[i]
+
+        try {
+          const result = await aiService.improveQuestion(
+            question.text,
+            question.answer,
+            categoryName,
+            question.difficulty
+          )
+
+          analyzedQuestions.push({
+            index: i,
+            question: question,
+            aiDifficulty: result.suggestedDifficulty
+          })
+
+          devLog(`✓ ${i + 1}/${totalQuestions}: "${question.text.substring(0, 50)}..." → ${result.suggestedDifficulty}`)
+        } catch (error) {
+          prodError(`Failed to analyze question ${i}:`, error)
+          // Fallback to current difficulty
+          analyzedQuestions.push({
+            index: i,
+            question: question,
+            aiDifficulty: question.difficulty
+          })
+        }
+      }
+
+      // Step 2: Group by AI-suggested difficulty
+      const easyQuestions = analyzedQuestions.filter(q => q.aiDifficulty === 'easy')
+      const mediumQuestions = analyzedQuestions.filter(q => q.aiDifficulty === 'medium')
+      const hardQuestions = analyzedQuestions.filter(q => q.aiDifficulty === 'hard')
+
+      // Step 3: Calculate target distribution (equal thirds)
+      const perDifficulty = Math.floor(totalQuestions / 3)
+      const remainder = totalQuestions % 3
+      const targetEasy = perDifficulty + (remainder > 0 ? 1 : 0)
+      const targetMedium = perDifficulty + (remainder > 1 ? 1 : 0)
+      const targetHard = perDifficulty
+
+      devLog(`🎯 Target: ${targetEasy} easy, ${targetMedium} medium, ${targetHard} hard`)
+      devLog(`📊 AI suggested: ${easyQuestions.length} easy, ${mediumQuestions.length} medium, ${hardQuestions.length} hard`)
+
+      // Step 4: Adjust to meet target distribution
+      const finalAssignments = []
+
+      // Assign easy questions (take AI easy first, then medium if needed, then hard)
+      const easyPool = [...easyQuestions, ...mediumQuestions, ...hardQuestions]
+      for (let i = 0; i < targetEasy && i < easyPool.length; i++) {
+        finalAssignments.push({ ...easyPool[i], finalDifficulty: 'easy' })
+      }
+
+      // Assign medium questions (from remaining pool)
+      const mediumPool = easyPool.slice(targetEasy)
+      for (let i = 0; i < targetMedium && i < mediumPool.length; i++) {
+        finalAssignments.push({ ...mediumPool[i], finalDifficulty: 'medium' })
+      }
+
+      // Assign hard questions (from remaining pool)
+      const hardPool = mediumPool.slice(targetMedium)
+      for (let i = 0; i < hardPool.length; i++) {
+        finalAssignments.push({ ...hardPool[i], finalDifficulty: 'hard' })
+      }
+
+      // Step 5: Update questions with new difficulties
+      for (const assignment of finalAssignments) {
+        const points = assignment.finalDifficulty === 'easy' ? 200 :
+                      assignment.finalDifficulty === 'medium' ? 400 : 600
+
+        updatedQuestions[categoryId][assignment.index] = {
+          ...assignment.question,
+          difficulty: assignment.finalDifficulty,
+          points: points
+        }
+
+        // Update in Firebase
+        if (assignment.question.id) {
+          await FirebaseQuestionsService.updateQuestion(assignment.question.id, {
+            difficulty: assignment.finalDifficulty,
+            points: points
+          })
+        }
+      }
+
+      // Update local state
+      setQuestions(updatedQuestions)
+      GameDataLoader.clearCache()
+
+      const finalCounts = {
+        easy: finalAssignments.filter(a => a.finalDifficulty === 'easy').length,
+        medium: finalAssignments.filter(a => a.finalDifficulty === 'medium').length,
+        hard: finalAssignments.filter(a => a.finalDifficulty === 'hard').length
+      }
+
+      alert(`✅ تم توزيع الصعوبات بنجاح باستخدام الذكاء الاصطناعي:\n${finalCounts.easy} سهل، ${finalCounts.medium} متوسط، ${finalCounts.hard} صعب`)
+    } catch (error) {
+      prodError('Error distributing difficulties:', error)
+      alert('حدث خطأ أثناء توزيع الصعوبات: ' + error.message)
+    }
   }
 
   const toggleCategoryCollapse = (categoryId) => {
@@ -1985,12 +2193,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       // Set loading state
       setUploadingQuestionImages(prev => ({ ...prev, [questionKey]: true }))
 
-      console.log('Processing question image...')
+      devLog('Processing question image...')
 
       // Process the image (resize to 400x300 WebP)
       const { blob, info } = await processCategoryImage(file)
 
-      console.log('Question image processed:', info)
+      devLog('Question image processed:', info)
 
       // Convert blob to file for upload
       const processedFile = new File([blob], `question_${categoryId}_${questionIndex}_${Date.now()}.webp`, {
@@ -1999,17 +2207,17 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       })
 
       // Upload to CloudFront/S3
-      console.log('Uploading processed question image to CloudFront/S3...')
+      devLog('Uploading processed question image to CloudFront/S3...')
       const downloadURL = await ImageUploadService.uploadQuestionImage(processedFile, `${categoryId}_${questionIndex}`)
 
       // Update question with new image URL
       updateQuestionField(categoryId, questionIndex, 'imageUrl', downloadURL)
 
-      console.log('Question image uploaded successfully:', downloadURL)
+      devLog('Question image uploaded successfully:', downloadURL)
       alert(`تم رفع صورة السؤال بنجاح!\n📏 الأبعاد: ${info.dimensions}\n📦 الحجم الأصلي: ${info.originalSize}\n🗜️ الحجم الجديد: ${info.newSize}\n📉 نسبة الضغط: ${info.compression}`)
 
     } catch (error) {
-      console.error('Error processing/uploading question image:', error)
+      prodError('Error processing/uploading question image:', error)
       alert('فشل في معالجة أو رفع صورة السؤال: ' + error.message)
     } finally {
       // Clear loading state
@@ -2018,7 +2226,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
   }
 
   const updateQuestionField = (categoryId, questionIndex, field, newValue, optionIndex = null) => {
-    console.log('🔧 updateQuestionField called:', {
+    devLog('🔧 updateQuestionField called:', {
       categoryId,
       questionIndex,
       field,
@@ -2028,8 +2236,8 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
     // Special handling for test category
     if (categoryId === 'test') {
-      console.log('🧪 Test category detected - just logging the change');
-      console.log('📝 Test field update:', field, '=', newValue);
+      devLog('🧪 Test category detected - just logging the change');
+      devLog('📝 Test field update:', field, '=', newValue);
       return;
     }
 
@@ -2037,13 +2245,13 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     const categoryQuestions = updatedQuestions[categoryId] ? [...updatedQuestions[categoryId]] : []
 
     if (!categoryQuestions || categoryQuestions.length === 0) {
-      console.error('❌ No questions found for category:', categoryId);
-      console.log('🔍 Available categories:', Object.keys(questions));
+      prodError('❌ No questions found for category:', categoryId);
+      devLog('🔍 Available categories:', Object.keys(questions));
       return;
     }
 
     if (questionIndex >= categoryQuestions.length || questionIndex < 0) {
-      console.error('❌ Invalid question index:', questionIndex, 'for category with', categoryQuestions.length, 'questions');
+      prodError('❌ Invalid question index:', questionIndex, 'for category with', categoryQuestions.length, 'questions');
       return;
     }
 
@@ -2053,18 +2261,18 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       const newOptions = [...(question.options || [])]
       newOptions[optionIndex] = newValue
       question.options = newOptions
-      console.log('📝 Updated option:', newOptions);
+      devLog('📝 Updated option:', newOptions);
     } else {
       question[field] = newValue
-      console.log('📝 Updated field:', field, '=', newValue);
+      devLog('📝 Updated field:', field, '=', newValue);
     }
 
     categoryQuestions[questionIndex] = question
     updatedQuestions[categoryId] = categoryQuestions
 
-    console.log('💾 Calling saveQuestions...');
+    devLog('💾 Calling saveQuestions...');
     saveQuestions(updatedQuestions)
-    console.log('✅ updateQuestionField completed');
+    devLog('✅ updateQuestionField completed');
   }
 
   // Simple display component (no editing)
@@ -2101,7 +2309,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
         submittedBy: user?.uid || null
       }
 
-      console.log('🚀 Submitting question with media:', {
+      devLog('🚀 Submitting question with media:', {
         hasQuestionImage: !!newQuestion.imageUrl,
         hasAnswerImage: !!newQuestion.answerImageUrl,
         hasQuestionAudio: !!newQuestion.audioUrl,
@@ -2153,7 +2361,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 
       setShowSingleAdd(false)
     } catch (error) {
-      console.error('Error adding single question:', error)
+      prodError('Error adding single question:', error)
       alert('حدث خطأ في إضافة السؤال')
     }
   }
@@ -2168,12 +2376,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     }
 
     try {
-      console.log('Processing single question image...')
+      devLog('Processing single question image...')
 
       // Process the image (resize to 400x300 WebP)
       const { blob, info } = await processCategoryImage(file)
 
-      console.log('Single question image processed:', info)
+      devLog('Single question image processed:', info)
 
       // Convert blob to file for upload
       const processedFile = new File([blob], `single_question_${Date.now()}.webp`, {
@@ -2185,7 +2393,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       setSingleQuestion(prev => ({ ...prev, imageUrl: downloadURL }))
       alert(`تم رفع الصورة بنجاح!\n📏 الأبعاد: ${info.dimensions}\n📦 الحجم الأصلي: ${info.originalSize}\n🗜️ الحجم الجديد: ${info.newSize}\n📉 نسبة الضغط: ${info.compression}`)
     } catch (error) {
-      console.error('Error processing/uploading image:', error)
+      prodError('Error processing/uploading image:', error)
       alert('فشل في معالجة أو رفع الصورة: ' + error.message)
     }
   }
@@ -2200,12 +2408,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     }
 
     try {
-      console.log('Processing single answer image...')
+      devLog('Processing single answer image...')
 
       // Process the image (resize to 400x300 WebP)
       const { blob, info } = await processCategoryImage(file)
 
-      console.log('Single answer image processed:', info)
+      devLog('Single answer image processed:', info)
 
       // Convert blob to file for upload
       const processedFile = new File([blob], `single_answer_${Date.now()}.webp`, {
@@ -2217,7 +2425,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
       setSingleQuestion(prev => ({ ...prev, answerImageUrl: downloadURL }))
       alert(`تم رفع صورة الجواب بنجاح!\n📏 الأبعاد: ${info.dimensions}\n📦 الحجم الأصلي: ${info.originalSize}\n🗜️ الحجم الجديد: ${info.newSize}\n📉 نسبة الضغط: ${info.compression}`)
     } catch (error) {
-      console.error('Error processing/uploading answer image:', error)
+      prodError('Error processing/uploading answer image:', error)
       alert('فشل في معالجة أو رفع صورة الجواب: ' + error.message)
     }
   }
@@ -2227,12 +2435,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     if (!file) return
 
     try {
-      console.log('Uploading question audio...')
+      devLog('Uploading question audio...')
       const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `question_audio_${Date.now()}`)
       setSingleQuestion(prev => ({ ...prev, audioUrl: downloadURL }))
       alert('تم رفع ملف الصوت بنجاح!')
     } catch (error) {
-      console.error('Error uploading question audio:', error)
+      prodError('Error uploading question audio:', error)
       alert('حدث خطأ في رفع ملف الصوت: ' + error.message)
     }
   }
@@ -2241,12 +2449,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     if (!file) return
 
     try {
-      console.log('Uploading answer audio...')
+      devLog('Uploading answer audio...')
       const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `answer_audio_${Date.now()}`)
       setSingleQuestion(prev => ({ ...prev, answerAudioUrl: downloadURL }))
       alert('تم رفع ملف صوت الجواب بنجاح!')
     } catch (error) {
-      console.error('Error uploading answer audio:', error)
+      prodError('Error uploading answer audio:', error)
       alert('حدث خطأ في رفع ملف صوت الجواب: ' + error.message)
     }
   }
@@ -2255,12 +2463,12 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     if (!file) return
 
     try {
-      console.log('Uploading question video...')
+      devLog('Uploading question video...')
       const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `question_video_${Date.now()}`)
       setSingleQuestion(prev => ({ ...prev, videoUrl: downloadURL }))
       alert('تم رفع ملف الفيديو بنجاح!')
     } catch (error) {
-      console.error('Error uploading question video:', error)
+      prodError('Error uploading question video:', error)
       alert('حدث خطأ في رفع ملف الفيديو: ' + error.message)
     }
   }
@@ -2269,17 +2477,17 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
     if (!file) return
 
     try {
-      console.log('🎬 Uploading answer video...', file.name)
+      devLog('🎬 Uploading answer video...', file.name)
       const downloadURL = await ImageUploadService.uploadQuestionMedia(file, `answer_video_${Date.now()}`)
-      console.log('✅ Answer video uploaded successfully:', downloadURL)
+      devLog('✅ Answer video uploaded successfully:', downloadURL)
       setSingleQuestion(prev => {
         const newState = { ...prev, answerVideoUrl: downloadURL }
-        console.log('📝 Updated singleQuestion state with answerVideoUrl:', newState.answerVideoUrl)
+        devLog('📝 Updated singleQuestion state with answerVideoUrl:', newState.answerVideoUrl)
         return newState
       })
       alert('تم رفع فيديو الجواب بنجاح!')
     } catch (error) {
-      console.error('❌ Error uploading answer video:', error)
+      prodError('❌ Error uploading answer video:', error)
       alert('حدث خطأ في رفع فيديو الجواب: ' + error.message)
     }
   }
@@ -2311,7 +2519,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
 • صعب: ${stats.questionsByDifficulty.hard}
 
 راجع وحدة التحكم لمزيد من التفاصيل.`)
-                  console.log('Firebase Stats:', stats)
+                  devLog('Firebase Stats:', stats)
                 } catch (error) {
                   alert('خطأ في جلب إحصائيات Firebase: ' + error.message)
                 }
@@ -2324,30 +2532,28 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           {isAdmin && (
             <button
               onClick={async () => {
-                console.log('=== LOCAL DEBUG INFO ===')
-                console.log('Questions state:', questions)
-                console.log('Categories state:', categories)
-                console.log('localStorage:', localStorage.getItem('triviaData'))
+                devLog('=== LOCAL DEBUG INFO ===')
+                devLog('Questions state:', questions)
+                devLog('Categories state:', categories)
+                devLog('localStorage:', localStorage.getItem('triviaData'))
 
-                console.log('\n=== FIREBASE DEBUG INFO ===')
+                devLog('\n=== FIREBASE DEBUG INFO ===')
                 await debugFirebaseAuth()
                 await testFirebaseConnection()
 
                 // Check current user's Firestore document
                 if (user?.uid) {
                   try {
-                    const { getDoc, doc } = await import('firebase/firestore')
-                    const { db } = await import('../firebase/config')
                     const userDoc = await getDoc(doc(db, 'users', user.uid))
-                    console.log('\n=== USER FIRESTORE DOCUMENT ===')
-                    console.log('Document exists:', userDoc.exists())
+                    devLog('\n=== USER FIRESTORE DOCUMENT ===')
+                    devLog('Document exists:', userDoc.exists())
                     if (userDoc.exists()) {
-                      console.log('Document data:', userDoc.data())
-                      console.log('isAdmin field:', userDoc.data().isAdmin)
-                      console.log('isAdmin type:', typeof userDoc.data().isAdmin)
+                      devLog('Document data:', userDoc.data())
+                      devLog('isAdmin field:', userDoc.data().isAdmin)
+                      devLog('isAdmin type:', typeof userDoc.data().isAdmin)
                     }
                   } catch (error) {
-                    console.error('Error fetching user document:', error)
+                    prodError('Error fetching user document:', error)
                   }
                 }
 
@@ -2371,7 +2577,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                     await loadData()
                     alert('تم مسح جميع البيانات من Firebase')
                   } catch (error) {
-                    console.error('Error clearing Firebase data:', error)
+                    prodError('Error clearing Firebase data:', error)
                     alert('حدث خطأ أثناء مسح البيانات')
                   }
                 }
@@ -2384,7 +2590,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
           {isAdmin && (
             <button
               onClick={async () => {
-                console.log('🔄 Force refreshing from Firebase...')
+                devLog('🔄 Force refreshing from Firebase...')
                 await GameDataLoader.refreshFromFirebase()
                 await loadData()
                 alert('تم تحديث البيانات من Firebase')
@@ -2399,7 +2605,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
               onClick={async () => {
                 if (window.confirm('هل تريد تحميل البيانات النموذجية إلى Firebase؟\n\nهذا سيضيف أسئلة وفئات نموذجية إلى قاعدة البيانات.')) {
                   try {
-                    console.log('Loading sample data to Firebase...')
+                    devLog('Loading sample data to Firebase...')
                     const module = await import('../data/sampleQuestions.json')
                     const sampleData = module.default
 
@@ -2424,7 +2630,7 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                     await loadData()
                     alert('تم تحميل البيانات النموذجية إلى Firebase بنجاح!')
                   } catch (error) {
-                    console.error('Error loading sample data:', error)
+                    prodError('Error loading sample data:', error)
                     alert('حدث خطأ أثناء تحميل البيانات النموذجية')
                   }
                 }
@@ -3113,12 +3319,21 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => toggleCategoryCollapse(category.id)}
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors"
-                >
-                  {collapsedCategories.has(category.id) ? '▼ إظهار' : '▲ إخفاء'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => distributeDifficultiesEvenly(category.id)}
+                    className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm font-bold transition-colors flex items-center gap-1"
+                    title="توزيع الصعوبات بالتساوي"
+                  >
+                    ⚖️ توزيع متساوي
+                  </button>
+                  <button
+                    onClick={() => toggleCategoryCollapse(category.id)}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors"
+                  >
+                    {collapsedCategories.has(category.id) ? '▼ إظهار' : '▲ إخفاء'}
+                  </button>
+                </div>
               </div>
 
               {!collapsedCategories.has(category.id) && (
@@ -3255,7 +3470,28 @@ function QuestionsManager({ isAdmin, isModerator, user }) {
                           {/* Question Text - Inline Editable */}
                           {editingQuestion === `${category.id}-${originalIndex}` ? (
                             <div className="mb-4 p-3 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
-                              <label className="block text-sm font-bold mb-2 text-yellow-800">نص السؤال:</label>
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-bold text-yellow-800">نص السؤال:</label>
+                                {setShowAIModal && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      setAiEditingCategory({
+                                        categoryId: category.id,
+                                        categoryName: category.name,
+                                        questionData: editingData,
+                                        onApplyChanges: handleAIChanges
+                                      })
+                                      setShowAIModal(true)
+                                    }}
+                                    className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:from-purple-700 hover:to-blue-700 transition-all"
+                                  >
+                                    ✨ AI
+                                  </button>
+                                )}
+                              </div>
                               <textarea
                                 value={editingData.text || ''}
                                 onChange={(e) => updateEditingData('text', e.target.value)}
@@ -3729,7 +3965,7 @@ function SettingsManager() {
           setSlogan(settings.slogan)
         }
       } catch (error) {
-        console.error('Error loading settings:', error)
+        prodError('Error loading settings:', error)
       } finally {
         setLoading(false)
       }
@@ -3776,7 +4012,7 @@ function SettingsManager() {
       }
       reader.readAsDataURL(logoFile)
     } catch (error) {
-      console.error('Error uploading logo:', error)
+      prodError('Error uploading logo:', error)
       setUploading(false)
       alert('حدث خطأ أثناء رفع الشعار')
     }
@@ -3791,7 +4027,7 @@ function SettingsManager() {
         alert('حدث خطأ أثناء حفظ حجم الشعار')
       }
     } catch (error) {
-      console.error('Error saving logo size:', error)
+      prodError('Error saving logo size:', error)
       alert('حدث خطأ أثناء حفظ حجم الشعار')
     }
   }
@@ -3813,7 +4049,7 @@ function SettingsManager() {
           alert('حدث خطأ أثناء حذف الشعار')
         }
       } catch (error) {
-        console.error('Error removing logo:', error)
+        prodError('Error removing logo:', error)
         alert('حدث خطأ أثناء حذف الشعار')
       }
     }
@@ -3858,7 +4094,7 @@ function SettingsManager() {
       }
       reader.readAsDataURL(largeLogoFile)
     } catch (error) {
-      console.error('Error uploading large logo:', error)
+      prodError('Error uploading large logo:', error)
       setUploadingLargeLogo(false)
       alert('حدث خطأ أثناء رفع الشعار الكبير')
     }
@@ -3873,7 +4109,7 @@ function SettingsManager() {
         alert('حدث خطأ أثناء حفظ حجم الشعار الكبير')
       }
     } catch (error) {
-      console.error('Error saving large logo size:', error)
+      prodError('Error saving large logo size:', error)
       alert('حدث خطأ أثناء حفظ حجم الشعار الكبير')
     }
   }
@@ -3893,7 +4129,7 @@ function SettingsManager() {
         alert('حدث خطأ أثناء حذف الشعار الكبير')
       }
     } catch (error) {
-      console.error('Error removing large logo:', error)
+      prodError('Error removing large logo:', error)
       alert('حدث خطأ أثناء حذف الشعار الكبير')
     }
   }
@@ -3908,7 +4144,7 @@ function SettingsManager() {
         alert('حدث خطأ أثناء حفظ الشعار النصي')
       }
     } catch (error) {
-      console.error('Error saving slogan:', error)
+      prodError('Error saving slogan:', error)
       alert('حدث خطأ أثناء حفظ الشعار النصي')
     }
   }
@@ -4177,7 +4413,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
       const allUsers = await getAllUsers()
       setUsers(allUsers)
     } catch (error) {
-      console.error('Error loading users:', error)
+      prodError('Error loading users:', error)
       alert('خطأ في تحميل المستخدمين')
     } finally {
       setLoading(false)
@@ -4195,7 +4431,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
       await loadUsers()
       alert('تم تحديث دور المستخدم بنجاح')
     } catch (error) {
-      console.error('Error updating user role:', error)
+      prodError('Error updating user role:', error)
       alert('حدث خطأ في تحديث دور المستخدم')
     }
   }
@@ -4331,10 +4567,12 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
 }
 
 function PendingQuestionsManager() {
+  const { user } = useAuth()
   const [pendingQuestions, setPendingQuestions] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState(null)
+  const [selectedCategory, setSelectedCategory] = useState({})
 
   useEffect(() => {
     loadPendingQuestions()
@@ -4344,10 +4582,10 @@ function PendingQuestionsManager() {
   const loadPendingQuestions = async () => {
     try {
       setLoading(true)
-      const pending = await FirebaseQuestionsService.getPendingQuestions()
+      const pending = await loaderService.getAllPendingQuestions()
       setPendingQuestions(pending)
     } catch (error) {
-      console.error('Error loading pending questions:', error)
+      prodError('Error loading pending questions:', error)
       alert('فشل في تحميل الأسئلة المعلقة')
     } finally {
       setLoading(false)
@@ -4359,39 +4597,51 @@ function PendingQuestionsManager() {
       const gameData = await GameDataLoader.loadGameData()
       setCategories(gameData.categories || [])
     } catch (error) {
-      console.error('Error loading categories:', error)
+      prodError('Error loading categories:', error)
     }
   }
 
   const handleApprove = async (questionId) => {
+    // Find the question to get its categoryId if not manually selected
+    const question = pendingQuestions.find(q => q.id === questionId)
+    const categoryId = selectedCategory[questionId] || question?.categoryId
+
+    if (!categoryId) {
+      alert('الرجاء اختيار فئة للسؤال')
+      return
+    }
+
     if (!window.confirm('هل أنت متأكد من الموافقة على هذا السؤال؟')) {
       return
     }
 
     try {
       setProcessingId(questionId)
-      await FirebaseQuestionsService.approveQuestion(questionId)
+      await loaderService.approveQuestion(questionId, user.uid, categoryId)
       await loadPendingQuestions()
+      // Clear cache to show new question immediately
+      GameDataLoader.clearCache()
       alert('تم الموافقة على السؤال بنجاح!')
     } catch (error) {
-      console.error('Error approving question:', error)
-      alert('فشل في الموافقة على السؤال')
+      prodError('Error approving question:', error)
+      alert('فشل في الموافقة على السؤال: ' + error.message)
     } finally {
       setProcessingId(null)
     }
   }
 
-  const handleDeny = async (questionId) => {
-    const reason = prompt('سبب الرفض (اختياري):')
-    if (reason === null) return // User cancelled
+  const handleReject = async (questionId) => {
+    if (!window.confirm('هل أنت متأكد من رفض هذا السؤال؟')) {
+      return
+    }
 
     try {
       setProcessingId(questionId)
-      await FirebaseQuestionsService.denyQuestion(questionId, reason)
+      await loaderService.rejectQuestion(questionId, user.uid)
       await loadPendingQuestions()
       alert('تم رفض السؤال')
     } catch (error) {
-      console.error('Error denying question:', error)
+      prodError('Error rejecting question:', error)
       alert('فشل في رفض السؤال')
     } finally {
       setProcessingId(null)
@@ -4405,11 +4655,12 @@ function PendingQuestionsManager() {
 
     try {
       setProcessingId(questionId)
-      await FirebaseQuestionsService.deletePendingQuestion(questionId)
+      const questionRef = doc(db, 'pending_questions', questionId)
+      await deleteDoc(questionRef)
       await loadPendingQuestions()
       alert('تم حذف السؤال نهائياً')
     } catch (error) {
-      console.error('Error deleting pending question:', error)
+      prodError('Error deleting pending question:', error)
       alert('فشل في حذف السؤال')
     } finally {
       setProcessingId(null)
@@ -4469,35 +4720,35 @@ function PendingQuestionsManager() {
       ) : (
         <div className="space-y-4">
           {pendingQuestions.map((question) => (
-            <div key={question.id} className="bg-white rounded-lg shadow-md p-6 border-r-4 border-yellow-400">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">{question.text}</h3>
-                  <div className="flex items-center gap-4 text-sm text-gray-600">
-                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                      {getCategoryName(question.categoryId)}
-                    </span>
-                    <span className={`px-2 py-1 rounded ${getDifficultyColor(question.difficulty)}`}>
-                      {getDifficultyName(question.difficulty)}
-                    </span>
-                    <span>
-                      📅 {question.submittedAt.toLocaleDateString('ar-EG')}
-                    </span>
-                  </div>
+            <div key={question.id} className="bg-white rounded-xl shadow-lg p-6 border-r-4 border-yellow-400">
+              {/* Header */}
+              <div className="mb-4 pb-4 border-b">
+                <div className="flex items-center gap-3 mb-3 flex-wrap">
+                  <span className={`px-3 py-1 rounded-lg font-bold ${question.isNewCategory ? 'bg-purple-100 text-purple-800 border-2 border-purple-300' : 'bg-blue-100 text-blue-800'}`}>
+                    {question.isNewCategory ? `🆕 ${question.category}` : (question.category || getCategoryName(question.categoryId))}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg font-bold ${getDifficultyColor(question.difficulty)}`}>
+                    {getDifficultyName(question.difficulty)}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    📅 {question.createdAt?.toDate?.()?.toLocaleDateString('ar-EG') || 'غير متوفر'}
+                  </span>
                 </div>
+                <h3 className="text-xl font-bold text-gray-800">{question.question || question.text}</h3>
               </div>
 
+              {/* Answer and Options */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <strong className="text-gray-700">الإجابة:</strong>
-                  <p className="mt-1">{question.answer}</p>
+                  <strong className="text-green-700">✅ الإجابة:</strong>
+                  <p className="mt-1 text-gray-900 font-semibold">{question.answer}</p>
                 </div>
                 {question.options && question.options.length > 0 && (
                   <div>
-                    <strong className="text-gray-700">الخيارات:</strong>
+                    <strong className="text-gray-900">الخيارات:</strong>
                     <ul className="mt-1 list-disc list-inside">
                       {question.options.map((option, index) => (
-                        <li key={index} className="text-sm">{option}</li>
+                        <li key={index} className="text-sm text-gray-900">{option}</li>
                       ))}
                     </ul>
                   </div>
@@ -4506,19 +4757,19 @@ function PendingQuestionsManager() {
 
               {question.explanation && (
                 <div className="mb-4">
-                  <strong className="text-gray-700">التفسير:</strong>
-                  <p className="mt-1">{question.explanation}</p>
+                  <strong className="text-gray-900">التفسير:</strong>
+                  <p className="mt-1 text-gray-900">{question.explanation}</p>
                 </div>
               )}
 
               {/* Question Media Section */}
               {(question.imageUrl || question.audioUrl || question.videoUrl) && (
                 <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-1">🎯 وسائط السؤال</h4>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-1">🎯 وسائط السؤال</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {question.imageUrl && (
                       <div>
-                        <strong className="text-gray-700">صورة السؤال:</strong>
+                        <strong className="text-gray-900">صورة السؤال:</strong>
                         <SmartImage
                           src={question.imageUrl}
                           alt="صورة السؤال"
@@ -4530,7 +4781,7 @@ function PendingQuestionsManager() {
                     )}
                     {question.audioUrl && (
                       <div>
-                        <strong className="text-gray-700">صوت السؤال:</strong>
+                        <strong className="text-gray-900">صوت السؤال:</strong>
                         <div className="mt-2 w-48">
                           <LazyMediaPlayer
                             src={question.audioUrl}
@@ -4542,7 +4793,7 @@ function PendingQuestionsManager() {
                     )}
                     {question.videoUrl && (
                       <div>
-                        <strong className="text-gray-700">فيديو السؤال:</strong>
+                        <strong className="text-gray-900">فيديو السؤال:</strong>
                         <div className="mt-2 w-48">
                           <LazyMediaPlayer
                             src={question.videoUrl}
@@ -4559,11 +4810,11 @@ function PendingQuestionsManager() {
               {/* Answer Media Section */}
               {(question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl) && (
                 <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-1">✅ وسائط الإجابة</h4>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-1">✅ وسائط الإجابة</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {question.answerImageUrl && (
                       <div>
-                        <strong className="text-gray-700">صورة الإجابة:</strong>
+                        <strong className="text-gray-900">صورة الإجابة:</strong>
                         <img
                           src={question.answerImageUrl}
                           alt="صورة الإجابة"
@@ -4573,7 +4824,7 @@ function PendingQuestionsManager() {
                     )}
                     {question.answerAudioUrl && (
                       <div>
-                        <strong className="text-gray-700">صوت الإجابة:</strong>
+                        <strong className="text-gray-900">صوت الإجابة:</strong>
                         <div className="mt-2 w-48">
                           <LazyMediaPlayer
                             src={question.answerAudioUrl}
@@ -4585,7 +4836,7 @@ function PendingQuestionsManager() {
                     )}
                     {question.answerVideoUrl && (
                       <div>
-                        <strong className="text-gray-700">فيديو الإجابة:</strong>
+                        <strong className="text-gray-900">فيديو الإجابة:</strong>
                         <div className="mt-2 w-48">
                           <LazyMediaPlayer
                             src={question.answerVideoUrl}
@@ -4599,6 +4850,23 @@ function PendingQuestionsManager() {
                 </div>
               )}
 
+              {/* Category Selection */}
+              <div className="mb-4 pb-4 border-b">
+                <label className="block text-sm font-bold text-gray-900 mb-2">
+                  اختر الفئة لهذا السؤال:
+                </label>
+                <select
+                  value={selectedCategory[question.id] || question.categoryId || ''}
+                  onChange={(e) => setSelectedCategory(prev => ({ ...prev, [question.id]: e.target.value }))}
+                  className="w-full p-2 border-2 border-gray-300 rounded-lg text-gray-900 bg-white"
+                >
+                  <option value="">-- اختر فئة --</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   onClick={() => handleApprove(question.id)}
@@ -4608,7 +4876,7 @@ function PendingQuestionsManager() {
                   {processingId === question.id ? '⏳ جاري المعالجة...' : '✅ موافقة'}
                 </button>
                 <button
-                  onClick={() => handleDeny(question.id)}
+                  onClick={() => handleReject(question.id)}
                   disabled={processingId === question.id}
                   className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
                 >
@@ -4624,6 +4892,165 @@ function PendingQuestionsManager() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Invite Codes Manager Component
+function InviteCodesManager({ user }) {
+  const [inviteCodes, setInviteCodes] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [newCode, setNewCode] = useState(null)
+
+  useEffect(() => {
+    loadInviteCodes()
+  }, [])
+
+  const loadInviteCodes = async () => {
+    try {
+      setLoading(true)
+      const codes = await loaderService.getAllInviteCodes()
+      setInviteCodes(codes)
+    } catch (error) {
+      prodError('Error loading invite codes:', error)
+      alert('فشل تحميل رموز الدعوة')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGenerateCode = async () => {
+    try {
+      const code = await loaderService.createInviteCode(user.uid)
+      setNewCode(code)
+      await loadInviteCodes()
+    } catch (error) {
+      prodError('Error generating invite code:', error)
+      alert('فشل إنشاء رمز الدعوة')
+    }
+  }
+
+  const copyToClipboard = (code) => {
+    const url = `${window.location.origin}/loader/${code}`
+    navigator.clipboard.writeText(url)
+    alert('تم نسخ رابط الدعوة!')
+  }
+
+  const handleRevokeCode = async (codeId, code) => {
+    if (!window.confirm(`هل أنت متأكد من إلغاء رمز الدعوة ${code}؟\n\nلن يتمكن أي شخص من استخدامه بعد الآن.`)) {
+      return
+    }
+
+    try {
+      await loaderService.revokeInviteCode(codeId)
+      await loadInviteCodes()
+      alert('تم إلغاء رمز الدعوة بنجاح')
+    } catch (error) {
+      prodError('Error revoking invite code:', error)
+      alert('فشل إلغاء رمز الدعوة: ' + error.message)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">إدارة رموز الدعوة</h2>
+        <button
+          onClick={handleGenerateCode}
+          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg"
+        >
+          + إنشاء رمز دعوة جديد
+        </button>
+      </div>
+
+      {newCode && (
+        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4">
+          <h3 className="font-bold text-green-800 mb-2">✅ تم إنشاء رمز دعوة جديد!</h3>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={`${window.location.origin}/loader/${newCode}`}
+              readOnly
+              className="flex-1 p-2 border rounded bg-white"
+            />
+            <button
+              onClick={() => copyToClipboard(newCode)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+            >
+              📋 نسخ
+            </button>
+          </div>
+          <p className="text-sm text-green-600 mt-2">شارك هذا الرابط مع محمل الأسئلة</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-8">جاري التحميل...</div>
+      ) : (
+        <div className="space-y-4">
+          {inviteCodes.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">لا توجد رموز دعوة بعد</p>
+          ) : (
+            inviteCodes.map((invite) => (
+              <div
+                key={invite.id}
+                className={`border-2 rounded-lg p-4 ${
+                  invite.revoked ? 'border-red-300 bg-red-50' :
+                  invite.usedBy ? 'border-gray-300 bg-gray-50' :
+                  'border-blue-300 bg-blue-50'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-mono font-bold text-lg">{invite.code}</span>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${
+                        invite.revoked ? 'bg-red-500 text-white' :
+                        invite.usedBy ? 'bg-gray-500 text-white' :
+                        'bg-green-500 text-white'
+                      }`}>
+                        {invite.revoked ? 'ملغي' : invite.usedBy ? 'مستخدم' : 'متاح'}
+                      </span>
+                    </div>
+                    {invite.usedBy && (
+                      <p className="text-sm text-gray-600">المستخدم: {invite.usedBy}</p>
+                    )}
+                    {invite.revoked && (
+                      <p className="text-sm text-red-600">
+                        تم الإلغاء في: {invite.revokedAt?.toDate?.().toLocaleDateString('ar-EG')}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-500">
+                      تاريخ الإنشاء: {invite.createdAt?.toDate?.().toLocaleDateString('ar-EG')}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      ينتهي في: {invite.expiresAt?.toDate?.().toLocaleDateString('ar-EG')}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {!invite.usedBy && !invite.revoked && (
+                      <button
+                        onClick={() => copyToClipboard(invite.code)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        📋 نسخ الرابط
+                      </button>
+                    )}
+                    {!invite.revoked && (
+                      <button
+                        onClick={() => handleRevokeCode(invite.id, invite.code)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        🚫 إلغاء
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react';
 import { convertToLocalMediaUrl, getOptimizedMediaUrl } from '../utils/mediaUrlConverter';
 
@@ -12,21 +13,21 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    console.log('🔍 useSmartImageUrl called with:', { categoryId, firebaseUrl, size, context });
+    devLog('🔍 useSmartImageUrl called with:', { categoryId, firebaseUrl, size, context });
 
     // Special handling for mystery category - try to find a mystery image
     if (categoryId === 'mystery' && (!firebaseUrl || firebaseUrl === '')) {
-      console.log('🔍 Mystery category detected without Firebase URL, searching for local mystery images...');
+      devLog('🔍 Mystery category detected without Firebase URL, searching for local mystery images...');
 
       // Try to find the latest mystery category image
       const testMysteryImage = new Image();
       testMysteryImage.onload = () => {
-        console.log('✅ Found mystery category image');
+        devLog('✅ Found mystery category image');
         setCurrentUrl('/images/categories/category_mystery_1758939021986.webp'); // Use the latest one
         setIsLoading(false);
       };
       testMysteryImage.onerror = () => {
-        console.log('⚠️ No mystery category image found, using fallback');
+        devLog('⚠️ No mystery category image found, using fallback');
         setCurrentUrl(null);
         setIsLoading(false);
       };
@@ -53,33 +54,33 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
 
     // Use the optimized media URL function with CloudFront priority
     const optimizedUrl = getOptimizedMediaUrl(firebaseUrl, size, context);
-    console.log(`🚀 Testing optimized URL: ${optimizedUrl}`);
+    devLog(`🚀 Testing optimized URL: ${optimizedUrl}`);
 
     // Test the optimized URL (CloudFront first, Firebase as fallback)
     const testImage = new Image();
 
     testImage.onload = () => {
-      console.log(`✅ Optimized URL loaded successfully: ${optimizedUrl}`);
+      devLog(`✅ Optimized URL loaded successfully: ${optimizedUrl}`);
       setCurrentUrl(optimizedUrl);
       setIsLoading(false);
     };
 
     testImage.onerror = () => {
-      console.log(`⚠️ Optimized URL failed: ${optimizedUrl}`);
+      devLog(`⚠️ Optimized URL failed: ${optimizedUrl}`);
 
       // Fallback to local URL testing if CloudFront/Firebase fails
       const localUrl = convertToLocalMediaUrl(firebaseUrl, size, context);
-      console.log(`🔄 Trying local fallback: ${localUrl}`);
+      devLog(`🔄 Trying local fallback: ${localUrl}`);
 
       const localTestImage = new Image();
       localTestImage.onload = () => {
-        console.log(`✅ Local fallback loaded: ${localUrl}`);
+        devLog(`✅ Local fallback loaded: ${localUrl}`);
         setCurrentUrl(localUrl);
         setIsLoading(false);
       };
 
       localTestImage.onerror = () => {
-        console.log(`⚠️ Local fallback also failed: ${localUrl}`);
+        devLog(`⚠️ Local fallback also failed: ${localUrl}`);
 
         // Try additional fallback options for Arabic filenames
         const url = new URL(firebaseUrl);
@@ -90,27 +91,27 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
         const encodedFilename = encodeURIComponent(originalFilename).replace(/%/g, '_');
         const encodedLocalUrl = `/images/categories/${encodedFilename}`;
 
-        console.log(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
+        devLog(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
 
         const fallbackImage = new Image();
         fallbackImage.onload = () => {
-          console.log(`✅ Original filename found: ${fallbackLocalUrl}`);
+          devLog(`✅ Original filename found: ${fallbackLocalUrl}`);
           setCurrentUrl(fallbackLocalUrl);
           setIsLoading(false);
         };
 
         fallbackImage.onerror = () => {
-          console.log(`⚠️ Original filename not found, trying encoded: ${encodedLocalUrl}`);
+          devLog(`⚠️ Original filename not found, trying encoded: ${encodedLocalUrl}`);
 
           const encodedImage = new Image();
           encodedImage.onload = () => {
-            console.log(`✅ URL-encoded filename found: ${encodedLocalUrl}`);
+            devLog(`✅ URL-encoded filename found: ${encodedLocalUrl}`);
             setCurrentUrl(encodedLocalUrl);
             setIsLoading(false);
           };
 
           encodedImage.onerror = () => {
-            console.log(`❌ All fallbacks failed, using Firebase URL: ${firebaseUrl}`);
+            devLog(`❌ All fallbacks failed, using Firebase URL: ${firebaseUrl}`);
             setCurrentUrl(firebaseUrl); // Ultimate fallback to Firebase URL
             setIsLoading(false);
           };

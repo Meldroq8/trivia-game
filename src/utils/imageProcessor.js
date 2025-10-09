@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 /**
  * Image Processing Utility
  * Handles client-side image resizing and optimization for admin uploads
@@ -183,7 +184,7 @@ export const processQuestionImage = async (file) => {
 
     await new Promise((resolve, reject) => {
       img.onload = resolve
-      img.onerror = reject
+      img.onerror = () => reject(new Error('Failed to load image'))
       img.src = imageUrl
     })
 
