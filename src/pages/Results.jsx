@@ -7,8 +7,62 @@ function Results({ gameState, setGameState }) {
   const [confettiPieces, setConfettiPieces] = useState([])
   const [showStats, setShowStats] = useState(false)
   const [gameAlreadySaved, setGameAlreadySaved] = useState(false)
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  })
   const navigate = useNavigate()
   const { updateGameStats, isAuthenticated, loading } = useAuth()
+
+  // Track dimensions for responsive sizing
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions({ width: window.innerWidth, height: window.innerHeight })
+    }
+
+    updateDimensions()
+    window.addEventListener('resize', updateDimensions)
+    return () => window.removeEventListener('resize', updateDimensions)
+  }, [])
+
+  // Calculate responsive styles - matching Header component
+  const getResponsiveStyles = () => {
+    const { width, height } = dimensions
+    const isPC = width >= 1024 && height >= 768
+
+    let baseFontSize = 16
+    if (height <= 390) {
+      baseFontSize = 14
+    } else if (height <= 430) {
+      baseFontSize = 15
+    } else if (height <= 568) {
+      baseFontSize = 16
+    } else if (height <= 667) {
+      baseFontSize = 17
+    } else if (height <= 812) {
+      baseFontSize = 18
+    } else if (height <= 896) {
+      baseFontSize = 19
+    } else if (height <= 1024) {
+      baseFontSize = 20
+    } else {
+      baseFontSize = isPC ? 24 : 20
+    }
+
+    const globalScaleFactor = 1.0
+    const headerFontSize = baseFontSize * globalScaleFactor
+    const buttonPadding = Math.max(8, globalScaleFactor * 12)
+    const headerPadding = Math.max(8, buttonPadding * 0.25)
+    const headerHeight = Math.max(56, headerFontSize * 3)
+
+    return {
+      headerFontSize,
+      headerPadding,
+      headerHeight
+    }
+  }
+
+  const styles = getResponsiveStyles()
 
   // Redirect to home if not authenticated (but only after loading is complete)
   useEffect(() => {
@@ -137,23 +191,34 @@ function Results({ gameState, setGameState }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f7f2e6] overflow-hidden">
-      {/* Header - matching GameBoard style */}
-      <div className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden h-16 md:h-20 lg:h-24">
-        <div className="flex items-center justify-between max-w-6xl mx-auto h-full px-4">
+      {/* Header - matching consistent sizing */}
+      <div
+        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden"
+        style={{
+          padding: `${styles.headerPadding}px`,
+          height: `${styles.headerHeight}px`
+        }}
+      >
+        <div className="flex items-center justify-between h-full px-4">
           <div className="flex items-center gap-3">
             <LogoDisplay />
           </div>
 
           <div className="flex-1 text-center">
-            <h1 className="text-2xl font-bold">نتائج المباراة</h1>
+            <h1
+              className="font-bold"
+              style={{ fontSize: `${styles.headerFontSize * 0.9}px` }}
+            >
+              نتائج المباراة
+            </h1>
           </div>
 
           <button
             onClick={handleExit}
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+            className="bg-red-700 hover:bg-red-800 rounded-lg transition-colors px-3 py-1"
+            style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
           >
-            <span className="md:hidden text-xl">←</span>
-            <span className="hidden md:inline">العودة للرئيسية</span>
+            العودة للرئيسية
           </button>
         </div>
       </div>

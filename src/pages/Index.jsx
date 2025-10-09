@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import HeaderAuth from '../components/HeaderAuth'
-import LogoDisplay from '../components/LogoDisplay'
+import Header from '../components/Header'
 import { useAuth } from '../hooks/useAuth'
 
-function Index() {
+function Index({ setGameState }) {
   const navigate = useNavigate()
   const { getAppSettings, getPublicLeaderboard, updateLeaderboard } = useAuth()
   const [settings, setSettings] = useState(() => {
@@ -18,18 +17,11 @@ function Index() {
   const [leaderboard, setLeaderboard] = useState([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
-  const headerRef = useRef(null)
-  const [headerHeight, setHeaderHeight] = useState(0)
   const [tipsExpanded, setTipsExpanded] = useState(false)
 
   useEffect(() => {
     const updateDimensions = () => {
       setDimensions({ width: window.innerWidth, height: window.innerHeight })
-
-      if (headerRef.current) {
-        const headerRect = headerRef.current.getBoundingClientRect()
-        setHeaderHeight(headerRect.height)
-      }
     }
 
     updateDimensions()
@@ -103,45 +95,44 @@ function Index() {
     }
   }
 
-  // Perfect scaling system similar to GameSetup but scaled down
+  // Responsive styles for content
   const getResponsiveStyles = () => {
     const { width, height } = dimensions
     const isPortrait = height > width
-
-    // PC Auto-scaling: Reduced scaling for Index page
     const isPC = width >= 1024 && height >= 768
-    const pcScaleFactor = isPC ? 1.3 : 1.0 // Reduced from 2.0 to 1.3
+    const pcScaleFactor = isPC ? 1.3 : 1.0
 
-    const actualHeaderHeight = headerHeight || (isPortrait ? 60 : 80)
-
-    // Calculate available space below header
-    const availableHeight = height - actualHeaderHeight
-    const availableWidth = width
-
-    // Content padding and margins - smaller for Index
-    const basePadding = Math.max(6, Math.min(16, availableHeight * 0.015)) // Reduced
-    const baseGap = Math.max(8, Math.min(20, availableHeight * 0.025)) // Reduced
-
-    // Font sizing - smaller for Index
-    const headerFontSize = Math.max(14, Math.min(24, availableWidth * 0.03)) * pcScaleFactor // Reduced
-    const titleFontSize = Math.max(20, Math.min(36, availableWidth * 0.045)) * pcScaleFactor // Reduced
-    const buttonFontSize = Math.max(14, Math.min(20, availableHeight * 0.025)) * pcScaleFactor // Reduced
+    const basePadding = Math.max(6, Math.min(16, height * 0.015))
+    const baseGap = Math.max(8, Math.min(20, height * 0.025))
+    const titleFontSize = Math.max(20, Math.min(36, width * 0.045)) * pcScaleFactor
+    const buttonFontSize = Math.max(14, Math.min(20, height * 0.025)) * pcScaleFactor
 
     return {
-      headerFontSize,
       titleFontSize,
       buttonFontSize,
       basePadding,
       baseGap,
-      availableHeight,
-      availableWidth,
+      availableWidth: width,
+      availableHeight: height,
       isPortrait,
       pcScaleFactor
     }
   }
 
   const handleCreateGame = () => {
-    navigate('/game-setup')
+    // Clear game state for a fresh game
+    setGameState(prev => ({
+      ...prev,
+      selectedCategories: [],
+      gameName: '',
+      team1: { name: '', score: 0 },
+      team2: { name: '', score: 0 },
+      usedQuestions: new Set(),
+      currentQuestion: null,
+      gameHistory: [],
+      assignedQuestions: {}
+    }))
+    navigate('/categories')
   }
 
 
@@ -149,42 +140,12 @@ function Index() {
 
   return (
     <div className="h-screen bg-[#f7f2e6] flex flex-col">
-      {/* Red Header Bar - Fixed Height */}
-      <div
-        ref={headerRef}
-        className="bg-red-600 text-white flex-shrink-0 overflow-visible"
-        style={{
-          padding: `${styles.basePadding}px`,
-          height: `${Math.max(60, styles.basePadding * 4)}px`
-        }}
-      >
-        <div className="flex justify-between items-center h-full">
-          <div className="flex items-center">
-            <LogoDisplay />
-          </div>
-
-          <div className="flex-1 text-center">
-            <h1 className="font-bold text-center" style={{ fontSize: `${styles.headerFontSize}px` }}>
-              الصفحة الرئيسية
-            </h1>
-          </div>
-
-          <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
-            <HeaderAuth fontSize={styles.headerFontSize} />
-          </div>
-        </div>
-      </div>
+      {/* Header */}
+      <Header title="الصفحة الرئيسية" />
 
       {/* Main Content */}
-      <div
-        className="flex-1 flex items-start justify-center overflow-auto pt-8"
-        style={{
-          padding: `${styles.basePadding}px`,
-          minHeight: `${styles.availableHeight}px`
-        }}
-      >
-        <div className="text-center w-full"
-             style={{ padding: `${styles.basePadding}px` }}>
+      <div className="flex-1 flex items-start justify-center overflow-auto pt-8 px-4">
+        <div className="text-center w-full">
 
           {/* Large Logo */}
           <div style={{ marginBottom: `${styles.baseGap * 0.5}px` }}>

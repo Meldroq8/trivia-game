@@ -1261,8 +1261,34 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       return candidateSize * pcScaleFactor
     }
 
-    // Header and footer scaling (apply PC scale factor)
-    const headerFontSize = Math.max(12, Math.min(24, W * 0.02)) * pcScaleFactor
+    // Header sizing - matching QuestionView's exact calculation
+    let headerBaseFontSize = 16
+    const actualVH = H
+
+    if (actualVH <= 390) {
+      headerBaseFontSize = 14
+    } else if (actualVH <= 430) {
+      headerBaseFontSize = 15
+    } else if (actualVH <= 568) {
+      headerBaseFontSize = 16
+    } else if (actualVH <= 667) {
+      headerBaseFontSize = 17
+    } else if (actualVH <= 812) {
+      headerBaseFontSize = 18
+    } else if (actualVH <= 896) {
+      headerBaseFontSize = 19
+    } else if (actualVH <= 1024) {
+      headerBaseFontSize = 20
+    } else {
+      headerBaseFontSize = isPC ? 24 : 20
+    }
+
+    const globalScaleFactor = 1.0
+    const headerFontSize = headerBaseFontSize * globalScaleFactor
+    const buttonPadding = Math.max(8, globalScaleFactor * 12)
+    const headerPadding = Math.max(8, buttonPadding * 0.25)
+    const calculatedHeaderHeight = Math.max(56, headerFontSize * 3)
+
     const footerButtonSize = Math.max(30, Math.min(60, H * 0.08)) * pcScaleFactor
 
     return {
@@ -1274,6 +1300,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       buttonBorderRadius: buttonBorderRadius,
       getCardFontSize: getCardFontSize,
       headerFontSize: headerFontSize,
+      headerPadding: headerPadding,
+      headerHeight: calculatedHeaderHeight,
       footerButtonSize: footerButtonSize,
       categoryGroupWidth: categoryGroupWidth,
       categoryGroupHeight: categoryGroupHeight,
@@ -1361,8 +1389,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         ref={headerRef}
         className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-visible relative"
         style={{
-          padding: `${Math.max(12, styles.headerFontSize * 0.4)}px`,
-          height: `${Math.max(56, styles.headerFontSize * 3)}px`
+          padding: `${styles.headerPadding}px`,
+          height: `${styles.headerHeight}px`
         }}
       >
         {styles.isPhonePortrait ? (
@@ -1397,8 +1425,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             <div className="flex items-center portrait-menu relative">
               <button
                 onClick={() => setPortraitMenuOpen(!portraitMenuOpen)}
-                className="bg-red-700 hover:bg-red-800 text-white p-2 rounded-lg transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
+                style={{
+                  fontSize: `${styles.headerFontSize * 1}px`,
+                  width: '32px',
+                  height: '32px'
+                }}
               >
                 ☰
               </button>

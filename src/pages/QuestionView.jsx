@@ -56,8 +56,33 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const isShortScreen = actualVH < 500 // Z Fold and short screens - height-based detection!
       const isTallScreen = actualVH > 900 // Tall screens can use more space
 
-      // More accurate space calculation
-      const actualHeaderHeight = 80 // Use fixed value to avoid dependency issues
+      // Calculate header sizing first - matching Header component
+      const globalScaleFactor = Math.max(0.8, Math.min(1.2, W / 400))
+      let headerBaseFontSize = 16
+      if (actualVH <= 390) {
+        headerBaseFontSize = 14
+      } else if (actualVH <= 430) {
+        headerBaseFontSize = 15
+      } else if (actualVH <= 568) {
+        headerBaseFontSize = 16
+      } else if (actualVH <= 667) {
+        headerBaseFontSize = 17
+      } else if (actualVH <= 812) {
+        headerBaseFontSize = 18
+      } else if (actualVH <= 896) {
+        headerBaseFontSize = 19
+      } else if (actualVH <= 1024) {
+        headerBaseFontSize = 20
+      } else {
+        headerBaseFontSize = isPC ? 24 : 20
+      }
+      const buttonPadding = Math.max(8, globalScaleFactor * 12)
+      const headerFontSize = headerBaseFontSize * globalScaleFactor
+      const headerPadding = Math.max(8, buttonPadding * 0.25)
+      const calculatedHeaderHeight = Math.max(56, headerFontSize * 3)
+
+      // More accurate space calculation - use calculated header height
+      const actualHeaderHeight = calculatedHeaderHeight
       const padding = isUltraNarrow ? 4 : isMobileLayout ? 6 : 8
 
       // Minimal space accounting to maximize question area
@@ -71,9 +96,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Calculate aspect ratio and screen density for better scaling with validation
       const aspectRatio = actualVH > 0 ? W / actualVH : W / H
       const screenDensity = Math.sqrt(W * W + actualVH * actualVH) / Math.max(W, actualVH || H)
-
-      // Very conservative scaling
-      const globalScaleFactor = Math.max(0.8, Math.min(1.2, W / 400))
 
       // Define UI element heights for calculations
       const timerHeight = 50 // Timer at top
@@ -122,30 +144,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       }
 
       // Calculate responsive font sizes based on screen height
-      let baseFontSize
-      if (actualVH <= 344) {
-        baseFontSize = 12
-      } else if (actualVH <= 360) {
-        baseFontSize = 13
-      } else if (actualVH <= 390) {
-        baseFontSize = 14
-      } else if (actualVH <= 430) {
-        baseFontSize = 15
-      } else if (actualVH <= 568) {
-        baseFontSize = 16
-      } else if (actualVH <= 667) {
-        baseFontSize = 17
-      } else if (actualVH <= 812) {
-        baseFontSize = 18
-      } else if (actualVH <= 896) {
-        baseFontSize = 19
-      } else if (actualVH <= 1024) {
-        baseFontSize = 20
-      } else {
-        baseFontSize = isPC ? 24 : 20
-      }
-      const buttonPadding = Math.max(8, globalScaleFactor * 12)
-      const headerFontSize = baseFontSize * globalScaleFactor
+      // Use same baseFontSize as header for consistency
+      const baseFontSize = headerBaseFontSize
       // Responsive team section sizing based on screen size
       let teamSectionWidth, teamNameFontSize, teamScoreFontSize, teamHelpFontSize, teamIconSize
 
@@ -256,6 +256,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const scoringFontSize = baseFontSize * 0.9 * globalScaleFactor
 
       // Return calculated responsive values with error fallbacks
+      const baseGap = isMobileLayout ? 6 : 8 // Smaller gaps for slimmer appearance
+
       return {
         isShortScreen,
         isTallScreen,
@@ -276,6 +278,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         pcScaleFactor,
         buttonPadding,
         headerFontSize,
+        headerPadding,
+        headerHeight: calculatedHeaderHeight,
+        baseGap,
         teamSectionWidth,
         teamNameFontSize,
         teamScoreFontSize,
@@ -1036,19 +1041,19 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         ref={headerRef}
         className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-hidden"
         style={{
-          padding: `${Math.max(8, styles.buttonPadding * 0.25)}px`,
-          height: `${Math.max(56, styles.headerFontSize * 3)}px`
+          padding: `${styles.headerPadding}px`,
+          height: `${styles.headerHeight}px`
         }}
       >
         <div className="flex justify-between items-center h-full">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
             <LogoDisplay />
-            <span className="font-bold text-white" style={{ fontSize: `${styles.headerFontSize * 0.9}px` }}>
+            <span className="font-bold text-white" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
               دور الفريق:
             </span>
             <span
               className="font-bold text-white"
-              style={{ fontSize: `${styles.headerFontSize * 0.9}px` }}
+              style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}
             >
               {gameState.currentTurn === 'team1'
                 ? gameState.team1.name
@@ -1061,14 +1066,19 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 ...prev,
                 currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
               }))}
-              className="bg-red-700 hover:bg-red-800 text-white rounded-lg px-2 py-1 transition-colors"
-              style={{ fontSize: `${styles.headerFontSize * 1}px` }}
+              className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
+              style={{
+                fontSize: `${styles.headerFontSize * 0.9}px`,
+                width: '28px',
+                height: '28px',
+                padding: '2px'
+              }}
             >
               🔄
             </button>
           </div>
 
-          <div className="flex-1 text-center flex items-center justify-center gap-3 px-2">
+          <div className="flex-1 text-center flex items-center justify-center px-2" style={{ gap: `${styles.baseGap}px` }}>
             <h1 className="font-bold text-center" style={{
               fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - (gameState.gameName.length > 15 ? (gameState.gameName.length - 15) * 1.5 : 0))}px`,
               overflow: 'hidden',
@@ -1083,19 +1093,25 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           {/* Navigation - Responsive */}
           <div className="relative">
             {/* Landscape Mode - Show all buttons */}
-            <div className="hidden landscape:flex gap-3">
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.8}px` }} />
+            <div className="hidden landscape:flex" style={{ gap: `${styles.baseGap}px` }}>
+              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
               <button
                 onClick={() => navigate('/game')}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{
+                  fontSize: `${styles.headerFontSize * 0.75}px`,
+                  padding: `4px 8px`
+                }}
               >
                 الرجوع للوحة
               </button>
               <button
                 onClick={() => navigate('/results')}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{
+                  fontSize: `${styles.headerFontSize * 0.75}px`,
+                  padding: `4px 8px`
+                }}
               >
                 انهاء
               </button>
@@ -1105,12 +1121,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             <div className="landscape:hidden burger-menu-container">
               <button
                 onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
-                className="px-2 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex flex-col justify-center items-center"
-                style={{ fontSize: `${styles.headerFontSize * 0.6}px`, width: '32px', height: '32px' }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
+                style={{
+                  fontSize: `${styles.headerFontSize * 1}px`,
+                  width: '32px',
+                  height: '32px'
+                }}
               >
-                <div className="w-4 h-0.5 bg-white mb-1"></div>
-                <div className="w-4 h-0.5 bg-white mb-1"></div>
-                <div className="w-4 h-0.5 bg-white"></div>
+                ☰
               </button>
 
             </div>
@@ -1122,13 +1140,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       {burgerMenuOpen && (
         <div className="fixed top-0 left-0 bg-red-700 rounded-lg shadow-lg border border-red-600 z-[9999] min-w-max landscape:hidden burger-dropdown"
              style={{
-               top: `${Math.max(56, styles.headerFontSize * 3)}px`,
-               left: '8px'
+               top: `${styles.headerHeight}px`,
+               left: '8px',
+               fontSize: `${styles.headerFontSize * 0.75}px`
              }}
              onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col p-2 gap-2">
             <div className="border-b border-red-600 pb-2">
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.7}px` }} />
+              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
             </div>
             <button
               onClick={(e) => {
@@ -1138,7 +1157,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 setBurgerMenuOpen(false)
               }}
               className="px-3 py-2 bg-red-600 hover:bg-red-800 text-white rounded-lg transition-colors text-right"
-              style={{ fontSize: `${styles.headerFontSize * 0.7}px` }}
             >
               الرجوع للوحة
             </button>
@@ -1150,7 +1168,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 setBurgerMenuOpen(false)
               }}
               className="px-3 py-2 bg-red-600 hover:bg-red-800 text-white rounded-lg transition-colors text-right"
-              style={{ fontSize: `${styles.headerFontSize * 0.7}px` }}
             >
               انهاء
             </button>

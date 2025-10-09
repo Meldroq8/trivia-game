@@ -90,8 +90,8 @@ export const getBackRoute = (currentRoute, gameState) => {
       // From question, go back to gameboard
       return '/game'
     case '/categories':
-      // From categories, go to game setup
-      return '/game-setup'
+      // From categories, go back to index
+      return '/'
     default:
       return '/'
   }
