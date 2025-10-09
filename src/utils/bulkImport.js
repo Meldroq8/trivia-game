@@ -1,7 +1,7 @@
 import { devLog, devWarn, prodError } from "./devLog.js"
 import * as XLSX from 'xlsx'
 import JSZip from 'jszip'
-import { S3UploadService } from './s3Upload'
+import { S3UploadServiceSecure as S3UploadService } from './s3UploadSecure'
 import { processQuestionImage } from './imageProcessor'
 
 /**

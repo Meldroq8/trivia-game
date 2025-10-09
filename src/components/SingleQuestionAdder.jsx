@@ -1,6 +1,6 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState } from 'react'
-import { S3UploadService } from '../utils/s3Upload'
+import { S3UploadServiceSecure as S3UploadService } from '../utils/s3UploadSecure'
 import SmartImage from './SmartImage'
 import MediaPlayer from './MediaPlayer'
 import AIEnhancementModal from './AIEnhancementModal'
