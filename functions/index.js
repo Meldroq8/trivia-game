@@ -4,7 +4,8 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { initializeApp } from 'firebase-admin/app'
-import Busboy from 'busboy'
+import formidable from 'formidable'
+import { readFileSync } from 'fs'
 
 // Initialize Firebase Admin
 initializeApp()
@@ -28,12 +29,30 @@ export const s3Upload = onRequest(
     secrets: [awsAccessKeyId, awsSecretAccessKey],
   },
   async (req, res) => {
+    // Set CORS headers explicitly for direct Cloud Run access
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.set('Access-Control-Max-Age', '3600')
+
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('')
+      return
+    }
+
     try {
       // Only allow POST requests
       if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' })
         return
       }
+
+      console.log('S3 Upload request received:', {
+        method: req.method,
+        contentType: req.headers['content-type'],
+        hasAuth: !!req.headers.authorization
+      })
 
       // Verify authentication
       const authHeader = req.headers.authorization
@@ -65,78 +84,60 @@ export const s3Upload = onRequest(
         return
       }
 
-      // Verify content-type is multipart/form-data
-      const contentType = req.headers['content-type'] || ''
-      if (!contentType.includes('multipart/form-data')) {
-        res.status(400).json({ error: 'Content-Type must be multipart/form-data' })
-        return
-      }
-
-      // Parse multipart form data with proper configuration
-      const busboy = Busboy({
-        headers: req.headers,
-        limits: {
-          fileSize: 500 * 1024 * 1024, // 500MB max file size
-          files: 1, // Only allow 1 file at a time
-          fields: 10 // Allow up to 10 fields
-        }
+      // Parse multipart form data using formidable
+      const form = formidable({
+        maxFileSize: 500 * 1024 * 1024, // 500MB
+        keepExtensions: true,
+        multiples: false
       })
 
       let fileData = null
       let fileName = null
       let mimeType = null
       let folder = 'images/questions' // default
-      let hasError = false
 
-      busboy.on('file', (fieldname, file, info) => {
-        const { filename, encoding, mimeType: mime } = info
-        fileName = filename
-        mimeType = mime
+      console.log('Starting to parse form data with formidable')
 
-        const chunks = []
-        file.on('data', (chunk) => {
-          chunks.push(chunk)
-        })
-        file.on('end', () => {
-          if (!hasError) {
-            fileData = Buffer.concat(chunks)
-          }
-        })
-        file.on('error', (err) => {
-          console.error('File stream error:', err)
-          hasError = true
-        })
-      })
+      try {
+        const [fields, files] = await form.parse(req)
 
-      busboy.on('field', (fieldname, value) => {
-        if (fieldname === 'folder') {
-          folder = value
+        console.log('Form parsed successfully', {
+          fields: Object.keys(fields),
+          files: Object.keys(files)
+        })
+
+        // Get folder from fields if provided
+        if (fields.folder && fields.folder[0]) {
+          folder = fields.folder[0]
         }
-        if (fieldname === 'fileName') {
-          fileName = value
+
+        // Get custom fileName from fields if provided
+        if (fields.fileName && fields.fileName[0]) {
+          fileName = fields.fileName[0]
         }
-      })
 
-      await new Promise((resolve, reject) => {
-        busboy.on('finish', () => {
-          if (hasError) {
-            reject(new Error('Error processing file upload'))
-          } else {
-            resolve()
-          }
+        // Get the uploaded file
+        const file = files.file && files.file[0]
+        if (!file) {
+          res.status(400).json({ error: 'No file uploaded' })
+          return
+        }
+
+        // Read file data
+        fileData = readFileSync(file.filepath)
+        mimeType = file.mimetype
+        if (!fileName) {
+          fileName = file.originalFilename || file.newFilename
+        }
+
+        console.log('File processed:', {
+          fileName,
+          mimeType,
+          size: fileData.length
         })
-        busboy.on('error', (err) => {
-          console.error('Busboy error:', err)
-          hasError = true
-          reject(err)
-        })
-
-        // Pipe the request to busboy
-        req.pipe(busboy)
-      })
-
-      if (!fileData) {
-        res.status(400).json({ error: 'No file uploaded' })
+      } catch (error) {
+        console.error('Form parsing error:', error)
+        res.status(400).json({ error: `Failed to parse upload: ${error.message}` })
         return
       }
 
