@@ -5,7 +5,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { initializeApp } from 'firebase-admin/app'
 import formidable from 'formidable'
-import { readFileSync } from 'fs'
+import { readFileSync, unlinkSync } from 'fs'
 
 // Initialize Firebase Admin
 initializeApp()
@@ -85,10 +85,15 @@ export const s3Upload = onRequest(
       }
 
       // Parse multipart form data using formidable
+      // Cloud Run provides /tmp directory for temporary file storage
       const form = formidable({
         maxFileSize: 500 * 1024 * 1024, // 500MB
         keepExtensions: true,
-        multiples: false
+        multiples: false,
+        uploadDir: '/tmp',
+        filename: (name, ext, part) => {
+          return `upload_${Date.now()}_${Math.random().toString(36).substring(2)}${ext}`
+        }
       })
 
       let fileData = null
@@ -99,7 +104,13 @@ export const s3Upload = onRequest(
       console.log('Starting to parse form data with formidable')
 
       try {
-        const [fields, files] = await form.parse(req)
+        // Add timeout to parsing to prevent hanging
+        const parsePromise = form.parse(req)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Form parsing timeout after 2 minutes')), 120000)
+        )
+
+        const [fields, files] = await Promise.race([parsePromise, timeoutPromise])
 
         console.log('Form parsed successfully', {
           fields: Object.keys(fields),
@@ -135,6 +146,13 @@ export const s3Upload = onRequest(
           mimeType,
           size: fileData.length
         })
+
+        // Clean up temp file
+        try {
+          unlinkSync(file.filepath)
+        } catch (unlinkError) {
+          console.warn('Failed to delete temp file:', unlinkError.message)
+        }
       } catch (error) {
         console.error('Form parsing error:', error)
         res.status(400).json({ error: `Failed to parse upload: ${error.message}` })
