@@ -65,13 +65,28 @@ export const s3Upload = onRequest(
         return
       }
 
-      // Parse multipart form data
-      const busboy = Busboy({ headers: req.headers })
+      // Verify content-type is multipart/form-data
+      const contentType = req.headers['content-type'] || ''
+      if (!contentType.includes('multipart/form-data')) {
+        res.status(400).json({ error: 'Content-Type must be multipart/form-data' })
+        return
+      }
+
+      // Parse multipart form data with proper configuration
+      const busboy = Busboy({
+        headers: req.headers,
+        limits: {
+          fileSize: 500 * 1024 * 1024, // 500MB max file size
+          files: 1, // Only allow 1 file at a time
+          fields: 10 // Allow up to 10 fields
+        }
+      })
 
       let fileData = null
       let fileName = null
       let mimeType = null
       let folder = 'images/questions' // default
+      let hasError = false
 
       busboy.on('file', (fieldname, file, info) => {
         const { filename, encoding, mimeType: mime } = info
@@ -83,7 +98,13 @@ export const s3Upload = onRequest(
           chunks.push(chunk)
         })
         file.on('end', () => {
-          fileData = Buffer.concat(chunks)
+          if (!hasError) {
+            fileData = Buffer.concat(chunks)
+          }
+        })
+        file.on('error', (err) => {
+          console.error('File stream error:', err)
+          hasError = true
         })
       })
 
@@ -97,8 +118,20 @@ export const s3Upload = onRequest(
       })
 
       await new Promise((resolve, reject) => {
-        busboy.on('finish', resolve)
-        busboy.on('error', reject)
+        busboy.on('finish', () => {
+          if (hasError) {
+            reject(new Error('Error processing file upload'))
+          } else {
+            resolve()
+          }
+        })
+        busboy.on('error', (err) => {
+          console.error('Busboy error:', err)
+          hasError = true
+          reject(err)
+        })
+
+        // Pipe the request to busboy
         req.pipe(busboy)
       })
 
