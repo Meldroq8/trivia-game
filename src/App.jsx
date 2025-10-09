@@ -7,7 +7,6 @@ import componentPreloader from './utils/componentPreloader'
 import { devLog, devWarn, prodError } from "./utils/devLog"
 // Core game flow components - loaded immediately for instant navigation
 import Index from './pages/Index'
-import GameSetup from './pages/GameSetup'
 import CategorySelection from './pages/CategorySelection'
 import GameBoard from './pages/GameBoard'
 import QuestionView from './pages/QuestionView'
@@ -51,7 +50,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
       }
 
       // Reset the explicit exit flag when user starts a new game flow
-      if (location.pathname === '/game-setup' || location.pathname === '/categories') {
+      if (location.pathname === '/categories') {
         newState.userExplicitlyExited = false
         localStorage.removeItem('trivia_user_exited')
         devLog('🔄 Resetting explicit exit flags (gameState + localStorage) - user starting new game flow')
@@ -82,7 +81,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     }
 
     // All game-related routes should be restored
-    const validRoutesToRestore = ['/game', '/question', '/categories', '/game-setup']
+    const validRoutesToRestore = ['/game', '/question', '/categories']
 
     // Only restore if we have a saved route AND we're currently on index
     if (gameState.currentRoute && location.pathname === '/' && gameState.currentRoute !== '/') {
@@ -328,11 +327,7 @@ function App() {
           <Routes>
             <Route
               path="/"
-              element={<Index />}
-            />
-            <Route
-              path="/game-setup"
-              element={<GameSetup gameState={gameState} setGameState={setGameState} />}
+              element={<Index setGameState={setGameState} />}
             />
             <Route
               path="/categories"
