@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 // Preloader utility for images and audio files
 import persistentImageCache from './persistentImageCache.js'
 import { getOptimizedMediaUrl } from './mediaUrlConverter.js'
@@ -27,7 +28,7 @@ class GamePreloader {
     // Convert local paths to CloudFront URLs first
     const optimizedUrl = getOptimizedMediaUrl(imageUrl, 'medium', 'question')
     if (!silent) {
-      console.log(`🔄 Preloading image: ${imageUrl} → ${optimizedUrl}`)
+      devLog(`🔄 Preloading image: ${imageUrl} → ${optimizedUrl}`)
     }
 
     try {
@@ -41,7 +42,7 @@ class GamePreloader {
       return blobUrl
     } catch (error) {
       if (!silent) {
-        console.warn(`⚠️ Persistent cache preload failed: ${imageUrl.split('/').pop()?.split('?')[0]}`)
+        devWarn(`⚠️ Persistent cache preload failed: ${imageUrl.split('/').pop()?.split('?')[0]}`)
       }
       // Fallback to original URL
       return imageUrl
@@ -56,7 +57,7 @@ class GamePreloader {
 
     // Convert local paths to CloudFront URLs first
     const optimizedUrl = getOptimizedMediaUrl(audioUrl, 'medium', 'audio')
-    console.log(`🔄 Preloading audio: ${audioUrl} → ${optimizedUrl}`)
+    devLog(`🔄 Preloading audio: ${audioUrl} → ${optimizedUrl}`)
 
     return new Promise((resolve, reject) => {
       // Try fetch first, fallback to audio element if CORS issues
@@ -70,12 +71,12 @@ class GamePreloader {
           this.preloadedAudio.add(audioUrl)
           this.audioCache.set(audioUrl, blobUrl)
           this.audioBlobCache.set(audioUrl, blob)
-          console.log(`✅ Audio cached: ${audioUrl.split('/').pop()?.split('?')[0]}`)
+          devLog(`✅ Audio cached: ${audioUrl.split('/').pop()?.split('?')[0]}`)
           resolve(blobUrl)
         })
         .catch(error => {
           // Fallback: Use audio element for preloading
-          console.warn(`⚠️ CORS issue, using audio element preload: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
+          devWarn(`⚠️ CORS issue, using audio element preload: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
 
           const audio = new Audio()
           audio.preload = 'metadata'
@@ -87,7 +88,7 @@ class GamePreloader {
           }
 
           audio.onerror = () => {
-            console.warn(`⚠️ Audio will load on-demand: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
+            devWarn(`⚠️ Audio will load on-demand: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
             resolve(optimizedUrl) // Resolve with optimized URL
           }
 
@@ -104,7 +105,7 @@ class GamePreloader {
 
     // Convert local paths to CloudFront URLs first
     const optimizedUrl = getOptimizedMediaUrl(videoUrl, 'medium', 'video')
-    console.log(`🔄 Preloading video: ${videoUrl} → ${optimizedUrl}`)
+    devLog(`🔄 Preloading video: ${videoUrl} → ${optimizedUrl}`)
 
     return new Promise((resolve, reject) => {
       // Use video element for preloading to avoid CORS issues
@@ -116,12 +117,12 @@ class GamePreloader {
         // Mark as preloaded but don't create blob URL (CORS limitation)
         this.preloadedVideos.add(videoUrl)
         this.videoCache.set(videoUrl, optimizedUrl) // Store optimized URL
-        console.log(`✅ Video preloaded: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
+        devLog(`✅ Video preloaded: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
         resolve(optimizedUrl)
       }
 
       video.onerror = (error) => {
-        console.warn(`⚠️ Video will load on-demand: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
+        devWarn(`⚠️ Video will load on-demand: ${optimizedUrl.split('/').pop()?.split('?')[0]}`)
         // Still resolve with optimized URL as fallback
         resolve(optimizedUrl)
       }
@@ -222,7 +223,7 @@ class GamePreloader {
       }
     })
 
-    console.log(`🚀 Starting preload of ${allAssets.length} assets...`)
+    devLog(`🚀 Starting preload of ${allAssets.length} assets...`)
 
     let completed = 0
 
@@ -256,7 +257,7 @@ class GamePreloader {
       await Promise.allSettled(promises)
     }
 
-    console.log(`✅ Preloading complete. Images: ${this.preloadedImages.size}, Audio: ${this.preloadedAudio.size}`)
+    devLog(`✅ Preloading complete. Images: ${this.preloadedImages.size}, Audio: ${this.preloadedAudio.size}`)
   }
 
   // Get preloaded status
@@ -301,7 +302,7 @@ class GamePreloader {
     // Also clean old entries from persistent cache
     this.persistentCache.cleanOldEntries()
 
-    console.log('🧹 Preloader cache cleared (persistent cache maintained)')
+    devLog('🧹 Preloader cache cleared (persistent cache maintained)')
   }
 
   // Get cache statistics including persistent cache

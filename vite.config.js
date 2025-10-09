@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Plugin to inject build timestamp into HTML
+const injectBuildTimestamp = () => {
+  return {
+    name: 'inject-build-timestamp',
+    transformIndexHtml(html) {
+      const buildTimestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').split('.')[0]
+      return html.replace('BUILD_TIMESTAMP_PLACEHOLDER', `BUILD_${buildTimestamp}`)
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), injectBuildTimestamp()],
   server: {
     host: true, // Allow network access
     https: process.env.HTTPS === 'true', // Enable HTTPS when HTTPS=true
@@ -25,6 +36,22 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
+        // Manual code splitting for better caching and smaller initial bundle
+        manualChunks: {
+          // React core libraries
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Firebase libraries (large dependency)
+          'firebase': [
+            'firebase/app',
+            'firebase/auth',
+            'firebase/firestore',
+            'firebase/storage'
+          ],
+          // Admin page (large, rarely accessed by regular users)
+          'admin': ['./src/pages/Admin.jsx'],
+          // AI services (only used in admin)
+          'ai-services': ['./src/services/aiService.js']
+        },
         // More aggressive cache busting with build timestamp
         entryFileNames: (chunkInfo) => {
           const buildId = Date.now()

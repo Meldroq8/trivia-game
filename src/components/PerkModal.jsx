@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react'
 
 function PerkModal({
@@ -75,7 +76,7 @@ function PerkModal({
   // Early return AFTER all hooks
   if (!isOpen) return null
 
-  console.log('PerkModal rendering with:', { isOpen, perkType, teamName })
+  devLog('PerkModal rendering with:', { isOpen, perkType, teamName })
 
   // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
   const isPC = window.innerWidth >= 1024 && window.innerHeight >= 768

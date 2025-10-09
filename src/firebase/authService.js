@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -63,7 +64,7 @@ export class AuthService {
 
       return user
     } catch (error) {
-      console.error('Error signing up:', error)
+      prodError('Error signing up:', error)
       throw error
     }
   }
@@ -74,7 +75,7 @@ export class AuthService {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       return userCredential.user
     } catch (error) {
-      console.error('Error signing in:', error)
+      prodError('Error signing in:', error)
       throw error
     }
   }
@@ -84,7 +85,7 @@ export class AuthService {
     try {
       await signOut(auth)
     } catch (error) {
-      console.error('Error signing out:', error)
+      prodError('Error signing out:', error)
       throw error
     }
   }
@@ -108,7 +109,7 @@ export class AuthService {
       }
       return null
     } catch (error) {
-      console.error('Error getting user profile:', error)
+      prodError('Error getting user profile:', error)
       throw error
     }
   }
@@ -116,7 +117,7 @@ export class AuthService {
   // Update user game stats and save complete game data
   static async updateGameStats(uid, gameData) {
     try {
-      console.log('💾 Saving game data to Firebase:', { uid, gameData })
+      devLog('💾 Saving game data to Firebase:', { uid, gameData })
 
       // Completely rebuild the game data structure to ensure no undefined values
       const rebuildGameData = (originalData) => {
@@ -213,7 +214,7 @@ export class AuthService {
         // CRITICAL: Assigned questions for payment model - store only question IDs and metadata
         if (originalData.assignedQuestions && typeof originalData.assignedQuestions === 'object') {
           rebuilt.assignedQuestions = {}
-          console.log('🔧 Processing assignedQuestions (ID-based):', originalData.assignedQuestions)
+          devLog('🔧 Processing assignedQuestions (ID-based):', originalData.assignedQuestions)
 
           for (const [buttonKey, assignment] of Object.entries(originalData.assignedQuestions)) {
             if (assignment && typeof assignment === 'object') {
@@ -228,7 +229,7 @@ export class AuthService {
             }
           }
 
-          console.log('🔧 Rebuilt assignedQuestions (simplified):', rebuilt.assignedQuestions)
+          devLog('🔧 Rebuilt assignedQuestions (simplified):', rebuilt.assignedQuestions)
         }
 
         return rebuilt
@@ -236,9 +237,9 @@ export class AuthService {
 
       const gameDataForFirebase = rebuildGameData(gameData.gameData)
 
-      console.log('🔄 Rebuilt game data for Firebase:')
-      console.log(JSON.stringify(gameDataForFirebase, null, 2))
-      console.log('📊 Final score:', gameData.finalScore)
+      devLog('🔄 Rebuilt game data for Firebase:')
+      devLog(JSON.stringify(gameDataForFirebase, null, 2))
+      devLog('📊 Final score:', gameData.finalScore)
 
       // Check if this is a game continuation (updating existing game)
       const gameId = gameData.gameData?.gameId
@@ -258,21 +259,21 @@ export class AuthService {
         documentToSave.createdAt = new Date()
       }
 
-      console.log('📄 Final document to save:')
-      console.log(JSON.stringify(documentToSave, null, 2))
-      console.log('🔄 Is game continuation:', isGameContinuation)
-      console.log('🆔 Game ID:', gameId)
-      console.log('📊 Will increment gamesPlayed?', !isGameContinuation)
+      devLog('📄 Final document to save:')
+      devLog(JSON.stringify(documentToSave, null, 2))
+      devLog('🔄 Is game continuation:', isGameContinuation)
+      devLog('🆔 Game ID:', gameId)
+      devLog('📊 Will increment gamesPlayed?', !isGameContinuation)
 
       // Save or update game in games collection
       if (isGameContinuation && gameId) {
         // Update existing game
-        console.log('📝 Updating existing game:', gameId)
+        devLog('📝 Updating existing game:', gameId)
         const gameRef = doc(db, 'games', gameId)
         await updateDoc(gameRef, documentToSave)
       } else {
         // Create new game
-        console.log('🆕 Creating new game')
+        devLog('🆕 Creating new game')
         await addDoc(collection(db, 'games'), documentToSave)
       }
 
@@ -295,19 +296,19 @@ export class AuthService {
         }, { merge: true })
       }
 
-      console.log('✅ Game data saved to Firebase successfully')
+      devLog('✅ Game data saved to Firebase successfully')
 
       // Update public leaderboard after successful game save (async, non-blocking)
       try {
-        console.log('🏆 Updating public leaderboard...')
+        devLog('🏆 Updating public leaderboard...')
         await AuthService.updateLeaderboard()
-        console.log('✅ Public leaderboard updated successfully')
+        devLog('✅ Public leaderboard updated successfully')
       } catch (leaderboardError) {
-        console.error('⚠️ Failed to update leaderboard (non-critical):', leaderboardError)
+        prodError('⚠️ Failed to update leaderboard (non-critical):', leaderboardError)
         // Don't throw - leaderboard update failure shouldn't break game saving
       }
     } catch (error) {
-      console.error('❌ Error updating game stats:', error)
+      prodError('❌ Error updating game stats:', error)
       throw error
     }
   }
@@ -315,7 +316,7 @@ export class AuthService {
   // Get user's games
   static async getUserGames(uid) {
     try {
-      console.log('📖 Loading games for user:', uid)
+      devLog('📖 Loading games for user:', uid)
 
       const gamesQuery = query(
         collection(db, 'games'),
@@ -335,10 +336,10 @@ export class AuthService {
         })
       })
 
-      console.log('📚 Loaded', games.length, 'games')
+      devLog('📚 Loaded', games.length, 'games')
       return games
     } catch (error) {
-      console.error('❌ Error getting user games:', error)
+      prodError('❌ Error getting user games:', error)
       throw error
     }
   }
@@ -346,14 +347,14 @@ export class AuthService {
   // Delete a user's game
   static async deleteGame(gameId) {
     try {
-      console.log('🗑️ Deleting game:', gameId)
+      devLog('🗑️ Deleting game:', gameId)
 
       const gameRef = doc(db, 'games', gameId)
       await deleteDoc(gameRef)
 
-      console.log('✅ Game deleted successfully')
+      devLog('✅ Game deleted successfully')
     } catch (error) {
-      console.error('❌ Error deleting game:', error)
+      prodError('❌ Error deleting game:', error)
       throw error
     }
   }
@@ -416,7 +417,7 @@ export class AuthService {
    */
   static async getAllUsers() {
     try {
-      console.log('📖 Loading all users')
+      devLog('📖 Loading all users')
 
       const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'))
       const snapshot = await getDocs(usersQuery)
@@ -431,10 +432,10 @@ export class AuthService {
         })
       })
 
-      console.log('📚 Loaded', users.length, 'users')
+      devLog('📚 Loaded', users.length, 'users')
       return users
     } catch (error) {
-      console.error('❌ Error getting all users:', error)
+      prodError('❌ Error getting all users:', error)
       throw error
     }
   }
@@ -444,7 +445,7 @@ export class AuthService {
    */
   static async updateUserRole(userId, role) {
     try {
-      console.log('🔧 Updating user role:', { userId, role })
+      devLog('🔧 Updating user role:', { userId, role })
 
       const userRef = doc(db, 'users', userId)
       const updateData = {
@@ -464,10 +465,10 @@ export class AuthService {
       }
 
       await updateDoc(userRef, updateData)
-      console.log('✅ User role updated successfully')
+      devLog('✅ User role updated successfully')
       return true
     } catch (error) {
-      console.error('❌ Error updating user role:', error)
+      prodError('❌ Error updating user role:', error)
       throw error
     }
   }
@@ -477,7 +478,7 @@ export class AuthService {
    */
   static async searchUsers(searchTerm) {
     try {
-      console.log('🔍 Searching users with term:', searchTerm)
+      devLog('🔍 Searching users with term:', searchTerm)
 
       const usersQuery = query(collection(db, 'users'))
       const snapshot = await getDocs(usersQuery)
@@ -498,10 +499,10 @@ export class AuthService {
         }
       })
 
-      console.log('🔎 Found', users.length, 'matching users')
+      devLog('🔎 Found', users.length, 'matching users')
       return users
     } catch (error) {
-      console.error('❌ Error searching users:', error)
+      prodError('❌ Error searching users:', error)
       throw error
     }
   }
@@ -519,7 +520,7 @@ export class AuthService {
         return cached
       }
 
-      console.log('🏆 Loading public leaderboard from Firestore')
+      devLog('🏆 Loading public leaderboard from Firestore')
 
       const leaderboardQuery = query(
         collection(db, 'leaderboard'),
@@ -537,14 +538,14 @@ export class AuthService {
         })
       })
 
-      console.log('🏆 Loaded', leaderboard.length, 'leaderboard entries')
+      devLog('🏆 Loaded', leaderboard.length, 'leaderboard entries')
 
       // Cache the result for 5 minutes
       AuthService.setCached('leaderboard', leaderboard, 5)
 
       return leaderboard
     } catch (error) {
-      console.error('❌ Error loading public leaderboard:', error)
+      prodError('❌ Error loading public leaderboard:', error)
       throw error
     }
   }
@@ -577,7 +578,7 @@ export class AuthService {
             })
           }
         } catch (error) {
-          console.warn('Error loading games for current user:', error)
+          devWarn('Error loading games for current user:', error)
         }
       }
 
@@ -613,14 +614,14 @@ export class AuthService {
       )
       await Promise.all(addPromises)
 
-      console.log('✅ Leaderboard updated successfully')
+      devLog('✅ Leaderboard updated successfully')
 
       // Invalidate leaderboard cache
       AuthService.cache.delete('leaderboard')
 
       return sortedData.slice(0, 10)
     } catch (error) {
-      console.error('❌ Error updating leaderboard:', error)
+      prodError('❌ Error updating leaderboard:', error)
       throw error
     }
   }

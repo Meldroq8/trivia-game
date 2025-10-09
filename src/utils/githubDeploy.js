@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 /**
  * Utility to trigger GitHub Actions deployment from admin panel
  */
@@ -33,7 +34,7 @@ export const triggerDeployment = async (reason = 'Manual deployment from admin p
 
     return { success: true, message: 'Deployment triggered successfully' };
   } catch (error) {
-    console.error('Failed to trigger deployment:', error);
+    prodError('Failed to trigger deployment:', error);
     throw error;
   }
 };

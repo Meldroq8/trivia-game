@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 // Smart image preloader and cache manager with localStorage data storage
 class PersistentImageCache {
   constructor() {
@@ -20,13 +21,13 @@ class PersistentImageCache {
       const request = indexedDB.open(this.dbName, this.version)
 
       request.onerror = () => {
-        console.warn('🚫 IndexedDB not available, falling back to memory cache')
+        devWarn('🚫 IndexedDB not available, falling back to memory cache')
         resolve(null) // Graceful fallback
       }
 
       request.onsuccess = () => {
         this.db = request.result
-        console.log('✅ IndexedDB image cache initialized')
+        devLog('✅ IndexedDB image cache initialized')
         resolve(this.db)
       }
 
@@ -35,7 +36,7 @@ class PersistentImageCache {
         if (!db.objectStoreNames.contains(this.storeName)) {
           const store = db.createObjectStore(this.storeName, { keyPath: 'key' })
           store.createIndex('timestamp', 'timestamp', { unique: false })
-          console.log('📦 Created IndexedDB object store for image metadata')
+          devLog('📦 Created IndexedDB object store for image metadata')
         }
       }
     })
@@ -77,10 +78,10 @@ class PersistentImageCache {
       localStorage.setItem(dataKey, base64Data)
       localStorage.setItem(metaKey, JSON.stringify(metadata))
 
-      console.log(`💾 Stored image in localStorage: ${url.split('/').pop()?.split('?')[0]} (${(base64Data.length / 1024).toFixed(1)}KB)`)
+      devLog(`💾 Stored image in localStorage: ${url.split('/').pop()?.split('?')[0]} (${(base64Data.length / 1024).toFixed(1)}KB)`)
       return true
     } catch (error) {
-      console.warn('⚠️ Failed to store image in localStorage:', error)
+      devWarn('⚠️ Failed to store image in localStorage:', error)
       return false
     }
   }
@@ -115,7 +116,7 @@ class PersistentImageCache {
       // Check if URL has changed (for detecting updated images)
       const currentUrlHash = this.hashString(url)
       if (metadata.urlHash !== currentUrlHash) {
-        console.log(`🔄 URL changed, cache invalid: ${url.split('/').pop()?.split('?')[0]}`)
+        devLog(`🔄 URL changed, cache invalid: ${url.split('/').pop()?.split('?')[0]}`)
         // Clean up old cache
         localStorage.removeItem(dataKey)
         localStorage.removeItem(metaKey)
@@ -125,16 +126,16 @@ class PersistentImageCache {
       // Check if cache is expired (7 days)
       const maxAge = 7 * 24 * 60 * 60 * 1000
       if (Date.now() - metadata.timestamp > maxAge) {
-        console.log(`⏰ Cache expired: ${url.split('/').pop()?.split('?')[0]}`)
+        devLog(`⏰ Cache expired: ${url.split('/').pop()?.split('?')[0]}`)
         localStorage.removeItem(dataKey)
         localStorage.removeItem(metaKey)
         return null
       }
 
-      console.log(`⚡ Retrieved from localStorage: ${url.split('/').pop()?.split('?')[0]} (${(metadata.size / 1024).toFixed(1)}KB)`)
+      devLog(`⚡ Retrieved from localStorage: ${url.split('/').pop()?.split('?')[0]} (${(metadata.size / 1024).toFixed(1)}KB)`)
       return imageData // Return base64 data URL
     } catch (error) {
-      console.warn('⚠️ Failed to retrieve image from localStorage:', error)
+      devWarn('⚠️ Failed to retrieve image from localStorage:', error)
       return null
     }
   }
@@ -162,10 +163,10 @@ class PersistentImageCache {
         request.onerror = () => reject(request.error)
       })
 
-      console.log(`📝 Stored image metadata: ${url.split('/').pop()?.split('?')[0]}`)
+      devLog(`📝 Stored image metadata: ${url.split('/').pop()?.split('?')[0]}`)
       return true
     } catch (error) {
-      console.warn('⚠️ Failed to store image metadata:', error)
+      devWarn('⚠️ Failed to store image metadata:', error)
       return false
     }
   }
@@ -185,17 +186,17 @@ class PersistentImageCache {
         request.onsuccess = () => {
           const result = request.result
           if (result && this.isNotExpired(result.timestamp)) {
-            console.log(`🎯 Metadata HIT: ${url.split('/').pop()?.split('?')[0]}`)
+            devLog(`🎯 Metadata HIT: ${url.split('/').pop()?.split('?')[0]}`)
             resolve(true)
           } else {
-            console.log(`❌ Metadata MISS: ${url.split('/').pop()?.split('?')[0]}`)
+            devLog(`❌ Metadata MISS: ${url.split('/').pop()?.split('?')[0]}`)
             resolve(false)
           }
         }
         request.onerror = () => resolve(false)
       })
     } catch (error) {
-      console.warn('⚠️ Failed to check image cache status:', error)
+      devWarn('⚠️ Failed to check image cache status:', error)
       return false
     }
   }
@@ -214,13 +215,13 @@ class PersistentImageCache {
       // First check localStorage for instant loading
       const cachedData = this.getImageFromLocalStorage(originalUrl)
       if (cachedData) {
-        console.log(`⚡ INSTANT load from localStorage: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+        devLog(`⚡ INSTANT load from localStorage: ${originalUrl.split('/').pop()?.split('?')[0]}`)
         return cachedData // Return base64 data URL for instant display
       }
 
       // Check if this is a Firebase Storage URL
       if (originalUrl.includes('firebasestorage.googleapis.com')) {
-        console.log(`🔥 Firebase Storage - using browser cache optimization: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+        devLog(`🔥 Firebase Storage - using browser cache optimization: ${originalUrl.split('/').pop()?.split('?')[0]}`)
 
         // For Firebase Storage, we can't cache to localStorage due to CORS
         // But we can optimize by ensuring the image is preloaded in browser cache
@@ -233,17 +234,17 @@ class PersistentImageCache {
           // Mark this URL as "browser cached" in sessionStorage
           sessionStorage.setItem(`firebase_cached_${this.hashString(originalUrl)}`, Date.now().toString())
 
-          console.log(`🚀 Firebase image preloaded to browser cache: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+          devLog(`🚀 Firebase image preloaded to browser cache: ${originalUrl.split('/').pop()?.split('?')[0]}`)
           return originalUrl // Return original URL - it's now in browser cache
 
         } catch (error) {
-          console.log(`🔒 Firebase preload failed, using original URL: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+          devLog(`🔒 Firebase preload failed, using original URL: ${originalUrl.split('/').pop()?.split('?')[0]}`)
           return originalUrl
         }
       }
 
       // For non-Firebase images, attempt localStorage caching
-      console.log(`🌐 Downloading and caching image: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+      devLog(`🌐 Downloading and caching image: ${originalUrl.split('/').pop()?.split('?')[0]}`)
 
       // Load image with canvas for localStorage storage
       const canvas = await this.loadImageToCanvas(originalUrl)
@@ -258,7 +259,7 @@ class PersistentImageCache {
       return canvas.toDataURL('image/jpeg', 0.8)
 
     } catch (error) {
-      console.warn(`⚠️ Failed to load/cache image, using original URL: ${originalUrl.split('/').pop()?.split('?')[0]}`)
+      devWarn(`⚠️ Failed to load/cache image, using original URL: ${originalUrl.split('/').pop()?.split('?')[0]}`)
       return originalUrl // Fallback to original URL
     }
   }
@@ -378,10 +379,10 @@ class PersistentImageCache {
       localStorage.setItem(dataKey, base64Data)
       localStorage.setItem(metaKey, JSON.stringify(metadata))
 
-      console.log(`💾 Stored Firebase image in localStorage: ${(base64Data.length / 1024).toFixed(1)}KB`)
+      devLog(`💾 Stored Firebase image in localStorage: ${(base64Data.length / 1024).toFixed(1)}KB`)
       return true
     } catch (error) {
-      console.warn('Failed to store Firebase image in localStorage:', error)
+      devWarn('Failed to store Firebase image in localStorage:', error)
       return false
     }
   }
@@ -434,7 +435,7 @@ class PersistentImageCache {
       const isCached = await this.isImageCached(url)
       if (isCached) {
         if (!silent) {
-          console.log(`✅ Already cached: ${url.split('/').pop()?.split('?')[0]}`)
+          devLog(`✅ Already cached: ${url.split('/').pop()?.split('?')[0]}`)
         }
         return url
       }
@@ -444,14 +445,14 @@ class PersistentImageCache {
       await this.storeImageMetadata(url)
 
       if (!silent) {
-        console.log(`✅ Preloaded: ${url.split('/').pop()?.split('?')[0]}`)
+        devLog(`✅ Preloaded: ${url.split('/').pop()?.split('?')[0]}`)
       }
 
       return url
 
     } catch (error) {
       if (!silent) {
-        console.warn(`⚠️ Preload failed: ${url.split('/').pop()?.split('?')[0]}`)
+        devWarn(`⚠️ Preload failed: ${url.split('/').pop()?.split('?')[0]}`)
       }
       return url // Fallback to original URL
     }
@@ -481,12 +482,12 @@ class PersistentImageCache {
           cursor.continue()
         } else {
           if (deletedCount > 0) {
-            console.log(`🧹 Cleaned ${deletedCount} old cache entries`)
+            devLog(`🧹 Cleaned ${deletedCount} old cache entries`)
           }
         }
       }
     } catch (error) {
-      console.warn('⚠️ Failed to clean old cache entries:', error)
+      devWarn('⚠️ Failed to clean old cache entries:', error)
     }
   }
 
@@ -518,10 +519,10 @@ class PersistentImageCache {
       }
 
       if (cleanedCount > 0) {
-        console.log(`🧹 Cleaned ${cleanedCount} expired localStorage cache entries`)
+        devLog(`🧹 Cleaned ${cleanedCount} expired localStorage cache entries`)
       }
     } catch (error) {
-      console.warn('⚠️ Failed to clean localStorage cache:', error)
+      devWarn('⚠️ Failed to clean localStorage cache:', error)
     }
   }
 
@@ -599,7 +600,7 @@ persistentImageCache.initPromise.then(() => {
 
   // Log cache stats
   persistentImageCache.getStats().then(stats => {
-    console.log('📊 Image Cache Stats:', stats)
+    devLog('📊 Image Cache Stats:', stats)
   })
 })
 

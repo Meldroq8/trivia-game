@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import PresentationModeToggle from '../components/PresentationModeToggle'
@@ -19,7 +20,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   // Debug: Log current question with video URLs
   useEffect(() => {
     if (gameState?.currentQuestion) {
-      console.log('🎬 Current question data:', {
+      devLog('🎬 Current question data:', {
         text: gameState.currentQuestion.text?.substring(0, 50) + '...',
         hasVideoUrl: !!gameState.currentQuestion.videoUrl,
         hasAnswerVideoUrl: !!gameState.currentQuestion.answerVideoUrl,
@@ -30,7 +31,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
       // Check if this is a question that has video but is missing video URLs
       if (!gameState.currentQuestion.videoUrl && !gameState.currentQuestion.answerVideoUrl) {
-        console.log('⚠️ Question has no video URLs - cache might need clearing!')
+        devLog('⚠️ Question has no video URLs - cache might need clearing!')
       }
     }
   }, [gameState?.currentQuestion])
@@ -304,7 +305,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         bottomPadding
       }
     } catch (error) {
-      console.error('Error in getResponsiveStyles:', error)
+      prodError('Error in getResponsiveStyles:', error)
       // Return safe fallback values
       return {
         isSmallScreen: true,
@@ -376,10 +377,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    console.log('🔧 QuestionView: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
+    devLog('🔧 QuestionView: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      console.log('✅ QuestionView: Set questionUsageTracker user ID to:', user.uid)
+      devLog('✅ QuestionView: Set questionUsageTracker user ID to:', user.uid)
     }
   }, [user])
 
@@ -389,7 +390,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Check if we should stay on this page
     if (shouldStayOnCurrentPage(gameState, location.pathname)) {
-      console.log('🛡️ QuestionView: Staying on current page - no redirects allowed')
+      devLog('🛡️ QuestionView: Staying on current page - no redirects allowed')
       return
     }
 
@@ -398,7 +399,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Give time for Firebase to load, then check again
       const timeout = setTimeout(() => {
         if (!gameState.selectedCategories.length && !hasGameStarted(gameState) && !shouldStayOnCurrentPage(gameState, location.pathname)) {
-          console.log('🔄 QuestionView: Fresh start - redirecting to categories')
+          devLog('🔄 QuestionView: Fresh start - redirecting to categories')
           navigate('/categories')
         }
       }, 2000) // Extended timeout for Firebase
@@ -414,11 +415,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const totalQuestions = gameState.selectedCategories.length * 6 // 6 questions per category (3 difficulty levels × 2 questions each)
     const answeredQuestions = gameState.usedQuestions.size
 
-    console.log(`Game completion check: ${answeredQuestions}/${totalQuestions} questions answered`)
+    devLog(`Game completion check: ${answeredQuestions}/${totalQuestions} questions answered`)
 
     // If all questions have been answered, automatically go to results
     if (answeredQuestions >= totalQuestions && answeredQuestions > 0) {
-      console.log('🎉 All questions completed! Navigating to results...')
+      devLog('🎉 All questions completed! Navigating to results...')
       // Small delay to allow final question processing
       setTimeout(() => {
         navigate('/results')
@@ -443,7 +444,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         const data = await GameDataLoader.loadGameData()
         setGameData(data)
       } catch (error) {
-        console.error('Error loading game data in QuestionView:', error)
+        prodError('Error loading game data in QuestionView:', error)
       }
     }
     loadGameData()
@@ -523,13 +524,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     if (!originalUrl) return null
     // Use cached video URL from game preloader
     const cachedUrl = window.gamePreloader?.getCachedVideoUrl(originalUrl) || originalUrl
-    console.log('🎥 Loading video URL:', cachedUrl)
+    devLog('🎥 Loading video URL:', cachedUrl)
     return cachedUrl
   }
 
   // Force clear cache and reload data
   const forceClearCacheAndReload = async () => {
-    console.log('🔄 Force clearing cache and reloading data...')
+    devLog('🔄 Force clearing cache and reloading data...')
 
     // Clear localStorage cache
     localStorage.removeItem('triviaData')
@@ -537,14 +538,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Force reload game data
     try {
-      const { GameDataLoader } = await import('../utils/gameDataLoader')
       const freshData = await GameDataLoader.loadGameData(true) // Force refresh
-      console.log('✅ Fresh data loaded:', freshData)
+      devLog('✅ Fresh data loaded:', freshData)
 
       // Reload the page to get fresh data
       window.location.reload()
     } catch (error) {
-      console.error('❌ Error force refreshing data:', error)
+      prodError('❌ Error force refreshing data:', error)
     }
   }
 
@@ -561,14 +561,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         const storedQuestion = localStorage.getItem('current_question')
         if (storedQuestion) {
           const parsedQuestion = JSON.parse(storedQuestion)
-          console.log('🔄 QuestionView: Restoring question from localStorage after refresh')
+          devLog('🔄 QuestionView: Restoring question from localStorage after refresh')
           setGameState(prev => ({
             ...prev,
             currentQuestion: parsedQuestion
           }))
         }
       } catch (error) {
-        console.error('❌ Error restoring question from localStorage:', error)
+        prodError('❌ Error restoring question from localStorage:', error)
       }
     }
 
@@ -684,7 +684,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       questionUsageTracker.setUserId(user.uid)
       await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion)
     } else {
-      console.log('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+      devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
     }
 
     // Calculate points (apply double points if active and team matches)
@@ -748,7 +748,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       questionUsageTracker.setUserId(user.uid)
       await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion)
     } else {
-      console.log('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+      devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
     }
 
     // Mark question as used without awarding points
@@ -756,8 +756,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const newUsedQuestions = new Set([...prev.usedQuestions, currentQuestion.question.id])
       const newUsedPointValues = new Set([...(prev.usedPointValues || []), currentQuestion.pointValueKey])
 
-      console.log('✅ New used questions set (no answer):', Array.from(newUsedQuestions))
-      console.log('✅ New used point values set (no answer):', Array.from(newUsedPointValues))
+      devLog('✅ New used questions set (no answer):', Array.from(newUsedQuestions))
+      devLog('✅ New used point values set (no answer):', Array.from(newUsedPointValues))
 
       return {
         ...prev,
@@ -817,29 +817,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Perk handling functions
   const handlePerkClick = (perkType, team) => {
-    console.log(`🔧 Perk clicked in QuestionView: ${perkType} for ${team}`)
-    console.log(`  - Current question:`, currentQuestion ? 'Available' : 'None')
-    console.log(`  - Current turn:`, gameState.currentTurn)
-    console.log(`  - Team:`, team)
+    devLog(`🔧 Perk clicked in QuestionView: ${perkType} for ${team}`)
+    devLog(`  - Current question:`, currentQuestion ? 'Available' : 'None')
+    devLog(`  - Current turn:`, gameState.currentTurn)
+    devLog(`  - Team:`, team)
 
     // Double points perk can only be used before selecting a question (in GameBoard)
     if (perkType === 'double') {
-      console.warn('❌ Double points perk should only be used in GameBoard')
+      devWarn('❌ Double points perk should only be used in GameBoard')
       return
     }
 
     if (!currentQuestion) {
-      console.warn('❌ No current question - perks only work when a question is visible')
+      devWarn('❌ No current question - perks only work when a question is visible')
       return
     }
 
     // Only allow the current team to use perks
     if (gameState.currentTurn !== team) {
-      console.warn(`❌ Not ${team}'s turn (current turn: ${gameState.currentTurn})`)
+      devWarn(`❌ Not ${team}'s turn (current turn: ${gameState.currentTurn})`)
       return
     }
 
-    console.log('✅ Opening perk modal...')
+    devLog('✅ Opening perk modal...')
     setActivePerk({ type: perkType, team })
     setPerkModalOpen(true)
   }
@@ -850,7 +850,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // Check if perk is already used (max 1 use per perk per team)
     const currentUsage = gameState.perkUsage?.[team]?.[type] || 0
     if (currentUsage >= 1) {
-      console.warn(`Perk ${type} already used by ${team}`)
+      devWarn(`Perk ${type} already used by ${team}`)
       setPerkModalOpen(false)
       setActivePerk({ type: null, team: null })
       return
@@ -868,12 +868,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       }
     }))
 
-    console.log(`✅ Perk activated in QuestionView: ${type} for ${team}`)
+    devLog(`✅ Perk activated in QuestionView: ${type} for ${team}`)
 
     // Handle specific perk effects
     if (type === 'double') {
       // Double points should not be activatable in QuestionView
-      console.warn('Double points perk should only be used in GameBoard')
+      devWarn('Double points perk should only be used in GameBoard')
       setPerkModalOpen(false)
       setActivePerk({ type: null, team: null })
       return
@@ -934,7 +934,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           // For now, let's use a fallback approach - try the first option
           const flagName = question.options[0]?.toLowerCase()
           imageUrl = `images/Flags/${flagName}.svg`
-          console.log('🏁 Constructed flag image URL:', imageUrl)
+          devLog('🏁 Constructed flag image URL:', imageUrl)
         }
       }
     }
@@ -946,7 +946,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           // Current question image preloaded successfully (debug removed)
         })
         .catch(error => {
-          console.warn('❌ Failed to preload current question image:', error)
+          devWarn('❌ Failed to preload current question image:', error)
         })
     } else {
       // No image found in current question for preloading (debug removed)
@@ -954,13 +954,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Immediately preload current question's audio if it has one
     if (currentQuestion?.question?.audio) {
-      console.log('🎵 Immediately preloading current question audio:', currentQuestion.question.audio)
+      devLog('🎵 Immediately preloading current question audio:', currentQuestion.question.audio)
       gamePreloader.preloadAudio(currentQuestion.question.audio)
         .then(() => {
-          console.log('✅ Current question audio preloaded successfully')
+          devLog('✅ Current question audio preloaded successfully')
         })
         .catch(error => {
-          console.warn('❌ Failed to preload current question audio:', error)
+          devWarn('❌ Failed to preload current question audio:', error)
         })
     }
 
@@ -1133,7 +1133,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                console.log('Navigate to game clicked')
+                devLog('Navigate to game clicked')
                 navigate('/game')
                 setBurgerMenuOpen(false)
               }}
@@ -1145,7 +1145,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                console.log('Navigate to results clicked')
+                devLog('Navigate to results clicked')
                 navigate('/results')
                 setBurgerMenuOpen(false)
               }}

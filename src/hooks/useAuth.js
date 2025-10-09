@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect } from 'react'
 import { AuthService } from '../firebase/authService'
 
@@ -20,7 +21,7 @@ export const useAuth = () => {
           setUserProfile(null)
         }
       } catch (error) {
-        console.error('Auth state change error:', error)
+        prodError('Auth state change error:', error)
         setError(error.message)
       } finally {
         setLoading(false)
@@ -73,7 +74,7 @@ export const useAuth = () => {
       try {
         await AuthService.updateGameStats(user.uid, gameData)
       } catch (error) {
-        console.error('Error updating game stats:', error)
+        prodError('Error updating game stats:', error)
       }
     }
   }
@@ -83,7 +84,7 @@ export const useAuth = () => {
       try {
         return await AuthService.getUserGames(user.uid)
       } catch (error) {
-        console.error('Error getting user games:', error)
+        prodError('Error getting user games:', error)
         return []
       }
     }
@@ -95,7 +96,7 @@ export const useAuth = () => {
       try {
         return await AuthService.deleteGame(gameId)
       } catch (error) {
-        console.error('Error deleting game:', error)
+        prodError('Error deleting game:', error)
         throw error
       }
     }

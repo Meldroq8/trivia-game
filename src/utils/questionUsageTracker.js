@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 /**
  * Account-wise Question Usage Tracker with Firebase Firestore
  *
@@ -40,7 +41,7 @@ class QuestionUsageTracker {
    */
   async getUsageData() {
     if (!this.currentUserId) {
-      console.warn('⚠️ No user ID set, falling back to localStorage')
+      devWarn('⚠️ No user ID set, falling back to localStorage')
       return this.getLocalUsageData()
     }
 
@@ -56,18 +57,18 @@ class QuestionUsageTracker {
       if (docSnap.exists()) {
         const data = docSnap.data()
         this.localCache = data.usageData || {}
-        console.log('📱 Loaded question usage from Firestore')
+        devLog('📱 Loaded question usage from Firestore')
         return this.localCache
       } else {
         // Create new document for user
         const initialData = { usageData: {}, poolSize: 0, lastUpdated: Date.now() }
         await setDoc(userDoc, initialData)
         this.localCache = {}
-        console.log('✨ Created new question usage document for user')
+        devLog('✨ Created new question usage document for user')
         return this.localCache
       }
     } catch (error) {
-      console.error('❌ Error loading question usage from Firestore:', error)
+      prodError('❌ Error loading question usage from Firestore:', error)
       return this.getLocalUsageData()
     }
   }
@@ -81,7 +82,7 @@ class QuestionUsageTracker {
       const data = localStorage.getItem(this.STORAGE_KEY)
       return data ? JSON.parse(data) : {}
     } catch (error) {
-      console.error('❌ Error loading question usage data from localStorage:', error)
+      prodError('❌ Error loading question usage data from localStorage:', error)
       return {}
     }
   }
@@ -93,7 +94,7 @@ class QuestionUsageTracker {
    */
   async saveUsageData(usageData, immediate = false) {
     if (!this.currentUserId) {
-      console.warn('⚠️ No user ID set, falling back to localStorage')
+      devWarn('⚠️ No user ID set, falling back to localStorage')
       return this.saveLocalUsageData(usageData)
     }
 
@@ -122,7 +123,7 @@ class QuestionUsageTracker {
     const timeSinceLastWrite = now - this.lastWriteTime
     const delay = Math.max(0, this.WRITE_THROTTLE_MS - timeSinceLastWrite)
 
-    console.log(`⏱️ Scheduling Firebase write in ${delay}ms`)
+    devLog(`⏱️ Scheduling Firebase write in ${delay}ms`)
 
     this.saveTimeout = setTimeout(async () => {
       await this.performFirestoreWrite(usageData)
@@ -147,9 +148,9 @@ class QuestionUsageTracker {
       })
 
       this.lastWriteTime = Date.now()
-      console.log('💾 Saved question usage data to Firestore (throttled)')
+      devLog('💾 Saved question usage data to Firestore (throttled)')
     } catch (error) {
-      console.error('❌ Error saving question usage to Firestore:', error)
+      prodError('❌ Error saving question usage to Firestore:', error)
       // Fallback to localStorage
       this.saveLocalUsageData(usageData)
     }
@@ -162,9 +163,9 @@ class QuestionUsageTracker {
   saveLocalUsageData(usageData) {
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(usageData))
-      console.log('💾 Saved question usage data to localStorage')
+      devLog('💾 Saved question usage data to localStorage')
     } catch (error) {
-      console.error('❌ Error saving question usage data to localStorage:', error)
+      prodError('❌ Error saving question usage data to localStorage:', error)
     }
   }
 
@@ -188,7 +189,7 @@ class QuestionUsageTracker {
         return 0
       }
     } catch (error) {
-      console.error('❌ Error loading pool size from Firestore:', error)
+      prodError('❌ Error loading pool size from Firestore:', error)
       return this.getLocalPoolSize()
     }
   }
@@ -202,7 +203,7 @@ class QuestionUsageTracker {
       const size = localStorage.getItem(this.POOL_SIZE_KEY)
       return size ? parseInt(size, 10) : 0
     } catch (error) {
-      console.error('❌ Error loading pool size from localStorage:', error)
+      prodError('❌ Error loading pool size from localStorage:', error)
       return 0
     }
   }
@@ -214,9 +215,9 @@ class QuestionUsageTracker {
   savePoolSize(size) {
     try {
       localStorage.setItem(this.POOL_SIZE_KEY, size.toString())
-      console.log('💾 Saved question pool size:', size)
+      devLog('💾 Saved question pool size:', size)
     } catch (error) {
-      console.error('❌ Error saving pool size:', error)
+      prodError('❌ Error saving pool size:', error)
     }
   }
 
@@ -230,7 +231,7 @@ class QuestionUsageTracker {
     const totalQuestions = Object.values(gameData.questions).flat()
     const currentPoolSize = totalQuestions.length
 
-    console.log(`📊 Current question pool size: ${currentPoolSize}`)
+    devLog(`📊 Current question pool size: ${currentPoolSize}`)
     this.savePoolSize(currentPoolSize)
 
     // Initialize usage tracking for new questions
@@ -246,7 +247,7 @@ class QuestionUsageTracker {
     })
 
     if (newQuestionsCount > 0) {
-      console.log(`✨ Added ${newQuestionsCount} new questions to tracking`)
+      devLog(`✨ Added ${newQuestionsCount} new questions to tracking`)
       await this.saveUsageData(usageData)
     }
   }
@@ -274,7 +275,7 @@ class QuestionUsageTracker {
 
     usageData[questionId] = (usageData[questionId] || 0) + 1
 
-    console.log(`📝 Marked question as used: ${questionId} (usage count: ${usageData[questionId]})`)
+    devLog(`📝 Marked question as used: ${questionId} (usage count: ${usageData[questionId]})`)
 
     // Update local cache immediately for instant UI response
     this.localCache = usageData
@@ -285,7 +286,7 @@ class QuestionUsageTracker {
     // Check reset in background with additional throttling
     setTimeout(() => {
       this.checkAndResetIfAllUsed().catch(error => {
-        console.error('Background reset check failed:', error)
+        prodError('Background reset check failed:', error)
       })
     }, 5000) // Delay reset check by 5 seconds
 
@@ -306,10 +307,10 @@ class QuestionUsageTracker {
     const usedQuestions = Object.values(usageData).filter(count => count > 0).length
     const allQuestionsUsed = usedQuestions >= poolSize
 
-    console.log(`📊 Usage Statistics: ${usedQuestions}/${poolSize} questions used`)
+    devLog(`📊 Usage Statistics: ${usedQuestions}/${poolSize} questions used`)
 
     if (allQuestionsUsed) {
-      console.log('🔄 ALL QUESTIONS USED! Resetting usage cycle to allow reuse...')
+      devLog('🔄 ALL QUESTIONS USED! Resetting usage cycle to allow reuse...')
 
       // Reset all usage counts to 0
       const resetData = {}
@@ -330,7 +331,7 @@ class QuestionUsageTracker {
    */
   showResetNotification() {
     // You can customize this notification method
-    console.log('🎉 Question pool reset! All questions are now available again.')
+    devLog('🎉 Question pool reset! All questions are now available again.')
 
     // Optional: Show a toast notification or modal
     if (typeof window !== 'undefined' && window.alert) {
@@ -364,7 +365,7 @@ class QuestionUsageTracker {
       return usageCount === 0
     })
 
-    console.log(`🎯 Available ${difficulty || 'all'} questions: ${availableQuestions.length}/${filteredQuestions.length}`)
+    devLog(`🎯 Available ${difficulty || 'all'} questions: ${availableQuestions.length}/${filteredQuestions.length}`)
 
     return availableQuestions
   }
@@ -398,10 +399,10 @@ class QuestionUsageTracker {
    */
   async clearAllUsageData() {
     if (!this.currentUserId) {
-      console.warn('⚠️ No user ID set, clearing localStorage')
+      devWarn('⚠️ No user ID set, clearing localStorage')
       localStorage.removeItem(this.STORAGE_KEY)
       localStorage.removeItem(this.POOL_SIZE_KEY)
-      console.log('🗑️ Cleared question usage data from localStorage')
+      devLog('🗑️ Cleared question usage data from localStorage')
       return
     }
 
@@ -417,13 +418,13 @@ class QuestionUsageTracker {
 
       // Clear local cache
       this.localCache = {}
-      console.log('🗑️ Reset all question usage data in Firestore')
+      devLog('🗑️ Reset all question usage data in Firestore')
     } catch (error) {
-      console.error('❌ Error clearing usage data from Firestore:', error)
+      prodError('❌ Error clearing usage data from Firestore:', error)
       // Fallback to localStorage
       localStorage.removeItem(this.STORAGE_KEY)
       localStorage.removeItem(this.POOL_SIZE_KEY)
-      console.log('🗑️ Cleared question usage data from localStorage (fallback)')
+      devLog('🗑️ Cleared question usage data from localStorage (fallback)')
     }
   }
 
@@ -450,7 +451,7 @@ class QuestionUsageTracker {
     if (backupData.poolSize) {
       this.savePoolSize(backupData.poolSize)
     }
-    console.log('📥 Imported question usage data from backup')
+    devLog('📥 Imported question usage data from backup')
   }
 }
 

@@ -12,6 +12,8 @@ import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import gamePreloader from '../utils/preloader'
+import { devLog, devWarn, prodError } from '../utils/devLog'
+import { debounce } from '../utils/debounce'
 
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -41,7 +43,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // Use CloudFront-enabled optimization with fallback chain
     const optimizedUrl = getOptimizedMediaUrlUtil(originalUrl, size, context)
-    console.log(`🚀 Using CloudFront-optimized URL: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${optimizedUrl}`)
+    devLog(`🚀 Using CloudFront-optimized URL: ${originalUrl.split('/').pop()?.split('?')[0]} -> ${optimizedUrl}`)
     return optimizedUrl
   }
 
@@ -72,14 +74,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    console.log('🔧 GameBoard: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
+    devLog('🔧 GameBoard: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      console.log('✅ GameBoard: Set questionUsageTracker user ID to:', user.uid)
+      devLog('✅ GameBoard: Set questionUsageTracker user ID to:', user.uid)
 
       // If we have game data but hadn't set up question tracking yet, do it now
       if (gameData) {
-        console.log('🔄 GameBoard: Updating question pool after user authentication')
+        devLog('🔄 GameBoard: Updating question pool after user authentication')
         questionUsageTracker.updateQuestionPool(gameData)
       }
     }
@@ -96,25 +98,25 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   useEffect(() => {
     // Only wait for critical loading - game data is most important
     if (!gameData) {
-      console.log('🔄 GameBoard: Waiting for game data before redirect checks')
+      devLog('🔄 GameBoard: Waiting for game data before redirect checks')
       return
     }
 
     // If we're loading user data but have basic auth, proceed with some checks
     if (authLoading && !user) {
-      console.log('🔄 GameBoard: Auth still loading, deferring redirect checks')
+      devLog('🔄 GameBoard: Auth still loading, deferring redirect checks')
       return
     }
 
     // Check if we should stay on this page
     if (shouldStayOnCurrentPage(gameState, location.pathname)) {
-      console.log('🛡️ GameBoard: Staying on current page - no redirects allowed')
+      devLog('🛡️ GameBoard: Staying on current page - no redirects allowed')
       return
     }
 
     // Check if we're on the GameBoard page (page refresh scenario)
     if (location.pathname === '/game') {
-      console.log('🛡️ GameBoard: On GameBoard page after refresh - no redirects needed')
+      devLog('🛡️ GameBoard: On GameBoard page after refresh - no redirects needed')
       return
     }
 
@@ -122,10 +124,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (!gameState.selectedCategories.length && !hasGameStarted(gameState)) {
       // Wait for state to be loaded before redirecting away from game
       if (!stateLoaded) {
-        console.log('🔄 GameBoard: State still loading, waiting before redirect')
+        devLog('🔄 GameBoard: State still loading, waiting before redirect')
         return
       }
-      console.log('🔄 GameBoard: Fresh start - redirecting to categories')
+      devLog('🔄 GameBoard: Fresh start - redirecting to categories')
       navigate('/categories')
     }
   }, [gameData, authLoading, user, stateLoaded, gameState, location.pathname, navigate])
@@ -139,7 +141,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       if (category.imageUrl) {
         const optimizedUrl = getOptimizedMediaUrl(category.imageUrl, 'medium', 'category')
         if (optimizedUrl !== category.imageUrl) {
-          console.log(`☁️ Optimized: ${category.name} -> ${optimizedUrl}`)
+          devLog(`☁️ Optimized: ${category.name} -> ${optimizedUrl}`)
         }
       }
     })
@@ -160,7 +162,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       })
 
       if (selectedCategoryImages.length > 0) {
-        console.log(`🖼️ Immediately preloading ${selectedCategoryImages.length} selected category images...`)
+        devLog(`🖼️ Immediately preloading ${selectedCategoryImages.length} selected category images...`)
 
         // Preload all selected category images in parallel with persistent caching
         const preloadResults = await Promise.allSettled(selectedCategoryImages.map(async (imageUrl) => {
@@ -175,24 +177,24 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               img.src = localImageUrl
             })
 
-            console.log(`✅ Category image preloaded: ${imageUrl.split('/').pop()?.split('?')[0]}`)
+            devLog(`✅ Category image preloaded: ${imageUrl.split('/').pop()?.split('?')[0]}`)
             setLoadedImages(prev => new Set([...prev, imageUrl]))
             return { url: imageUrl, cached: true }
           } catch (error) {
             // Image will load normally via background-image, no need to fail here
-            console.log(`ℹ️ Category image will load on-demand: ${imageUrl.split('/').pop()?.split('?')[0]}`)
+            devLog(`ℹ️ Category image will load on-demand: ${imageUrl.split('/').pop()?.split('?')[0]}`)
             return { url: imageUrl, cached: false }
           }
         }))
 
         // Log caching results
         const successful = preloadResults.filter(r => r.status === 'fulfilled' && r.value.cached).length
-        console.log(`🎯 Cached ${successful}/${selectedCategoryImages.length} category images persistently`)
+        devLog(`🎯 Cached ${successful}/${selectedCategoryImages.length} category images persistently`)
 
-        console.log('🎯 Selected category images preloading complete')
+        devLog('🎯 Selected category images preloading complete')
       }
     } catch (error) {
-      console.warn('⚠️ Category image preloading error (non-critical):', error)
+      devWarn('⚠️ Category image preloading error (non-critical):', error)
     }
   }
 
@@ -222,11 +224,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         }
       })
 
-      console.log(`🎯 Smart preloading ${questionsToPreload.length} likely questions`)
+      devLog(`🎯 Smart preloading ${questionsToPreload.length} likely questions`)
 
       // Start background preloading of question images without blocking UI
       try {
-        console.log('🎯 Starting background preloading of question images')
+        devLog('🎯 Starting background preloading of question images')
         const questionImagePreloads = questionsToPreload
           .filter(q => q.imageUrl)
           .map(async (question) => {
@@ -241,18 +243,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 img.src = localImageUrl
               })
 
-              console.log(`✅ Question image preloaded: ${question.imageUrl.split('/').pop()?.split('?')[0]}`)
+              devLog(`✅ Question image preloaded: ${question.imageUrl.split('/').pop()?.split('?')[0]}`)
             } catch (error) {
-              console.warn(`⚠️ Question image will load on-demand: ${question.imageUrl}`)
+              devWarn(`⚠️ Question image will load on-demand: ${question.imageUrl}`)
             }
           })
         await Promise.allSettled(questionImagePreloads)
       } catch (error) {
-        console.warn('⚠️ Question image preloading failed (non-critical):', error)
+        devWarn('⚠️ Question image preloading failed (non-critical):', error)
       }
 
     } catch (error) {
-      console.warn('⚠️ Smart preloading error (non-critical):', error)
+      devWarn('⚠️ Smart preloading error (non-critical):', error)
     }
   }
 
@@ -280,17 +282,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
 
       const expectedQuestions = gameState.selectedCategories.length * 6 // 6 questions per category
-      console.log(`🚀 Preloading media for ${gameBoardQuestions.length}/${expectedQuestions} GameBoard questions...`)
+      devLog(`🚀 Preloading media for ${gameBoardQuestions.length}/${expectedQuestions} GameBoard questions...`)
 
       // Use the gamePreloader to preload GameBoard questions
       await gamePreloader.preloadQuestionAssets(gameBoardQuestions, 8, (completed, total) => {
-        console.log(`📦 GameBoard media preload progress: ${completed}/${total}`)
+        devLog(`📦 GameBoard media preload progress: ${completed}/${total}`)
       })
 
-      console.log('✅ GameBoard media preloading completed!')
+      devLog('✅ GameBoard media preloading completed!')
 
     } catch (error) {
-      console.warn('⚠️ GameBoard media preloading failed (non-critical):', error)
+      devWarn('⚠️ GameBoard media preloading failed (non-critical):', error)
     }
   }
 
@@ -324,7 +326,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           throw new Error('No game data received')
         }
       } catch (error) {
-        console.error('❌ GameBoard: Error loading game data:', error)
+        prodError('❌ GameBoard: Error loading game data:', error)
         setLoadingError(error.message)
 
         // Try fallback
@@ -342,7 +344,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           // Start smart preloading with fallback data (deferred)
           setTimeout(() => startSmartPreloading(fallbackData), 100)
         } catch (fallbackError) {
-          console.error('❌ GameBoard: Fallback failed:', fallbackError)
+          prodError('❌ GameBoard: Fallback failed:', fallbackError)
           setLoadingError('Unable to load game data. Please refresh the page.')
         }
       }
@@ -357,11 +359,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // BULLETPROOF: Never redirect if game has started or should stay on page
     if (hasGameStarted(gameState) || shouldStayOnCurrentPage(gameState, location.pathname)) {
-      console.log('🛡️ GameBoard (dimensions): Game active or route restored - no redirects')
+      devLog('🛡️ GameBoard (dimensions): Game active or route restored - no redirects')
       // Continue with normal dimensions setup
     } else if (!gameState.selectedCategories.length && location.pathname !== '/game' && stateLoaded) {
       // Only redirect if absolutely fresh start AND not on GameBoard page AND state is loaded
-      console.log('🔄 GameBoard (dimensions): Fresh start - redirecting to categories')
+      devLog('🔄 GameBoard (dimensions): Fresh start - redirecting to categories')
       navigate('/categories')
       return
     }
@@ -383,9 +385,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
     }
 
+    // Call immediately on mount
     updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+
+    // Debounce resize events to prevent excessive re-renders (150ms delay)
+    const debouncedResize = debounce(updateDimensions, 150)
+    window.addEventListener('resize', debouncedResize)
+    return () => window.removeEventListener('resize', debouncedResize)
   }, [gameData, stateLoaded, gameState.selectedCategories.length, navigate])
 
   // Check if all questions are finished and navigate to results
@@ -395,11 +401,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const totalQuestions = gameState.selectedCategories.length * 6 // 6 questions per category (3 difficulty levels × 2 questions each)
     const answeredQuestions = gameState.usedQuestions.size
 
-    console.log(`GameBoard completion check: ${answeredQuestions}/${totalQuestions} questions answered`)
+    devLog(`GameBoard completion check: ${answeredQuestions}/${totalQuestions} questions answered`)
 
     // If all questions have been answered, automatically go to results
     if (answeredQuestions >= totalQuestions && answeredQuestions > 0) {
-      console.log('🎉 All questions completed from GameBoard! Navigating to results...')
+      devLog('🎉 All questions completed from GameBoard! Navigating to results...')
       // Small delay to allow any UI updates
       setTimeout(() => {
         navigate('/results')
@@ -516,10 +522,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const selectedCategoryIds = gameState.selectedCategories.filter(id => id !== 'mystery')
     const allCategories = gameData?.categories || []
 
-    console.log('🔍 Mystery Category Debug:')
-    console.log('  - All categories:', allCategories.map(c => c.name))
-    console.log('  - Selected categories:', selectedCategoryIds)
-    console.log('  - Categories with questions:', Object.keys(gameData?.questions || {}))
+    devLog('🔍 Mystery Category Debug:')
+    devLog('  - All categories:', allCategories.map(c => c.name))
+    devLog('  - Selected categories:', selectedCategoryIds)
+    devLog('  - Categories with questions:', Object.keys(gameData?.questions || {}))
 
     const unselectedCategories = allCategories.filter(cat =>
       !selectedCategoryIds.includes(cat.id) &&
@@ -528,10 +534,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       gameData.questions[cat.id].length > 0
     )
 
-    console.log('  - Unselected categories available for mystery:', unselectedCategories.map(c => `${c.name} (${gameData.questions[c.id].length} questions)`))
+    devLog('  - Unselected categories available for mystery:', unselectedCategories.map(c => `${c.name} (${gameData.questions[c.id].length} questions)`))
 
     if (unselectedCategories.length === 0) {
-      console.warn('❌ No unselected categories available for mystery question')
+      devWarn('❌ No unselected categories available for mystery question')
       alert('لا توجد فئات غير محددة متاحة للفئة الغامضة')
       return
     }
@@ -592,7 +598,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
 
     if (availableQuestions.length === 0) {
-      console.warn('No available mystery questions found')
+      devWarn('No available mystery questions found')
       return
     }
 
@@ -657,15 +663,15 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       if (gameData && gameData.questions && gameData.questions[categoryId]) {
         questions = gameData.questions[categoryId]
       } else {
-        console.error('No questions found for category:', categoryId)
+        prodError('No questions found for category:', categoryId)
         return
       }
 
       // Find the question by ID
       let question = questions.find(q => q.id === assignment.questionId)
       if (!question) {
-        console.warn('Previously assigned question not found by ID:', assignment.questionId)
-        console.log('Available question IDs:', questions.map(q => q.id))
+        devWarn('Previously assigned question not found by ID:', assignment.questionId)
+        devLog('Available question IDs:', questions.map(q => q.id))
 
         // Fallback: Clear the invalid assignment and select a new question
         const updatedAssignments = { ...gameState.assignedQuestions }
@@ -677,7 +683,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         }))
 
         // Continue with normal question selection logic by falling through
-        console.log('Cleared invalid assignment, will select new question')
+        devLog('Cleared invalid assignment, will select new question')
       } else {
         // Found the previously assigned question, use it
         const questionData = {
@@ -705,12 +711,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     if (gameData && gameData.questions && gameData.questions[categoryId]) {
       questions = gameData.questions[categoryId]
     } else {
-      console.error('No questions found for category:', categoryId)
+      prodError('No questions found for category:', categoryId)
       return
     }
 
     if (!questions || questions.length === 0) {
-      console.warn(`No questions found for category: ${categoryId}`)
+      devWarn(`No questions found for category: ${categoryId}`)
       return
     }
 
@@ -723,7 +729,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     } else if (points === 600) {
       targetDifficulty = 'hard'
     } else {
-      console.warn(`Invalid points value: ${points}`)
+      devWarn(`Invalid points value: ${points}`)
       return
     }
 
@@ -739,7 +745,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     // Debug: Looking for questions (removed for performance)
 
     if (availableQuestionsByDifficulty.length === 0) {
-      console.warn(`❌ No unused ${targetDifficulty} questions found for category: ${categoryId}`)
+      devWarn(`❌ No unused ${targetDifficulty} questions found for category: ${categoryId}`)
 
       // Smart fallback: try nearby difficulties with global usage filtering
       let fallbackDifficulty = null
@@ -837,14 +843,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
         navigate('/question')
       } else {
-        console.error(`❌ No globally available questions remain in category: ${categoryId}`)
+        prodError(`❌ No globally available questions remain in category: ${categoryId}`)
       }
       return
     }
 
     // Use globally filtered available questions
     if (availableQuestionsByDifficulty.length === 0) {
-      console.warn(`No globally unused ${targetDifficulty} questions available for category: ${categoryId}`)
+      devWarn(`No globally unused ${targetDifficulty} questions available for category: ${categoryId}`)
       return
     }
 
@@ -908,7 +914,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     // Check if perk is already used (max 1 use per perk per team)
     const currentUsage = gameState.perkUsage?.[team]?.[type] || 0
     if (currentUsage >= 1) {
-      console.warn(`Perk ${type} already used by ${team}`)
+      devWarn(`Perk ${type} already used by ${team}`)
       setPerkModalOpen(false)
       setActivePerk({ type: null, team: null })
       return
@@ -938,7 +944,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       return newState
     })
 
-    console.log(`✅ Perk activated: ${type} for ${team}`)
+    devLog(`✅ Perk activated: ${type} for ${team}`)
 
     // Close modal
     setPerkModalOpen(false)
@@ -962,10 +968,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const isNormalPhone = W >= 400 && W <= 500 // Normal phones
     const isPhonePortrait = isPhone && isPortrait
 
-    // Debug logging for portrait mode
-    if (isPhonePortrait) {
-      console.log('🔍 PORTRAIT MODE DEBUG:', { W, H, isPortrait, isPhone, isPhonePortrait, isUltraNarrow, isNormalPhone })
-    }
+    // Portrait mode detection (debug logs removed for performance)
 
     // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
     const isPC = W >= 1024 && H >= 768 // Desktop/laptop detection
@@ -988,14 +991,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       cols = 3
     }
 
-    // Debug logging for dimensions
-    if (isPhonePortrait) {
-      console.log('🔍 DIMENSIONS DEBUG:', {
-        W, H, actualHeaderHeight, actualFooterHeight, padding,
-        availableHeight, availableWidth, rows, cols,
-        headerHeight, footerHeight
-      })
-    }
+    // Dimensions calculated (debug logs removed for performance)
 
     const isMobileLayout = W < 768
 
@@ -1799,72 +1795,87 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         paddingTop: `${styles.pcScaleFactor > 1 ? 32 : styles.isPhonePortrait ? 8 : 12}px`,
         paddingBottom: `${styles.pcScaleFactor > 1 ? 32 : styles.isPhonePortrait ? 8 : 12}px`
       }}>
-{styles.isPhonePortrait ? (
-          /* Portrait Mode: Two-row layout */
+        {styles.isPhonePortrait ? (
           <div className="flex flex-col gap-2 w-full">
             {/* First Row: Team Names */}
-            <div className="flex justify-between items-center w-full">
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
+            <div className="flex justify-between items-center w-full gap-2">
+              <div
+                className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
                 style={{
-                  fontSize: `${styles.headerFontSize * 0.7}px`,
-                  padding: '4px 12px'
+                  fontSize: `${gameState.team1.name.length > 12 ? 11 : gameState.team1.name.length > 10 ? 13 : 15}px`,
+                  width: '140px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 {gameState.team1.name}
-              </button>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
+              </div>
+              <div
+                className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
                 style={{
-                  fontSize: `${styles.headerFontSize * 0.7}px`,
-                  padding: '4px 12px'
+                  fontSize: `${gameState.team2.name.length > 12 ? 11 : gameState.team2.name.length > 10 ? 13 : 15}px`,
+                  width: '140px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
               >
                 {gameState.team2.name}
-              </button>
+              </div>
             </div>
 
             {/* Second Row: All Controls */}
             <div className="flex justify-between items-center w-full">
               {/* Team 1 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
-                <button
-                  onClick={() => setGameState(prev => ({
-                    ...prev,
-                    team1: { ...prev.team1, score: Math.max(0, prev.team1.score - 100) }
-                  }))}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.6}px`,
-                    padding: '2px 6px'
-                  }}
-                >
-                  -
-                </button>
-                <div
-                  className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-center font-bold"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.7}px`,
-                    color: '#B91C1C',
-                    padding: '2px 6px',
-                    minWidth: '40px'
-                  }}
-                >
-                  {gameState.team1.score}
+                {/* Score with integrated +/- buttons */}
+                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
+                  fontSize: `${styles.headerFontSize * 0.7}px`,
+                  color: '#B91C1C',
+                  width: '140px',
+                  paddingLeft: '24px',
+                  paddingRight: '24px',
+                  paddingTop: '2px',
+                  paddingBottom: '2px',
+                  position: 'relative'
+                }}>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team1: { ...prev.team1, score: Math.max(0, prev.team1.score - 100) }
+                    }))}
+                    className="absolute left-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="2" y="5" width="8" height="2" rx="1" fill="white"/>
+                    </svg>
+                  </button>
+                  <span className="flex-1 text-center">{gameState.team1.score}</span>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team1: { ...prev.team1, score: prev.team1.score + 100 }
+                    }))}
+                    className="absolute right-1 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="2" y="5" width="8" height="2" rx="1" fill="white"/>
+                      <rect x="5" y="2" width="2" height="8" rx="1" fill="white"/>
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setGameState(prev => ({
-                    ...prev,
-                    team1: { ...prev.team1, score: prev.team1.score + 100 }
-                  }))}
-                  className="bg-green-500 hover:bg-green-600 text-white rounded-full font-bold transition-colors"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.6}px`,
-                    padding: '2px 6px'
-                  }}
-                >
-                  +
-                </button>
+
                 {/* Team 1 Perks */}
                 <div
                   className={`border-2 rounded-full flex items-center justify-center transition-colors ${
@@ -1904,6 +1915,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
               {/* Team 2 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
+                {/* Team 2 Perks */}
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
                   style={{ width: '18px', height: '18px', fontSize: '6px' }}
@@ -1938,97 +1950,130 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
-                <button
-                  onClick={() => setGameState(prev => ({
-                    ...prev,
-                    team2: { ...prev.team2, score: Math.max(0, prev.team2.score - 100) }
-                  }))}
-                  className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.6}px`,
-                    padding: '2px 6px'
-                  }}
-                >
-                  -
-                </button>
-                <div
-                  className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-center font-bold"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.7}px`,
-                    color: '#B91C1C',
-                    padding: '2px 6px',
-                    minWidth: '40px'
-                  }}
-                >
-                  {gameState.team2.score}
+
+                {/* Score with integrated +/- buttons */}
+                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
+                  fontSize: `${styles.headerFontSize * 0.7}px`,
+                  color: '#B91C1C',
+                  width: '140px',
+                  paddingLeft: '24px',
+                  paddingRight: '24px',
+                  paddingTop: '2px',
+                  paddingBottom: '2px',
+                  position: 'relative'
+                }}>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team2: { ...prev.team2, score: Math.max(0, prev.team2.score - 100) }
+                    }))}
+                    className="absolute left-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="2" y="5" width="8" height="2" rx="1" fill="white"/>
+                    </svg>
+                  </button>
+                  <span className="flex-1 text-center">{gameState.team2.score}</span>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team2: { ...prev.team2, score: prev.team2.score + 100 }
+                    }))}
+                    className="absolute right-1 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <rect x="2" y="5" width="8" height="2" rx="1" fill="white"/>
+                      <rect x="5" y="2" width="2" height="8" rx="1" fill="white"/>
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setGameState(prev => ({
-                    ...prev,
-                    team2: { ...prev.team2, score: prev.team2.score + 100 }
-                  }))}
-                  className="bg-green-500 hover:bg-green-600 text-white rounded-full font-bold transition-colors"
-                  style={{
-                    fontSize: `${styles.headerFontSize * 0.6}px`,
-                    padding: '2px 6px'
-                  }}
-                >
-                  +
-                </button>
               </div>
             </div>
           </div>
         ) : (
-          /* Landscape Mode: Original single-row layout */
-          <div className="flex justify-between items-center w-full">
-            {/* Team 1 Controls (Left) */}
-            <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 24 : 12}px` }}>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
+          <div className="flex flex-col gap-2 w-full">
+            {/* First Row: Team Names Only */}
+            <div className="flex justify-between items-center w-full gap-2">
+              <div className="bg-red-500 text-white rounded-full font-bold px-4 py-2 text-center" style={{
+                fontSize: `${gameState.team1.name.length > 14 ? 16 : gameState.team1.name.length > 12 ? 18 : 20}px`,
+                width: '200px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
                 {gameState.team1.name}
-              </button>
-              <button
-                onClick={() => setGameState(prev => ({
-                  ...prev,
-                  team1: { ...prev.team1, score: Math.max(0, prev.team1.score - 100) }
-                }))}
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
-                -
-              </button>
-              <div
-                className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-center font-bold"
-                style={{
-                  fontSize: `${styles.headerFontSize}px`,
-                  color: '#B91C1C',
-                  padding: '8px 24px',
-                  minWidth: `${styles.footerButtonSize * 2}px`
-                }}
-              >
-                {gameState.team1.score}
               </div>
-              <button
-                onClick={() => setGameState(prev => ({
-                  ...prev,
-                  team1: { ...prev.team1, score: prev.team1.score + 100 }
-                }))}
-                className="bg-green-500 hover:bg-green-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
-                +
-              </button>
+              <div className="bg-red-500 text-white rounded-full font-bold px-4 py-2 text-center" style={{
+                fontSize: `${gameState.team2.name.length > 14 ? 16 : gameState.team2.name.length > 12 ? 18 : 20}px`,
+                width: '200px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {gameState.team2.name}
+              </div>
+            </div>
+
+            {/* Second Row: Score & Perks */}
+            <div className="flex justify-between items-center w-full">
+              {/* Team 1 Controls (Left) */}
+              <div className="flex items-center flex-shrink-0" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
+                {/* Score with integrated +/- buttons */}
+                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
+                  fontSize: '18px',
+                  color: '#B91C1C',
+                  width: '200px',
+                  paddingLeft: '32px',
+                  paddingRight: '32px',
+                  paddingTop: '8px',
+                  paddingBottom: '8px',
+                  position: 'relative'
+                }}>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team1: { ...prev.team1, score: Math.max(0, prev.team1.score - 100) }
+                    }))}
+                    className="absolute left-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
+                    </svg>
+                  </button>
+                  <span className="flex-1 text-center">{gameState.team1.score}</span>
+                  <button
+                    onClick={() => setGameState(prev => ({
+                      ...prev,
+                      team1: { ...prev.team1, score: prev.team1.score + 100 }
+                    }))}
+                    className="absolute right-1 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors flex items-center justify-center"
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      padding: '0'
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
+                      <rect x="7" y="3" width="2" height="10" rx="1" fill="white"/>
+                    </svg>
+                  </button>
+                </div>
               {/* Team 1 Perks */}
               <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
                 <div
@@ -2080,8 +2125,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </div>
             </div>
 
-            {/* Team 2 Controls (Right Corner) */}
-            <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 24 : 12}px` }}>
+            {/* Team 2 Controls (Right) */}
+            <div className="flex items-center flex-shrink-0" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
               {/* Team 2 Perks */}
               <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
                 <div
@@ -2131,53 +2176,55 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   </svg>
                 </div>
               </div>
-              <button
-                onClick={() => setGameState(prev => ({
-                  ...prev,
-                  team2: { ...prev.team2, score: Math.max(0, prev.team2.score - 100) }
-                }))}
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
-                -
-              </button>
-              <div
-                className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-center font-bold"
-                style={{
-                  fontSize: `${styles.headerFontSize}px`,
-                  color: '#B91C1C',
-                  padding: '8px 24px',
-                  minWidth: `${styles.footerButtonSize * 2}px`
-                }}
-              >
-                {gameState.team2.score}
+
+              {/* Score with integrated +/- buttons */}
+              <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
+                fontSize: '18px',
+                color: '#B91C1C',
+                width: '200px',
+                paddingLeft: '32px',
+                paddingRight: '32px',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    team2: { ...prev.team2, score: Math.max(0, prev.team2.score - 100) }
+                  }))}
+                  className="absolute left-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors flex items-center justify-center"
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    padding: '0'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
+                  </svg>
+                </button>
+                <span className="flex-1 text-center">{gameState.team2.score}</span>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    team2: { ...prev.team2, score: prev.team2.score + 100 }
+                  }))}
+                  className="absolute right-1 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors flex items-center justify-center"
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    padding: '0'
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
+                    <rect x="7" y="3" width="2" height="10" rx="1" fill="white"/>
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => setGameState(prev => ({
-                  ...prev,
-                  team2: { ...prev.team2, score: prev.team2.score + 100 }
-                }))}
-                className="bg-green-500 hover:bg-green-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
-                +
-              </button>
-              <button
-                className="bg-red-500 hover:bg-red-600 text-white rounded-full font-bold transition-colors"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.9}px`,
-                  padding: '8px 16px'
-                }}
-              >
-                {gameState.team2.name}
-              </button>
             </div>
+          </div>
           </div>
         )}
       </div>

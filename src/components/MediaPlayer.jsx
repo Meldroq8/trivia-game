@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useRef, useEffect } from 'react'
 
 function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, deviceType = 'desktop', containerWidth = 500, maxHeight = null, hideVolumeControl = false }) {
@@ -54,7 +55,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
     }
 
     const handleError = (e) => {
-      console.error('Media loading error:', e, 'Source:', src)
+      prodError('Media loading error:', e, 'Source:', src)
       const mediaType = isVideo ? 'الفيديو' : 'الملف الصوتي'
       setError(`${mediaType} غير موجود: ${src}`)
       setIsLoading(false)
@@ -102,7 +103,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
       media.pause()
     } else {
       media.play().catch((err) => {
-        console.error('Media play error:', err)
+        prodError('Media play error:', err)
         const mediaType = isVideo ? 'الفيديو' : 'الملف الصوتي'
         setError(`خطأ في تشغيل ${mediaType} - الملف غير موجود`)
       })

@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import { S3UploadService } from './s3Upload'
 
 export class ImageUploadService {
@@ -49,13 +50,13 @@ export class ImageUploadService {
       }
 
       // Upload to S3 and get CloudFront URL
-      console.log(`Uploading media to S3: ${folder}/${fileName}`)
+      devLog(`Uploading media to S3: ${folder}/${fileName}`)
       const cloudFrontUrl = await S3UploadService.uploadMedia(file, folder, fileName)
-      console.log('Upload completed successfully, CloudFront URL:', cloudFrontUrl)
+      devLog('Upload completed successfully, CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading media:', error)
+      prodError('Error uploading media:', error)
       throw new Error(`Failed to upload media: ${error.message}`)
     }
   }
@@ -92,13 +93,13 @@ export class ImageUploadService {
       }
 
       // Upload to S3 and get CloudFront URL
-      console.log(`Uploading image to S3: ${folder}/${fileName}`)
+      devLog(`Uploading image to S3: ${folder}/${fileName}`)
       const cloudFrontUrl = await S3UploadService.uploadImage(file, folder, fileName)
-      console.log('Image upload completed successfully, CloudFront URL:', cloudFrontUrl)
+      devLog('Image upload completed successfully, CloudFront URL:', cloudFrontUrl)
 
       return cloudFrontUrl
     } catch (error) {
-      console.error('Error uploading image:', error)
+      prodError('Error uploading image:', error)
       throw new Error(`Failed to upload image: ${error.message}`)
     }
   }
@@ -140,7 +141,7 @@ export class ImageUploadService {
    */
   static async deleteImage(imageUrl) {
     if (!imageUrl || !imageUrl.includes('cloudfront')) {
-      console.log('Not a CloudFront URL, skipping deletion')
+      devLog('Not a CloudFront URL, skipping deletion')
       return
     }
 
@@ -152,9 +153,9 @@ export class ImageUploadService {
       }
 
       await S3UploadService.deleteFile(path)
-      console.log('Image deleted successfully from S3:', path)
+      devLog('Image deleted successfully from S3:', path)
     } catch (error) {
-      console.error('Error deleting image:', error)
+      prodError('Error deleting image:', error)
       // Don't throw error for deletion failures - just log them
     }
   }
@@ -172,7 +173,7 @@ export class ImageUploadService {
       const path = urlObj.pathname.startsWith('/') ? urlObj.pathname.substring(1) : urlObj.pathname
       return path
     } catch (error) {
-      console.error('Error extracting S3 path from CloudFront URL:', error)
+      prodError('Error extracting S3 path from CloudFront URL:', error)
       return null
     }
   }

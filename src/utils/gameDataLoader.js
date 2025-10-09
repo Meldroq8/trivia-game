@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from "./devLog.js"
 import { FirebaseQuestionsService } from './firebaseQuestions'
 
 /**
@@ -15,17 +16,17 @@ export class GameDataLoader {
    * @returns {Promise<Object>} Game data with questions and categories
    */
   static async loadGameData(forceRefresh = false) {
-    console.log('⚡ Loading game data with performance optimizations...')
+    devLog('⚡ Loading game data with performance optimizations...')
 
     try {
       // FAST PATH: Check if we should use cache (instant loading)
       if (!forceRefresh && this.isCacheValid()) {
-        console.log('📦 Using cached data for instant loading')
+        devLog('📦 Using cached data for instant loading')
         return this.getFromCache()
       }
 
       // BACKGROUND LOADING: Load from Firebase
-      console.log('🔥 Loading fresh data from Firebase...')
+      devLog('🔥 Loading fresh data from Firebase...')
       const [questions, categories] = await Promise.all([
         FirebaseQuestionsService.getAllQuestions(),
         FirebaseQuestionsService.getAllCategories()
@@ -38,7 +39,7 @@ export class GameDataLoader {
       // Note: localStorage caching disabled for large datasets
       // All data is stored in Firebase Firestore, media files in CloudFront
 
-      console.log('✅ Game data loaded from Firebase:', {
+      devLog('✅ Game data loaded from Firebase:', {
         categories: gameData.categories.length,
         totalQuestions: Object.values(gameData.questions).flat().length
       })
@@ -46,17 +47,17 @@ export class GameDataLoader {
       return gameData
 
     } catch (error) {
-      console.error('❌ Error loading from Firebase:', error)
+      prodError('❌ Error loading from Firebase:', error)
 
       // Fallback to cache even if expired (better than nothing)
       const cachedData = this.getFromCache()
       if (cachedData) {
-        console.log('🔄 Using expired cached data as fallback')
+        devLog('🔄 Using expired cached data as fallback')
         return cachedData
       }
 
       // Final fallback to sample data
-      console.log('📄 Using sample data as final fallback')
+      devLog('📄 Using sample data as final fallback')
       return this.loadSampleData()
     }
   }
@@ -68,7 +69,7 @@ export class GameDataLoader {
    * @returns {Object} Game data in expected format
    */
   static transformFirebaseData(questions, categories) {
-    console.log(`🔄 transformFirebaseData called with ${questions.length} questions and ${categories.length} categories`)
+    devLog(`🔄 transformFirebaseData called with ${questions.length} questions and ${categories.length} categories`)
 
     // Group questions by category
     const questionsByCategory = {}
@@ -77,7 +78,7 @@ export class GameDataLoader {
       const categoryId = question.categoryId || 'general'
       if (!questionsByCategory[categoryId]) {
         questionsByCategory[categoryId] = []
-        console.log(`📁 Creating new question array for category: ${categoryId}`)
+        devLog(`📁 Creating new question array for category: ${categoryId}`)
       }
       questionsByCategory[categoryId].push({
         id: question.id,
@@ -115,16 +116,16 @@ export class GameDataLoader {
       const savedMystery = localStorage.getItem('mystery_category_settings')
       if (savedMystery) {
         mysteryCategoryCustomizations = JSON.parse(savedMystery)
-        console.log('🔍 Loaded mystery customizations from localStorage:', mysteryCategoryCustomizations)
+        devLog('🔍 Loaded mystery customizations from localStorage:', mysteryCategoryCustomizations)
 
         // Force clear empty imageUrl to allow fallback
         if (mysteryCategoryCustomizations.imageUrl === '') {
-          console.log('🔧 Clearing empty imageUrl from localStorage to allow fallback')
+          devLog('🔧 Clearing empty imageUrl from localStorage to allow fallback')
           delete mysteryCategoryCustomizations.imageUrl
         }
       }
     } catch (error) {
-      console.warn('Could not load mystery category customizations:', error)
+      devWarn('Could not load mystery category customizations:', error)
     }
 
     const mysteryCategory = {
@@ -138,23 +139,23 @@ export class GameDataLoader {
       isMystery: true // Special flag to identify this as the mystery category
     }
 
-    console.log('🔍 Mystery category created:', mysteryCategory)
-    console.log('🔍 Mystery imageUrl:', mysteryCategory.imageUrl)
+    devLog('🔍 Mystery category created:', mysteryCategory)
+    devLog('🔍 Mystery imageUrl:', mysteryCategory.imageUrl)
     transformedCategories.push(mysteryCategory)
 
     // Log questions per category for debugging
-    console.log('📊 Questions per category after grouping:')
+    devLog('📊 Questions per category after grouping:')
     Object.entries(questionsByCategory).forEach(([catId, qs]) => {
       const category = transformedCategories.find(c => c.id === catId)
       const catName = category?.name || catId
-      console.log(`  - ${catName} (categoryId: ${catId}): ${qs.length} questions`)
+      devLog(`  - ${catName} (categoryId: ${catId}): ${qs.length} questions`)
     })
 
     // Log categories from Firebase for debugging
-    console.log('📂 Categories from Firebase:')
+    devLog('📂 Categories from Firebase:')
     transformedCategories.forEach(cat => {
       if (!cat.isMystery) {
-        console.log(`  - ${cat.name} (Firebase doc ID: ${cat.id})`)
+        devLog(`  - ${cat.name} (Firebase doc ID: ${cat.id})`)
       }
     })
 
@@ -200,7 +201,7 @@ export class GameDataLoader {
         return JSON.parse(cached)
       }
     } catch (error) {
-      console.error('Error reading from cache:', error)
+      prodError('Error reading from cache:', error)
     }
     return null
   }
@@ -217,18 +218,18 @@ export class GameDataLoader {
       // Check if data is too large (localStorage limit is ~5-10MB depending on browser)
       // Skip caching if data is larger than 4MB to prevent quota errors
       if (dataString.length > 4 * 1024 * 1024) {
-        console.warn(`⚠️ Data too large to cache (${dataSizeKB} KB). Skipping localStorage cache.`)
+        devWarn(`⚠️ Data too large to cache (${dataSizeKB} KB). Skipping localStorage cache.`)
         return
       }
 
       localStorage.setItem(this.CACHE_KEY, dataString)
       localStorage.setItem(this.CACHE_TIMESTAMP_KEY, Date.now().toString())
-      console.log(`💾 Data cached locally (${dataSizeKB} KB)`)
+      devLog(`💾 Data cached locally (${dataSizeKB} KB)`)
     } catch (error) {
-      console.error('Error saving to cache:', error)
+      prodError('Error saving to cache:', error)
       // If quota exceeded, clear cache and try again with empty state
       if (error.name === 'QuotaExceededError') {
-        console.warn('⚠️ Storage quota exceeded. Clearing old cache...')
+        devWarn('⚠️ Storage quota exceeded. Clearing old cache...')
         this.clearCache()
       }
     }
@@ -240,7 +241,7 @@ export class GameDataLoader {
   static clearCache() {
     localStorage.removeItem(this.CACHE_KEY)
     localStorage.removeItem(this.CACHE_TIMESTAMP_KEY)
-    console.log('🗑️ Cache cleared')
+    devLog('🗑️ Cache cleared')
   }
 
   /**
@@ -250,10 +251,10 @@ export class GameDataLoader {
   static async loadSampleData() {
     try {
       const module = await import('../data/sampleQuestions.json')
-      console.log('📄 Loaded sample data')
+      devLog('📄 Loaded sample data')
       return module.default
     } catch (error) {
-      console.error('Error loading sample data:', error)
+      prodError('Error loading sample data:', error)
       // Return minimal fallback
       return {
         categories: [
@@ -306,7 +307,7 @@ export class GameDataLoader {
 
       return stats
     } catch (error) {
-      console.error('Error getting game stats:', error)
+      prodError('Error getting game stats:', error)
       return {
         categories: 0,
         totalQuestions: 0,
@@ -320,7 +321,7 @@ export class GameDataLoader {
    * Clear cached data
    */
   static clearCache() {
-    console.log('🗑️ Clearing game data cache...')
+    devLog('🗑️ Clearing game data cache...')
     localStorage.removeItem(this.CACHE_KEY)
     localStorage.removeItem(this.CACHE_TIMESTAMP_KEY)
   }
@@ -329,7 +330,7 @@ export class GameDataLoader {
    * Nuclear cache clear - clears ALL possible caches
    */
   static clearAllCaches() {
-    console.log('💣 NUCLEAR CACHE CLEAR - Clearing ALL possible caches...')
+    devLog('💣 NUCLEAR CACHE CLEAR - Clearing ALL possible caches...')
 
     // 1. Clear all localStorage keys (including game stats)
     const localStorageKeys = [
@@ -344,18 +345,18 @@ export class GameDataLoader {
     localStorageKeys.forEach(key => {
       try {
         localStorage.removeItem(key)
-        console.log(`🗑️ Cleared localStorage: ${key}`)
+        devLog(`🗑️ Cleared localStorage: ${key}`)
       } catch (error) {
-        console.warn(`Could not clear localStorage key ${key}:`, error)
+        devWarn(`Could not clear localStorage key ${key}:`, error)
       }
     })
 
     // 2. Clear all sessionStorage
     try {
       sessionStorage.clear()
-      console.log('🗑️ Cleared all sessionStorage')
+      devLog('🗑️ Cleared all sessionStorage')
     } catch (error) {
-      console.warn('Could not clear sessionStorage:', error)
+      devWarn('Could not clear sessionStorage:', error)
     }
 
     // 3. Clear any IndexedDB caches (Firebase uses this)
@@ -364,10 +365,10 @@ export class GameDataLoader {
         // Clear Firebase IndexedDB cache
         indexedDB.deleteDatabase('firebaseLocalStorageDb')
         indexedDB.deleteDatabase('firebase-app-check-database')
-        console.log('🗑️ Cleared Firebase IndexedDB caches')
+        devLog('🗑️ Cleared Firebase IndexedDB caches')
       }
     } catch (error) {
-      console.warn('Could not clear IndexedDB:', error)
+      devWarn('Could not clear IndexedDB:', error)
     }
 
     // 4. Clear any service worker caches
@@ -375,10 +376,10 @@ export class GameDataLoader {
       caches.keys().then(cacheNames => {
         cacheNames.forEach(cacheName => {
           caches.delete(cacheName)
-          console.log(`🗑️ Cleared service worker cache: ${cacheName}`)
+          devLog(`🗑️ Cleared service worker cache: ${cacheName}`)
         })
       }).catch(error => {
-        console.warn('Could not clear service worker caches:', error)
+        devWarn('Could not clear service worker caches:', error)
       })
     }
 
@@ -387,18 +388,18 @@ export class GameDataLoader {
       navigator.serviceWorker.getRegistrations().then(registrations => {
         registrations.forEach(registration => {
           registration.unregister()
-          console.log('🗑️ Unregistered service worker')
+          devLog('🗑️ Unregistered service worker')
         })
       }).catch(error => {
-        console.warn('Could not unregister service workers:', error)
+        devWarn('Could not unregister service workers:', error)
       })
     }
 
-    console.log('💥 NUCLEAR CACHE CLEAR COMPLETED - All caches should be cleared!')
+    devLog('💥 NUCLEAR CACHE CLEAR COMPLETED - All caches should be cleared!')
 
     // Force a page reload after a short delay to ensure all caches are cleared
     setTimeout(() => {
-      console.log('🔄 Force refreshing page to ensure clean state...')
+      devLog('🔄 Force refreshing page to ensure clean state...')
       window.location.reload(true)
     }, 1000)
   }
@@ -408,7 +409,7 @@ export class GameDataLoader {
    * @returns {Promise<Object>} Fresh game data
    */
   static async refreshFromFirebase() {
-    console.log('🔄 Force refreshing from Firebase...')
+    devLog('🔄 Force refreshing from Firebase...')
     this.clearCache() // Clear cache before refresh
     return this.loadGameData(true)
   }
