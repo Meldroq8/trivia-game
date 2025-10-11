@@ -80,7 +80,13 @@ class AIServiceSecure {
    */
   async searchImages(searchQuery, numResults = 8, startIndex = 1) {
     try {
-      devLog(`Searching images for: "${searchQuery}"`)
+      // Validate search query
+      if (!searchQuery || typeof searchQuery !== 'string' || searchQuery.trim().length === 0) {
+        throw new Error('يجب إدخال نص للبحث عن الصور')
+      }
+
+      const cleanQuery = searchQuery.trim()
+      devLog(`Searching images for: "${cleanQuery}"`)
 
       // Get authentication token
       const idToken = await this.getIdToken()
@@ -93,9 +99,9 @@ class AIServiceSecure {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          searchQuery,
-          numResults,
-          startIndex,
+          searchQuery: cleanQuery,
+          numResults: Math.max(1, Math.min(numResults, 10)),
+          startIndex: Math.max(1, Math.min(startIndex, 91)),
         }),
       })
 
@@ -124,45 +130,66 @@ class AIServiceSecure {
    * @returns {Promise<string>}
    */
   async generateImageSearchQuery(questionText, categoryName = '', correctAnswer = '', imageTarget = 'question') {
-    // Simple keyword extraction - no AI needed (keep this local)
+    try {
+      devLog(`Generating smart image search query for ${imageTarget}...`)
+      devLog(`Input data:`, { questionText, categoryName, correctAnswer, imageTarget })
+
+      // Get authentication token
+      const idToken = await this.getIdToken()
+
+      // Call Firebase Function to use OpenAI for smart query generation
+      const response = await fetch(`${FUNCTIONS_BASE_URL}/aiGenerateImageQuery`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questionText,
+          categoryName,
+          correctAnswer,
+          imageTarget
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        devLog(`Generated search query: "${result.searchQuery}"`)
+        return result.searchQuery
+      } else {
+        // Fallback to simple translation if AI fails
+        devWarn('AI query generation failed, using simple translation')
+      }
+    } catch (error) {
+      devWarn('AI query generation error, using fallback:', error)
+    }
+
+    // Fallback: Simple keyword extraction + translation
     const removeWords = [
       'ما', 'من', 'هو', 'هي', 'ماذا', 'أين', 'متى', 'كيف', 'لماذا', 'كم',
-      'في', 'على', 'إلى', 'عن', 'مع', 'ال', 'الذي', 'التي', 'اللذان', 'اللتان',
-      'هل', 'أم', 'أو', 'لكن', 'بل', 'أن', 'إن', 'كان', 'يكون', 'اسم', 'يسمى',
-      'تسمى', 'معنى', 'مفهوم', 'تعريف', 'يعني', 'الصحيح', 'الصحيحة', 'التالي', 'التالية'
+      'في', 'على', 'إلى', 'عن', 'مع', 'ال', 'الذي', 'التي', 'هل', 'أم', 'أو'
     ]
 
-    // Clean the question
-    let query = questionText
-      .replace(/؟/g, '') // Remove question marks
-      .replace(/[()]/g, '') // Remove parentheses
+    let query = (imageTarget === 'answer' ? correctAnswer : questionText)
+      .replace(/؟/g, '')
+      .replace(/[()]/g, '')
       .trim()
 
-    // Split into words and filter
     const words = query.split(/\s+/)
-      .filter(word => word.length > 2) // Keep words longer than 2 chars
-      .filter(word => !removeWords.includes(word)) // Remove common words
-      .slice(0, 5) // Keep first 5 important words
+      .filter(word => word.length > 2)
+      .filter(word => !removeWords.includes(word))
+      .slice(0, 5)
 
     query = words.join(' ')
 
-    // If we have a category, add it for better context
-    if (categoryName && categoryName !== 'mystery') {
-      query = `${categoryName} ${query}`
-    }
-
-    // Fallback: Translate to English using Google Translate API (free, no API key needed)
+    // Translate to English
     try {
       const translateUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ar&tl=en&dt=t&q=${encodeURIComponent(query)}`
       const translateResponse = await fetch(translateUrl)
       const translateData = await translateResponse.json()
-
-      // Extract translated text from response
-      const translatedQuery = translateData[0][0][0]
-      return translatedQuery
+      return translateData[0][0][0]
     } catch (error) {
-      devWarn('Translation failed, using Arabic keywords:', error)
-      return query // Last resort: use Arabic keywords
+      return query
     }
   }
 

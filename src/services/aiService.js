@@ -156,14 +156,24 @@ class AIService {
       throw new Error('Google Search API not configured. Please set VITE_GOOGLE_SEARCH_API_KEY and VITE_GOOGLE_SEARCH_ENGINE_ID in .env file')
     }
 
+    // Validate search query
+    if (!searchQuery || typeof searchQuery !== 'string' || searchQuery.trim().length === 0) {
+      throw new Error('يجب إدخال نص للبحث عن الصور')
+    }
+
+    // Validate and constrain parameters
+    const cleanQuery = searchQuery.trim()
+    const validNum = Math.max(1, Math.min(numResults, 10)) // Google allows 1-10
+    const validStart = Math.max(1, Math.min(startIndex, 91)) // Google allows 1-91 for image search
+
     try {
       const url = new URL('https://www.googleapis.com/customsearch/v1')
       url.searchParams.append('key', this.googleSearchKey)
       url.searchParams.append('cx', this.googleSearchEngineId)
-      url.searchParams.append('q', searchQuery)
+      url.searchParams.append('q', cleanQuery)
       url.searchParams.append('searchType', 'image')
-      url.searchParams.append('num', Math.min(numResults, 10)) // Google allows max 10 per request
-      url.searchParams.append('start', startIndex.toString()) // Pagination support
+      url.searchParams.append('num', validNum.toString())
+      url.searchParams.append('start', validStart.toString())
       url.searchParams.append('safe', 'active') // Safe search
       url.searchParams.append('imgSize', 'large') // Request large images for better quality
       url.searchParams.append('imgType', 'photo') // Prefer photos over clipart
