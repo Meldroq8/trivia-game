@@ -7,10 +7,14 @@ import { devLog, devWarn, prodError } from "./devLog.js"
 
 // CloudFront configuration with hardcoded fallback
 // CloudFront CORS issue fixed with Origin Request Policy
+const isLocalhost = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+
 const CLOUDFRONT_CONFIG = {
-  enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED === 'true' || true, // Force enable
+  enabled: import.meta.env.VITE_CLOUDFRONT_ENABLED === 'true' || true, // Always enabled, but we'll bypass for localhost
   domain: import.meta.env.VITE_CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net',
-  baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://drcqcbq3desis.cloudfront.net'
+  baseUrl: import.meta.env.VITE_CDN_BASE_URL || 'https://drcqcbq3desis.cloudfront.net',
+  s3Bucket: 'trivia-game-media-cdn.s3.me-south-1.amazonaws.com'
 }
 
 devLog('🌐 CloudFront config:', CLOUDFRONT_CONFIG)
@@ -240,7 +244,10 @@ export const getImageCloudFrontUrl = (imagePath) => {
 
 // Enhanced URL generation with CloudFront priority (Firebase fallback removed)
 export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'default') => {
-  // Priority order: CloudFront → Local (no Firebase fallback)
+  // Priority order: CloudFront (production) → S3 Direct (localhost) → Local
+
+  const isLocalhost = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
   if (CLOUDFRONT_CONFIG.enabled && mediaUrl) {
     // For local paths (like images/songsimg/Dancing_Queen_ABBA.jpg), convert directly to CloudFront
@@ -249,6 +256,15 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
       const cloudFrontUrl = convertToCloudFrontUrl(normalizedPath)
       if (cloudFrontUrl) {
         devLog(`🚀 Local path to CloudFront: ${cloudFrontUrl}`)
+
+        // Use direct S3 URL on localhost (has CORS configured)
+        if (isLocalhost) {
+          const s3Path = normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath
+          const s3Url = `https://${CLOUDFRONT_CONFIG.s3Bucket}/${s3Path}`
+          devLog(`🔧 Using S3 direct URL for localhost: ${s3Url}`)
+          return s3Url
+        }
+
         return cloudFrontUrl
       }
     }
@@ -259,6 +275,15 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
       const cloudFrontUrl = convertToCloudFrontUrl(localPath)
       if (cloudFrontUrl) {
         devLog(`🚀 Using CloudFront: ${cloudFrontUrl}`)
+
+        // Use direct S3 URL on localhost (has CORS configured)
+        if (isLocalhost) {
+          const s3Path = localPath.startsWith('/') ? localPath.substring(1) : localPath
+          const s3Url = `https://${CLOUDFRONT_CONFIG.s3Bucket}/${s3Path}`
+          devLog(`🔧 Using S3 direct URL for localhost: ${s3Url}`)
+          return s3Url
+        }
+
         return cloudFrontUrl
       }
     }

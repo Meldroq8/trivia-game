@@ -31,6 +31,10 @@
         "function": "aiSearchImages"
       },
       {
+        "source": "/api/aiGenerateImageQuery",
+        "function": "aiGenerateImageQuery"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
