@@ -18,7 +18,7 @@ import { debounce } from '../utils/debounce'
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const footerRef = useRef(null)
@@ -36,6 +36,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Portrait menu state
   const [portraitMenuOpen, setPortraitMenuOpen] = useState(false)
+
+  // Sponsor logo state
+  const [sponsorLogo, setSponsorLogo] = useState(null)
+  const [sponsorLogoLoaded, setSponsorLogoLoaded] = useState(false)
+  const [showSponsorLogo, setShowSponsorLogo] = useState(true)
 
   // Helper function to get optimized media URL (CloudFront → Firebase → local fallback chain)
   const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {
@@ -93,6 +98,29 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       navigate('/')
     }
   }, [isAuthenticated, authLoading])
+
+  // Load sponsor logo from settings
+  useEffect(() => {
+    const loadSponsorLogo = async () => {
+      try {
+        const settings = await getAppSettings()
+        if (settings?.sponsorLogo) {
+          setSponsorLogo(settings.sponsorLogo)
+        }
+        if (settings?.showSponsorLogo !== undefined) {
+          setShowSponsorLogo(settings.showSponsorLogo)
+        }
+      } catch (error) {
+        devLog('Could not load sponsor logo:', error)
+      } finally {
+        setSponsorLogoLoaded(true)
+      }
+    }
+
+    if (getAppSettings) {
+      loadSponsorLogo()
+    }
+  }, [getAppSettings])
 
   // BULLETPROOF: No redirects to categories after game starts
   useEffect(() => {
@@ -971,13 +999,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     // Portrait mode detection (debug logs removed for performance)
 
     // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
-    const isPC = W >= 1024 && H >= 768 // Desktop/laptop detection
+    const isTablet = (W >= 768 && W <= 1024) || (H >= 768 && H <= 1024) // Tablet detection (iPads, etc.)
+    const isPC = W > 1024 && H > 768 && !isTablet // Desktop/laptop detection (exclude tablets)
     const pcScaleFactor = isPC ? 2.0 : 1.0 // 200% scaling for PC, normal for mobile/tablet
+
+    const isMobileLayout = W < 768
 
     // Calculate available space for game board
     const actualHeaderHeight = headerHeight || 80
     const actualFooterHeight = footerHeight || 100
-    const padding = 20
+    // Responsive padding: minimal for phones, more for PC
+    const padding = isPhonePortrait || isUltraNarrow ? 3 : isMobileLayout ? 6 : 10
     const availableHeight = Math.max(200, H - actualHeaderHeight - actualFooterHeight - (padding * 2))
     const availableWidth = Math.max(300, W - (padding * 2))
 
@@ -993,28 +1025,26 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // Dimensions calculated (debug logs removed for performance)
 
-    const isMobileLayout = W < 768
-
     // Aggressive gap reduction for ultra-narrow screens and portrait mode to maximize content space
     let rowGap, colGap
     if (isPhonePortrait) {
-      // Portrait mode: Use smaller gaps to maximize space for 2x3 grid
+      // Portrait mode: Minimize column gaps to maximize space for 2x3 grid
       if (isUltraNarrow) {
-        rowGap = Math.max(2, Math.min(4, H * 0.004)) // Small row gaps for ultra-narrow portrait
-        colGap = Math.max(1, Math.min(3, W * 0.005)) // Very small column gaps to fit content
+        rowGap = Math.max(4, Math.min(8, H * 0.006)) // Reduced gaps for phones
+        colGap = 2 // Very minimal fixed column gap for phones
       } else {
-        rowGap = Math.max(3, Math.min(8, H * 0.006)) // Medium row gaps for normal portrait
-        colGap = Math.max(2, Math.min(6, W * 0.008)) // Small column gaps for portrait
+        rowGap = Math.max(5, Math.min(10, H * 0.008)) // Reduced gaps for normal portrait
+        colGap = 3 // Minimal fixed column gap for portrait
       }
     } else if (isUltraNarrow) {
-      rowGap = Math.max(1, Math.min(2, W * 0.002)) // Very small gaps for ultra-narrow
-      colGap = Math.max(1, Math.min(1, W * 0.001)) // Minimal column gaps
+      rowGap = Math.max(4, Math.min(8, W * 0.006)) // Small gaps for ultra-narrow
+      colGap = 2 // Minimal column gaps
     } else if (isMobileLayout) {
-      rowGap = Math.max(2, Math.min(5, W * 0.004)) // Reduced max from 6 to 5
-      colGap = Math.max(2, Math.min(3, W * 0.003)) // Reduced max from 4 to 3
+      rowGap = Math.max(8, Math.min(15, W * 0.008)) // Row gaps for mobile
+      colGap = Math.max(3, Math.min(5, W * 0.005)) // Column gaps for mobile
     } else {
-      rowGap = Math.max(5, Math.min(10, W * 0.007)) // Reduced max from 12 to 10
-      colGap = Math.max(3, Math.min(6, W * 0.005)) // Reduced max from 8 to 6
+      rowGap = Math.max(12, Math.min(20, W * 0.012)) // Increased row gaps for desktop
+      colGap = Math.max(3, Math.min(6, W * 0.005)) // Column gaps for desktop
     }
 
     // Calculate space for each category group
@@ -1052,7 +1082,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     let cardWidth, cardHeight, buttonHeight
 
     // Calculate optimal button height - bigger buttons within each category
-    const baseButtonHeight = (categoryGroupHeight * 0.9) / 4 // Keep original category spacing
+    const baseButtonHeight = (categoryGroupHeight * 0.96) / 4 // Use 96% of height
 
     // Cleaner card proportions like the reference images
     let cardAspectRatio
@@ -1060,87 +1090,125 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       // Portrait mode: Make cards more compact vertically
       if (isUltraNarrow) {
         cardAspectRatio = 0.7 // Taller cards for ultra-narrow portrait
-        buttonHeight = Math.max(25, baseButtonHeight * 0.8)
+        buttonHeight = Math.max(20, baseButtonHeight * 0.90)
       } else {
         cardAspectRatio = 0.85 // Taller cards for normal portrait
-        buttonHeight = Math.max(30, baseButtonHeight * 0.9)
+        buttonHeight = Math.max(25, baseButtonHeight * 0.95)
       }
     } else if (isUltraNarrow) {
       cardAspectRatio = 0.85 // Slightly taller for narrow screens
-      buttonHeight = Math.max(30, baseButtonHeight)
+      buttonHeight = Math.max(25, baseButtonHeight)
     } else if (isMobileLayout) {
       cardAspectRatio = 1.1 // Slightly rectangular (11:10 ratio)
-      buttonHeight = Math.max(35, baseButtonHeight)
+      buttonHeight = Math.max(30, baseButtonHeight)
     } else {
       cardAspectRatio = 1.25 // More rectangular for desktop (5:4 ratio)
       buttonHeight = Math.max(35, baseButtonHeight)
     }
 
-    // Calculate card width first, height will be set to match buttons later
-    const maxCardWidth = isUltraNarrow
-      ? availableCardWidth * 1.0 // Use more space on ultra-narrow
-      : availableCardWidth * 0.95
+    // Calculate card width to use most of the category space
+    // Total button row width = cardWidth + (buttonWidth * 1.6)
+    // We want this to be close to categoryGroupWidth
 
-    // Only calculate card width here, height will be forced to match button column
-    if (cardAspectRatio >= 1.0) {
-      cardWidth = Math.min(maxCardWidth, availableCardWidth * (isUltraNarrow ? 1.0 : 0.95))
-    } else {
-      // For taller cards, calculate width from a reasonable height estimate
-      const estimatedHeight = categoryGroupHeight * 0.8
-      cardWidth = estimatedHeight * cardAspectRatio
-      cardWidth = Math.min(cardWidth, maxCardWidth)
+    // First, estimate button width from height
+    const estimatedButtonWidth = buttonHeight * 2.0 // BUTTON_ASPECT_RATIO
+
+    // Calculate card width to fill remaining space after buttons
+    // Target: cardWidth + (buttonWidth * 1.6) ≈ categoryGroupWidth * 0.98
+    let targetTotalWidth = categoryGroupWidth * 0.98 // Use 98% of available width
+    let estimatedTotalButtonSpace = estimatedButtonWidth * 1.6
+
+    // Calculate card width from available space
+    cardWidth = targetTotalWidth - estimatedTotalButtonSpace
+
+    // Apply constraints based on aspect ratio
+    if (cardAspectRatio < 1.0) {
+      // For taller cards, also check against height-based width
+      const estimatedHeight = categoryGroupHeight * 0.92
+      const heightBasedWidth = estimatedHeight * cardAspectRatio
+      cardWidth = Math.min(cardWidth, heightBasedWidth)
     }
 
-    // Apply minimum and maximum card width limits
-    const minCardWidth = isUltraNarrow ? 80 : 60
-    const maxCardWidthLimit = isUltraNarrow ? 130 : isMobileLayout ? 200 : 280 // Increased card width limits
-    cardWidth = Math.max(minCardWidth, Math.min(cardWidth, maxCardWidthLimit))
+    // Apply minimum card width limits - much lower for phones to allow scaling
+    const minCardWidth = isPhonePortrait || isUltraNarrow ? 40 : 50
+    cardWidth = Math.max(minCardWidth, cardWidth)
 
     // cardHeight will be set later to match button column exactly
 
-    buttonHeight = Math.min(buttonHeight, categoryGroupHeight * 0.3) // Allow bigger buttons
+    buttonHeight = Math.min(buttonHeight, categoryGroupHeight * 0.32) // Allow bigger buttons
 
     // Calculate gaps first - make gaps smaller to give more space to buttons
     const innerColGap = Math.max(8, Math.min(30, categoryGroupWidth * 0.04))
     const innerRowGap = Math.max(2, Math.min(8, buttonHeight * 0.15)) // Much smaller gaps within category
 
-    // Recalculate button height with smaller gaps to make buttons bigger
-    const totalGapSpace = innerRowGap * 2 // Space for 2 gaps between 3 buttons
-    const availableButtonSpace = categoryGroupHeight * 0.9 - totalGapSpace
-    const finalButtonHeight = Math.max(buttonHeight, availableButtonSpace / 3) // Use available space for bigger buttons
+    // Ultra conservative calculation to absolutely ensure no overflow
+    // Calculate gaps - smaller for phones and narrow screens
+    const gapSize = isPhonePortrait || isUltraNarrow || isMobileLayout ? 2 : 3
+    const totalGapSpace = gapSize * 2
 
-    // Card dimensions are now calculated above with responsive aspect ratios
+    // Use only 85% of available height to leave very generous buffer
+    const safeHeight = categoryGroupHeight * 0.85
 
-    // Consistent button scaling system - same proportions on all devices
-    // Calculate button dimensions based purely on available space
-    const availableButtonHeight = (categoryGroupHeight * 0.9 - (2 * baseInnerRowGap)) / 3
+    // Direct calculation: safe height minus gaps, divided by 3 buttons
+    const maxPossibleButtonHeight = (safeHeight - totalGapSpace) / 3
+
+    // Apply minimum constraint
     const actualFinalButtonHeight = Math.max(
-      25, // Single minimum height for all devices
-      Math.min(availableButtonHeight, categoryGroupHeight * 0.25) // Same constraint for all
+      14, // Lower minimum for very narrow screens
+      maxPossibleButtonHeight
     )
 
     // Consistent button width calculation - same aspect ratio for all devices
     const BUTTON_ASPECT_RATIO = 2.0 // Same aspect ratio for all devices
     const calculatedButtonWidth = actualFinalButtonHeight * BUTTON_ASPECT_RATIO
 
-    // Calculate available space for buttons
-    const availableSpaceForButtons = (categoryGroupWidth - cardWidth - baseInnerColGap) * 0.45
+    // Ensure total width (card + buttons) fits within categoryGroupWidth
+    // Button row total width = cardWidth + (buttonWidth * 1.6) [0.8 left + 0.8 right]
+    const maxButtonWidthToFit = (categoryGroupWidth - cardWidth) / 1.6
 
-    // Apply same size limits across all devices
+    // Calculate button width to fill remaining space
+    // We already calculated cardWidth to leave room for buttons
+    // Now calculate actual button width from remaining space
+    const remainingWidth = categoryGroupWidth * 0.98 - cardWidth
+    const maxPossibleButtonWidth = remainingWidth / 1.6 // Since we use buttonWidth * 1.6 total
+
+    // Apply aspect ratio and size limits
+    const calculatedFromAspect = calculatedButtonWidth
+
+    let buttonMultiplier
+    if (isPhonePortrait || isUltraNarrow) {
+      buttonMultiplier = 1.3 // Allow larger buttons for phones
+    } else if (isMobileLayout) {
+      buttonMultiplier = 1.4
+    } else {
+      buttonMultiplier = 1.6 // Larger buttons for PC
+    }
+
+    // Use the maximum possible width but constrain by aspect ratio limits
     const maxButtonWidth = Math.min(
-      availableSpaceForButtons, // Space-based limit
-      calculatedButtonWidth * 1.2 // Allow slightly larger but keep proportional
+      maxPossibleButtonWidth, // Use available space
+      calculatedFromAspect * buttonMultiplier // But don't exceed proportional limit
     )
-    const minButtonWidth = 45 // Same minimum for all devices
+    const minButtonWidth = isPhonePortrait || isUltraNarrow ? 25 : 35 // Lower minimum for phones
 
     const constrainedButtonWidth = Math.max(minButtonWidth, Math.min(calculatedButtonWidth, maxButtonWidth))
 
-    // Calculate the actual gaps used in the layout
-    const actualInnerRowGap = Math.max(2, Math.min(8, actualFinalButtonHeight * 0.15))
+    // Calculate the actual gaps used in the layout - use the fixed gap size for consistency
+    const actualInnerRowGap = gapSize
 
-    // Force card height to exactly match button column height
+    // Calculate card height to match button column height exactly
     const finalButtonColumnHeight = (actualFinalButtonHeight * 3) + (actualInnerRowGap * 2)
-    cardHeight = Math.min(finalButtonColumnHeight, categoryGroupHeight * 0.95) // Ensure it fits within available space
+
+    // For phones: text section = button height, so reduce card to prevent overflow
+    // Card = button column height - (button height - small text margin)
+    let cardSafetyMargin
+    if (isUltraNarrow || isPhonePortrait) {
+      // Reduce card by the extra space the taller text section takes
+      cardSafetyMargin = actualFinalButtonHeight * 0.15 // 15% reduction
+    } else {
+      cardSafetyMargin = 0 // PC: exact match
+    }
+    cardHeight = Math.max(35, finalButtonColumnHeight - cardSafetyMargin)
 
 
     // Consistent button font sizing - same scaling for all devices
@@ -1289,7 +1357,91 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const headerPadding = Math.max(8, buttonPadding * 0.25)
     const calculatedHeaderHeight = Math.max(56, headerFontSize * 3)
 
-    const footerButtonSize = Math.max(30, Math.min(60, H * 0.08)) * pcScaleFactor
+    const baseFooterButtonSize = Math.max(30, Math.min(60, H * 0.08)) * pcScaleFactor
+    const footerButtonSize = isUltraNarrow ? baseFooterButtonSize * 0.9 : baseFooterButtonSize // Reduce by 10% for ultra-narrow
+
+    // Dynamic footer vertical padding based on screen height - fully responsive
+    const footerVerticalPadding = pcScaleFactor > 1
+      ? Math.max(24, Math.min(40, Math.floor(H * 0.035))) // PC: 3.5% of height (24-40px)
+      : isUltraNarrow
+        ? Math.max(4, Math.min(8, Math.floor(H * 0.01))) // Ultra narrow: 1% (4-8px)
+        : isPhonePortrait
+          ? Math.max(6, Math.min(10, Math.floor(H * 0.012))) // Portrait: 1.2% (6-10px)
+          : Math.max(6, Math.min(9, Math.floor(H * 0.01))) // Landscape: 1% (6-9px)
+
+    // Dynamic footer horizontal padding based on screen width
+    const footerHorizontalPadding = pcScaleFactor > 1
+      ? Math.max(48, Math.min(80, Math.floor(W * 0.04))) // PC: 4% of width (48-80px)
+      : isUltraNarrow
+        ? Math.max(4, Math.min(8, Math.floor(W * 0.015))) // Ultra narrow: 1.5% (4-8px)
+        : isPhonePortrait
+          ? Math.max(2, Math.min(6, Math.floor(W * 0.01))) // Portrait: 1% (2-6px) - reduced
+          : Math.max(12, Math.min(20, Math.floor(W * 0.025))) // Landscape: 2.5% (12-20px)
+
+    // Dynamic element sizing for footer to prevent overflow
+    // Calculate available width after padding
+    const availableFooterWidth = W - (footerHorizontalPadding * 2)
+
+    // For mobile devices, calculate dynamic widths based on available space
+    let footerTeamNameWidth, footerScoreWidth, footerPerkSize, footerMiddleGap
+
+    if (pcScaleFactor > 1) {
+      // PC: Fixed sizes
+      footerTeamNameWidth = 240
+      footerScoreWidth = 240
+      footerPerkSize = 50 // Based on existing calculation
+      footerMiddleGap = 260 // Large spacer for PC (accommodate 240px logo)
+    } else if (isPhonePortrait) {
+      // Portrait: Layout with middle spacing
+      // Layout: Score(X) + 3×Perk + [MIDDLE GAP] + 3×Perk + Score(X)
+      const middleGap = Math.max(16, availableFooterWidth * 0.05) // 5% middle gap, min 16px
+      const gapsPerSide = 4 // gaps between elements on each side
+      const totalGapSpace = gapsPerSide * 4 * 2 // 4px gaps
+      const totalPerksPerSide = 3
+      const usableWidth = availableFooterWidth - middleGap - totalGapSpace
+
+      // Allocate: 50% to scores (25% each), 50% to perks (25% each side)
+      const spaceForScores = usableWidth * 0.50 // 50% for both scores
+      const spaceForPerks = usableWidth * 0.50 // 50% for all perks (6 total)
+
+      footerScoreWidth = Math.max(70, Math.min(110, Math.floor(spaceForScores / 2)))
+      footerPerkSize = Math.max(18, Math.min(26, Math.floor(spaceForPerks / (totalPerksPerSide * 2))))
+      footerTeamNameWidth = footerScoreWidth // Same width as score for consistency
+      footerMiddleGap = middleGap // Use calculated middle gap
+    } else {
+      // Landscape: More space available with smart collision detection
+      // Logo dimensions
+      const logoWidth = isTablet ? 160 : 200 // Logo size based on device
+      const logoSafeZone = logoWidth + 20 // Logo + 10px padding on each side
+
+      // Calculate space available for each team (half the width minus logo safe zone)
+      const spacePerTeam = (availableFooterWidth - logoSafeZone) / 2
+
+      // Each team has: Score + gap + 3×Perk + 3×gaps between perks
+      const baseGap = 8
+      const totalPerks = 3
+      const totalGaps = 1 + (totalPerks - 1) // gap after score + gaps between perks
+
+      // Start with ideal sizes
+      let idealScoreWidth = isTablet ? 160 : 180
+      let idealPerkSize = isTablet ? 28 : 32
+
+      // Calculate what we need
+      const neededWidth = idealScoreWidth + (idealPerkSize * totalPerks) + (baseGap * totalGaps)
+
+      // If it doesn't fit, resize proportionally (both teams equally)
+      if (neededWidth > spacePerTeam) {
+        const scaleFactor = spacePerTeam / neededWidth
+        idealScoreWidth = Math.floor(idealScoreWidth * scaleFactor)
+        idealPerkSize = Math.floor(idealPerkSize * scaleFactor)
+      }
+
+      // Apply with min/max bounds
+      footerScoreWidth = Math.max(100, Math.min(200, idealScoreWidth))
+      footerPerkSize = Math.max(20, Math.min(36, idealPerkSize))
+      footerTeamNameWidth = footerScoreWidth // Same width as score for consistency
+      footerMiddleGap = logoSafeZone // Exactly the logo safe zone
+    }
 
     return {
       cardWidth: cardWidth,
@@ -1303,6 +1455,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       headerPadding: headerPadding,
       headerHeight: calculatedHeaderHeight,
       footerButtonSize: footerButtonSize,
+      footerVerticalPadding: footerVerticalPadding,
+      footerHorizontalPadding: footerHorizontalPadding,
+      footerTeamNameWidth: footerTeamNameWidth,
+      footerScoreWidth: footerScoreWidth,
+      footerPerkSize: footerPerkSize,
+      footerMiddleGap: footerMiddleGap,
       categoryGroupWidth: categoryGroupWidth,
       categoryGroupHeight: categoryGroupHeight,
       innerColGap: innerColGap,
@@ -1313,12 +1471,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       cols: cols,
       isUltraNarrow: isUltraNarrow,
       isNormalPhone: isNormalPhone,
+      isMobileLayout: isMobileLayout,
+      isTablet: isTablet,
       availableHeight: availableHeight,
       availableWidth: availableWidth,
       pcScaleFactor: pcScaleFactor,
       actualHeaderHeight: headerHeight || 80,
       actualFooterHeight: footerHeight || 100,
-      padding: 20,
+      padding: padding,
       isPhonePortrait: isPhonePortrait // Keep for portrait-specific styling adjustments
     }
   }
@@ -1459,10 +1619,16 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   ...prev,
                   currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
                 }))}
-                className="bg-red-700 hover:bg-red-800 text-white px-2 py-1 rounded-lg font-bold transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 1}px` }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
+                style={{
+                  width: `${styles.headerFontSize * 1.8}px`,
+                  height: `${styles.headerFontSize * 1.8}px`,
+                  padding: '4px'
+                }}
               >
-                🔄
+                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+                </svg>
               </button>
             </div>
 
@@ -1498,9 +1664,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       <div
         className="flex-1 bg-[#f7f2e6] flex flex-col items-center justify-center"
         style={{
-          padding: '20px',
           width: '100%',
-          minHeight: '0'
+          minHeight: '0',
+          padding: `${styles.padding}px`
         }}
       >
         <div
@@ -1561,9 +1727,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 key={categoryId}
                 className="relative flex items-center justify-center"
                 style={{
-                  width: `${styles.categoryGroupWidth}px`,
-                  height: `${styles.categoryGroupHeight}px`,
-                  maxHeight: `${styles.categoryGroupHeight}px`
+                  width: '100%',
+                  height: '100%',
+                  maxWidth: `${styles.categoryGroupWidth}px`,
+                  maxHeight: `${styles.categoryGroupHeight}px`,
+                  padding: '0',
+                  margin: '0',
+                  overflow: 'hidden'
                 }}
               >
                 {/* Wide Buttons spanning full width */}
@@ -1571,7 +1741,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   className="absolute inset-0 flex flex-col justify-center items-center"
                   style={{
                     gap: `${styles.innerRowGap}px`,
-                    zIndex: 30
+                    zIndex: 30,
+                    padding: '0',
+                    margin: '0 auto',
+                    maxHeight: '100%'
                   }}
                 >
                   {/* 200 Points Wide Button - Sized to match card coverage */}
@@ -1762,15 +1935,16 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   </div>
                 </div>
 
-                {/* Category Card positioned in center, perfectly aligned with button gaps */}
-                <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 50, pointerEvents: 'none' }}>
+                {/* Category Card positioned - bottom for phones, center for PC */}
+                <div className={`absolute inset-0 flex items-center justify-center`} style={{ zIndex: 50, pointerEvents: 'none', overflow: 'hidden' }}>
                   <div
-                    className="flex flex-col border-2 border-gray-300 shadow-lg overflow-hidden bg-white"
+                    className="flex flex-col border-2 border-gray-300 shadow-lg bg-white"
                     style={{
                       width: `${styles.cardWidth}px`,
-                      height: `${styles.cardHeight}px`,
+                      height: `${(styles.isUltraNarrow || styles.isPhonePortrait) ? (styles.buttonHeight * 3 + styles.innerRowGap * 2) : styles.cardHeight}px`,
                       zIndex: 100,
-                      backgroundColor: 'white'
+                      backgroundColor: 'white',
+                      overflow: 'hidden'
                     }}
                   >
                     {/* Image section */}
@@ -1790,21 +1964,23 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       )}
                     </BackgroundImage>
 
-                    {/* Text section inside card - single line */}
+                    {/* Text section - aligned with button height on phones */}
                     <div
                       className="bg-gray-300 text-gray-800 text-center font-bold flex-shrink-0 flex items-center justify-center relative"
                       style={{
                         fontSize: `${styles.getCardFontSize(category.name, styles.cardWidth, styles.cardHeight, styles.fontSize)}px`,
-                        lineHeight: '1',
-                        height: `${Math.max(18, Math.min(30, styles.cardHeight * 0.06)) * styles.pcScaleFactor}px`,
-                        width: `${styles.cardWidth}px`,
+                        lineHeight: '1.2',
+                        height: `${(styles.isUltraNarrow || styles.isPhonePortrait) ? Math.min(styles.buttonHeight * 0.6, styles.cardHeight * 0.25) : Math.max(18, Math.min(30, styles.cardHeight * 0.06)) * styles.pcScaleFactor}px`,
+                        width: '100%',
+                        maxWidth: `${styles.cardWidth}px`,
                         margin: '0',
-                        padding: `0 ${styles.isUltraNarrow ? 6 : 10}px`,
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                        padding: `0 ${(styles.isUltraNarrow || styles.isPhonePortrait) ? 2 : 10}px`,
+                        boxShadow: 'none',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        zIndex: 25
+                        zIndex: 25,
+                        boxSizing: 'border-box'
                       }}
                     >
                       <span style={{ whiteSpace: 'nowrap' }}>
@@ -1822,20 +1998,36 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
       {/* Footer Score Controls */}
       <div ref={footerRef} className="bg-[#f7f2e6] border-t-2 border-gray-200 flex-shrink-0 sticky bottom-0 z-10" style={{
-        paddingLeft: `${styles.pcScaleFactor > 1 ? 64 : styles.isPhonePortrait ? 8 : 16}px`,
-        paddingRight: `${styles.pcScaleFactor > 1 ? 64 : styles.isPhonePortrait ? 8 : 16}px`,
-        paddingTop: `${styles.pcScaleFactor > 1 ? 32 : styles.isPhonePortrait ? 8 : 12}px`,
-        paddingBottom: `${styles.pcScaleFactor > 1 ? 32 : styles.isPhonePortrait ? 8 : 12}px`
+        paddingLeft: `${styles.footerHorizontalPadding}px`,
+        paddingRight: `${styles.footerHorizontalPadding}px`,
+        paddingTop: `${styles.footerVerticalPadding}px`,
+        paddingBottom: `${styles.footerVerticalPadding}px`
       }}>
         {styles.isPhonePortrait ? (
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-col gap-2 w-full relative">
+            {/* Center Logo spanning both rows */}
+            {sponsorLogoLoaded && sponsorLogo && showSponsorLogo && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center">
+                <img
+                  src={sponsorLogo}
+                  alt="Game Logo"
+                  style={{
+                    width: `${styles.footerScoreWidth * 0.6}px`,
+                    height: 'auto',
+                    maxHeight: '50px',
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
+            )}
+
             {/* First Row: Team Names */}
-            <div className="flex justify-between items-center w-full gap-2">
+            <div className="flex items-center w-full justify-between">
               <div
                 className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
                 style={{
                   fontSize: `${gameState.team1.name.length > 12 ? 11 : gameState.team1.name.length > 10 ? 13 : 15}px`,
-                  width: '140px',
+                  width: `${styles.footerTeamNameWidth}px`,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -1843,11 +2035,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               >
                 {gameState.team1.name}
               </div>
+
               <div
                 className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
                 style={{
                   fontSize: `${gameState.team2.name.length > 12 ? 11 : gameState.team2.name.length > 10 ? 13 : 15}px`,
-                  width: '140px',
+                  width: `${styles.footerTeamNameWidth}px`,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -1858,14 +2051,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Second Row: All Controls */}
-            <div className="flex justify-between items-center w-full">
+            <div className="flex items-center w-full justify-between">
               {/* Team 1 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
                 {/* Score with integrated +/- buttons */}
                 <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
                   fontSize: `${styles.headerFontSize * 0.7}px`,
                   color: '#B91C1C',
-                  width: '140px',
+                  width: `${styles.footerScoreWidth}px`,
                   paddingLeft: '24px',
                   paddingRight: '24px',
                   paddingTop: '2px',
@@ -1917,29 +2110,29 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{ width: '18px', height: '18px', fontSize: '7px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   onClick={() => handlePerkClick('double', 'team1')}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: '18px', height: '18px', fontSize: '6px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: '18px', height: '18px', fontSize: '6px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -1950,19 +2143,19 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 {/* Team 2 Perks */}
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: '18px', height: '18px', fontSize: '6px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: '18px', height: '18px', fontSize: '6px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -1974,10 +2167,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{ width: '18px', height: '18px', fontSize: '7px' }}
+                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   onClick={() => handlePerkClick('double', 'team2')}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
@@ -1987,7 +2180,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
                   fontSize: `${styles.headerFontSize * 0.7}px`,
                   color: '#B91C1C',
-                  width: '140px',
+                  width: `${styles.footerScoreWidth}px`,
                   paddingLeft: '24px',
                   paddingRight: '24px',
                   paddingTop: '2px',
@@ -2033,21 +2226,46 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-col gap-2 w-full relative">
+            {/* Center Logo spanning both rows */}
+            {sponsorLogoLoaded && sponsorLogo && showSponsorLogo && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center">
+                <img
+                  src={sponsorLogo}
+                  alt="Game Logo"
+                  style={{
+                    width: `${styles.pcScaleFactor > 1 ? 240 : (styles.footerMiddleGap - 20)}px`,
+                    height: 'auto',
+                    maxHeight: styles.pcScaleFactor > 1 ? '160px' : '120px',
+                    objectFit: 'contain'
+                  }}
+                />
+              </div>
+            )}
+
             {/* First Row: Team Names Only */}
-            <div className="flex justify-between items-center w-full gap-2">
-              <div className="bg-red-500 text-white rounded-full font-bold px-4 py-2 text-center" style={{
+            <div className="flex items-center w-full justify-between">
+              <div className="bg-red-500 text-white rounded-full font-bold text-center" style={{
                 fontSize: `${gameState.team1.name.length > 14 ? 16 : gameState.team1.name.length > 12 ? 18 : 20}px`,
-                width: '200px',
+                width: `${styles.footerTeamNameWidth}px`,
+                paddingLeft: '16px',
+                paddingRight: '16px',
+                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
+                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}>
                 {gameState.team1.name}
               </div>
-              <div className="bg-red-500 text-white rounded-full font-bold px-4 py-2 text-center" style={{
+
+              <div className="bg-red-500 text-white rounded-full font-bold text-center" style={{
                 fontSize: `${gameState.team2.name.length > 14 ? 16 : gameState.team2.name.length > 12 ? 18 : 20}px`,
-                width: '200px',
+                width: `${styles.footerTeamNameWidth}px`,
+                paddingLeft: '16px',
+                paddingRight: '16px',
+                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
+                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
@@ -2057,18 +2275,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Second Row: Score & Perks */}
-            <div className="flex justify-between items-center w-full">
+            <div className="flex items-center w-full justify-between">
               {/* Team 1 Controls (Left) */}
               <div className="flex items-center flex-shrink-0" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
                 {/* Score with integrated +/- buttons */}
                 <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
                   fontSize: '18px',
                   color: '#B91C1C',
-                  width: '200px',
+                  width: `${styles.footerScoreWidth}px`,
                   paddingLeft: '32px',
                   paddingRight: '32px',
-                  paddingTop: '8px',
-                  paddingBottom: '8px',
+                  paddingTop: styles.isUltraNarrow ? '4px' : '8px',
+                  paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
                   position: 'relative'
                 }}>
                   <button
@@ -2117,13 +2335,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   onClick={() => handlePerkClick('double', 'team1')}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
@@ -2131,26 +2349,26 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -2170,13 +2388,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   onClick={() => handlePerkClick('double', 'team2')}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
@@ -2184,26 +2402,26 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
                   className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
                   style={{
-                    width: `${styles.footerButtonSize * 0.5}px`,
-                    height: `${styles.footerButtonSize * 0.5}px`,
-                    fontSize: `${styles.headerFontSize * 0.5}px`
+                    width: `${styles.footerPerkSize}px`,
+                    height: `${styles.footerPerkSize}px`,
+                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
                   }}
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -2213,11 +2431,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
                 fontSize: '18px',
                 color: '#B91C1C',
-                width: '200px',
+                width: `${styles.footerScoreWidth}px`,
                 paddingLeft: '32px',
                 paddingRight: '32px',
-                paddingTop: '8px',
-                paddingBottom: '8px',
+                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
+                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
                 position: 'relative'
               }}>
                 <button
@@ -2295,9 +2513,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 }))
                 setPortraitMenuOpen(false)
               }}
-              className="px-4 py-2 text-right hover:bg-red-800 transition-colors text-sm"
+              className="px-4 py-2 text-right hover:bg-red-800 transition-colors text-sm flex items-center justify-end gap-2"
             >
-              تبديل الدور 🔄
+              <span>تبديل الدور</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+              </svg>
             </button>
 
             <button

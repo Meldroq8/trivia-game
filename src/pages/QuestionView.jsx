@@ -430,7 +430,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         navigate('/results')
       }, 2000)
     }
-  }, [gameState.usedQuestions.size, gameState.selectedCategories.length, navigate])
+  }, [gameState.usedQuestions?.size, gameState.selectedCategories?.length, navigate])
 
   // Redirect to home if not authenticated (but only after loading is complete)
   useEffect(() => {
@@ -439,8 +439,106 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     }
   }, [isAuthenticated, loading])
 
-  const { currentQuestion } = gameState
+  // Check for preview mode from location.state, localStorage, or sessionStorage
+  const [previewData, setPreviewData] = useState(() => {
+    // Try location.state first
+    if (location.state?.previewMode) {
+      devLog('📍 Loading preview from location.state')
+      return {
+        previewMode: location.state.previewMode,
+        previewQuestion: location.state.question,
+        previewGameData: location.state.gameData
+      }
+    }
 
+    // Try localStorage (for new window/tab access)
+    const localData = localStorage.getItem('questionPreview')
+    if (localData) {
+      try {
+        const parsed = JSON.parse(localData)
+        devLog('💾 Loading preview from localStorage:', parsed)
+        // Clear it after reading
+        localStorage.removeItem('questionPreview')
+
+        // Convert arrays back to Sets if they exist
+        if (parsed.gameData) {
+          if (Array.isArray(parsed.gameData.usedQuestions)) {
+            parsed.gameData.usedQuestions = new Set(parsed.gameData.usedQuestions)
+          }
+          if (Array.isArray(parsed.gameData.usedPointValues)) {
+            parsed.gameData.usedPointValues = new Set(parsed.gameData.usedPointValues)
+          }
+        }
+
+        return {
+          previewMode: parsed.previewMode,
+          previewQuestion: parsed.question,
+          previewGameData: parsed.gameData
+        }
+      } catch (e) {
+        console.error('Failed to parse preview data from localStorage:', e)
+      }
+    }
+
+    // Try sessionStorage as fallback (for same-window navigation)
+    const storedData = sessionStorage.getItem('questionPreview')
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData)
+        devLog('💾 Loading preview from sessionStorage:', parsed)
+        // Clear it after reading
+        sessionStorage.removeItem('questionPreview')
+
+        // Convert arrays back to Sets if they exist
+        if (parsed.gameData) {
+          if (Array.isArray(parsed.gameData.usedQuestions)) {
+            parsed.gameData.usedQuestions = new Set(parsed.gameData.usedQuestions)
+          }
+          if (Array.isArray(parsed.gameData.usedPointValues)) {
+            parsed.gameData.usedPointValues = new Set(parsed.gameData.usedPointValues)
+          }
+        }
+
+        return {
+          previewMode: parsed.previewMode,
+          previewQuestion: parsed.question,
+          previewGameData: parsed.gameData
+        }
+      } catch (e) {
+        console.error('Failed to parse preview data from sessionStorage:', e)
+      }
+    }
+
+    return { previewMode: false, previewQuestion: null, previewGameData: null }
+  })
+
+  const { previewMode, previewQuestion, previewGameData } = previewData
+
+  // Debug preview data
+  useEffect(() => {
+    if (previewMode) {
+      devLog('🔍 Preview Mode Active:', {
+        previewMode,
+        previewQuestion,
+        previewGameData,
+        hasText: !!previewQuestion?.text,
+        questionKeys: previewQuestion ? Object.keys(previewQuestion) : []
+      })
+    }
+  }, [previewMode, previewQuestion, previewGameData])
+
+  // Use preview question if in preview mode, otherwise use gameState question
+  const currentQuestion = previewMode ? previewQuestion : gameState.currentQuestion
+
+  // Override gameState with preview data if in preview mode
+  useEffect(() => {
+    if (previewMode && previewGameData && previewQuestion) {
+      setGameState({
+        ...previewGameData,
+        currentQuestion: previewQuestion
+      })
+    }
+  }, [previewMode, previewGameData, previewQuestion])
 
   // Load game data for category settings
   useEffect(() => {
@@ -555,6 +653,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Persist current question and restore on refresh
   useEffect(() => {
+    // Don't use localStorage in preview mode
+    if (previewMode) {
+      return
+    }
+
     // If we have a current question, store it for persistence
     if (currentQuestion) {
       localStorage.setItem('current_question', JSON.stringify(currentQuestion))
@@ -602,7 +705,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
-  }, [currentQuestion])
+  }, [currentQuestion, previewMode])
 
   // Set initial dimensions after component mounts
   useEffect(() => {
@@ -1056,9 +1159,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}
             >
               {gameState.currentTurn === 'team1'
-                ? gameState.team1.name
+                ? gameState.team1?.name || 'الفريق 1'
                 : gameState.currentTurn === 'team2'
-                ? gameState.team2.name
+                ? gameState.team2?.name || 'الفريق 2'
                 : 'غير محدد'}
             </span>
             <button
@@ -1068,19 +1171,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               }))}
               className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
               style={{
-                fontSize: `${styles.headerFontSize * 0.9}px`,
-                width: '28px',
-                height: '28px',
-                padding: '2px'
+                width: `${styles.headerFontSize * 1.8}px`,
+                height: `${styles.headerFontSize * 1.8}px`,
+                padding: '4px'
               }}
             >
-              🔄
+              <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+              </svg>
             </button>
           </div>
 
           <div className="flex-1 text-center flex items-center justify-center px-2" style={{ gap: `${styles.baseGap}px` }}>
             <h1 className="font-bold text-center" style={{
-              fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - (gameState.gameName.length > 15 ? (gameState.gameName.length - 15) * 1.5 : 0))}px`,
+              fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - ((gameState.gameName?.length || 0) > 15 ? ((gameState.gameName?.length || 0) - 15) * 1.5 : 0))}px`,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -1175,6 +1279,25 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         </div>
       )}
 
+      {/* Preview Mode Banner */}
+      {previewMode && (
+        <div className="bg-yellow-500 text-black py-3 px-4 flex items-center justify-between shadow-md z-[9997]">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">👁️</span>
+            <div>
+              <p className="font-bold text-lg">وضع المعاينة</p>
+              <p className="text-sm">معاينة السؤال - لن يتم احتساب النقاط</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/admin')}
+            className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-bold transition-colors"
+          >
+            ← العودة للإدارة
+          </button>
+        </div>
+      )}
+
       {/* Main Content - New Grid Layout */}
       <div className="flex-1 flex flex-col px-4 py-5 2xl:h-[calc(100vh_-_112px)] 4xl:h-[calc(100vh_-_130px)] xl:h-[calc(100vh-76px)] sm:h-[calc(100vh-92px)] xs:h-[calc(100vh-118px)] h-[calc(100vh-107px)] height-container" style={{
         minHeight: 0
@@ -1196,11 +1319,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                        padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
                      }}>
                   <span className="whitespace-nowrap inline-block">
-                    {gameState.team1.name}
+                    {gameState.team1?.name || 'الفريق 1'}
                   </span>
                 </div>
                 <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
-                  {gameState.team1.score}
+                  {gameState.team1?.score || 0}
                 </div>
                 <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
                      style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
@@ -1270,11 +1393,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                        padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
                      }}>
                   <span className="whitespace-nowrap inline-block">
-                    {gameState.team2.name}
+                    {gameState.team2?.name || 'الفريق 2'}
                   </span>
                 </div>
                 <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
-                  {gameState.team2.score}
+                  {gameState.team2?.score || 0}
                 </div>
                 <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
                      style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
@@ -1594,12 +1717,23 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                       const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
 
+                      // Check if there's answer video/audio media
+                      const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
+                      const hasAnswerAudio = currentQuestion?.question?.answerAudioUrl || currentQuestion?.answerAudioUrl
+                      const hasAnswerMedia = hasAnswerVideo || hasAnswerAudio
+
                       // For اغاني اجنبية category, only show answerImageUrl (no fallback to question image)
                       if (categoryId === 'اغاني_اجنبية') {
                         return answerImageUrl
                       }
 
-                      // For other categories, fall back to question image if no answer image
+                      // For other categories, fall back to question image ONLY if no answer media exists
+                      if (hasAnswerMedia) {
+                        // If answer video/audio exists, only show answer image (no fallback)
+                        return answerImageUrl
+                      }
+
+                      // If no answer media at all, fall back to question image
                       const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
                       return answerImageUrl || questionImageUrl
                     })() && (
@@ -1620,12 +1754,23 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                             const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
 
+                            // Check if there's answer video/audio media
+                            const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
+                            const hasAnswerAudio = currentQuestion?.question?.answerAudioUrl || currentQuestion?.answerAudioUrl
+                            const hasAnswerMedia = hasAnswerVideo || hasAnswerAudio
+
                             // For اغاني اجنبية category, only show answerImageUrl (no fallback to question image)
                             if (categoryId === 'اغاني_اجنبية') {
                               return answerImageUrl
                             }
 
-                            // For other categories, fall back to question image if no answer image
+                            // For other categories, fall back to question image ONLY if no answer media exists
+                            if (hasAnswerMedia) {
+                              // If answer video/audio exists, only show answer image (no fallback)
+                              return answerImageUrl
+                            }
+
+                            // If no answer media at all, fall back to question image
                             const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
                             return answerImageUrl || questionImageUrl
                           })()}
@@ -1694,7 +1839,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)'
                         }}
                       >
-                        {gameState.team2.name}
+                        {gameState.team2?.name || 'الفريق 2'}
                       </button>
                     </div>
 
@@ -1740,7 +1885,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         isOpen={perkModalOpen}
         onClose={handlePerkModalClose}
         perkType={activePerk.type}
-        teamName={activePerk.team === 'team1' ? gameState.team1.name : gameState.team2.name}
+        teamName={activePerk.team === 'team1' ? (gameState.team1?.name || 'الفريق 1') : (gameState.team2?.name || 'الفريق 2')}
         onConfirm={handlePerkConfirm}
         usageCount={gameState.perkUsage?.[activePerk.team]?.[activePerk.type] || 0}
         maxUses={1}

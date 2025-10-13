@@ -1,5 +1,6 @@
 import { devLog, devWarn, prodError } from "./devLog.js"
 import { auth } from '../firebase/config'
+import { simpleSmartCompress, supportsMediaCompression } from './simpleMediaProcessor'
 
 /**
  * Secure S3 Upload Service using Firebase Functions
@@ -73,18 +74,44 @@ export class S3UploadServiceSecure {
     }
 
     try {
+      // Smart compression for audio/video files
+      let uploadFile = file
+
+      if (file.type.startsWith('video/') || file.type.startsWith('audio/')) {
+        const fileSizeMB = file.size / 1024 / 1024
+
+        if (fileSizeMB > 20) {
+          devLog(`📹 File is large (${fileSizeMB.toFixed(2)}MB), attempting compression...`)
+
+          try {
+            uploadFile = await simpleSmartCompress(file, 20)
+
+            if (uploadFile !== file) {
+              const compressedMB = uploadFile.size / 1024 / 1024
+              const savings = ((1 - uploadFile.size / file.size) * 100).toFixed(1)
+              devLog(`✨ Compressed: ${fileSizeMB.toFixed(2)}MB → ${compressedMB.toFixed(2)}MB (${savings}% reduction)`)
+            }
+          } catch (compressionError) {
+            devWarn(`Compression failed, uploading original file:`, compressionError.message)
+            uploadFile = file
+          }
+        } else {
+          devLog(`File is small (${fileSizeMB.toFixed(2)}MB), skipping compression`)
+        }
+      }
+
       // Get authentication token
       const idToken = await this.getIdToken()
 
       // Prepare form data
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', uploadFile)
       formData.append('folder', folder)
       if (fileName) {
         formData.append('fileName', fileName)
       }
 
-      devLog(`Uploading file to S3 via Firebase Function: ${folder}/${fileName || file.name}`)
+      devLog(`Uploading file to S3 via Firebase Function: ${folder}/${fileName || uploadFile.name}`)
 
       // Upload via direct Firebase Function URL (Cloud Run v2)
       const response = await fetch(FUNCTION_URLS.s3Upload, {
@@ -244,19 +271,33 @@ export class S3UploadServiceSecure {
         canvas.width = newWidth
         canvas.height = newHeight
 
+        // Determine if we should preserve transparency (PNG, WebP, GIF)
+        const supportsTransparency = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/gif'
+
+        // If JPEG or no transparency support, fill with white background
+        if (!supportsTransparency) {
+          ctx.fillStyle = '#FFFFFF'
+          ctx.fillRect(0, 0, newWidth, newHeight)
+        }
+
         // Draw and compress
         ctx.drawImage(img, 0, 0, newWidth, newHeight)
 
+        // Choose output format: preserve transparency if original supports it
+        const outputType = supportsTransparency ? file.type : 'image/jpeg'
+        const outputQuality = supportsTransparency && file.type === 'image/png' ? 1.0 : quality
+
         canvas.toBlob(
           (blob) => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
+            const extension = outputType.split('/')[1]
+            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, `.${extension}`), {
+              type: outputType,
               lastModified: Date.now()
             })
             resolve(compressedFile)
           },
-          'image/jpeg',
-          quality
+          outputType,
+          outputQuality
         )
       }
 
