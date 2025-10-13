@@ -1938,7 +1938,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 {/* Category Card positioned - bottom for phones, center for PC */}
                 <div className={`absolute inset-0 flex items-center justify-center`} style={{ zIndex: 50, pointerEvents: 'none', overflow: 'hidden' }}>
                   <div
-                    className="flex flex-col border-2 border-gray-300 shadow-lg bg-white"
+                    className="flex flex-col border-2 border-gray-300 shadow-lg bg-white relative"
                     style={{
                       width: `${styles.cardWidth}px`,
                       height: `${(styles.isUltraNarrow || styles.isPhonePortrait) ? (styles.buttonHeight * 3 + styles.innerRowGap * 2) : styles.cardHeight}px`,
@@ -1947,13 +1947,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       overflow: 'hidden'
                     }}
                   >
-                    {/* Image section */}
+                    {/* Image section - fills entire card */}
                     <BackgroundImage
                       src={category.imageUrl}
                       size="medium"
                       context="category"
                       categoryId={category.id}
-                      className="flex-1 relative"
+                      className="absolute inset-0"
                       fallbackGradient="from-gray-200 to-gray-400"
                     >
                       {!category.imageUrl && category.image && (
@@ -1964,22 +1964,21 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       )}
                     </BackgroundImage>
 
-                    {/* Text section - aligned with button height on phones */}
+                    {/* Text section - overlays at bottom with higher z-index */}
                     <div
-                      className="bg-gray-300 text-gray-800 text-center font-bold flex-shrink-0 flex items-center justify-center relative"
+                      className="bg-gray-300 text-gray-800 text-center font-bold flex items-center justify-center absolute bottom-0 left-0 right-0"
                       style={{
                         fontSize: `${styles.getCardFontSize(category.name, styles.cardWidth, styles.cardHeight, styles.fontSize)}px`,
                         lineHeight: '1.2',
                         height: `${(styles.isUltraNarrow || styles.isPhonePortrait) ? Math.min(styles.buttonHeight * 0.6, styles.cardHeight * 0.25) : Math.max(18, Math.min(30, styles.cardHeight * 0.06)) * styles.pcScaleFactor}px`,
                         width: '100%',
-                        maxWidth: `${styles.cardWidth}px`,
                         margin: '0',
                         padding: `0 ${(styles.isUltraNarrow || styles.isPhonePortrait) ? 2 : 10}px`,
                         boxShadow: 'none',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        zIndex: 25,
+                        zIndex: 150,
                         boxSizing: 'border-box'
                       }}
                     >
