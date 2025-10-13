@@ -233,6 +233,14 @@ function App() {
       // Wait for auth to complete before loading state
       if (authLoading) return
 
+      // Check if we're in preview mode - if so, don't load from Firebase
+      const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
+      if (previewData) {
+        devLog('🔍 Preview mode detected, skipping Firebase state load')
+        setStateLoaded(true)
+        return
+      }
+
       try {
         // Migrate localStorage data first (one-time operation)
         if (!migrationComplete && isAuthenticated) {
@@ -275,6 +283,13 @@ function App() {
   // Save game state to Firebase whenever it changes (debounced)
   useEffect(() => {
     if (!stateLoaded || !isAuthenticated) return
+
+    // Don't save to Firebase in preview mode
+    const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
+    if (previewData) {
+      devLog('🔍 Preview mode active, skipping Firebase save')
+      return
+    }
 
     const saveStateDebounced = setTimeout(async () => {
       try {

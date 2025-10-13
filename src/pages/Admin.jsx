@@ -3907,12 +3907,61 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           </div>
                         </div>
                         {isAdmin && (
-                          <button
-                            onClick={() => deleteQuestion(category.id, originalIndex)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
-                          >
-                            حذف
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                const question = questions[category.id][originalIndex]
+                                const categoryName = categories.find(cat => cat.id === category.id)?.name || category.id
+
+                                console.log('👁️ Preview button clicked for question:', {
+                                  categoryId: category.id,
+                                  categoryName,
+                                  originalIndex,
+                                  questionText: question.text?.substring(0, 50)
+                                })
+
+                                // Store preview data in localStorage
+                                const previewData = {
+                                  previewMode: true,
+                                  question: {
+                                    ...question,
+                                    category: categoryName,
+                                    categoryId: category.id
+                                  },
+                                  gameData: {
+                                    team1: { name: 'الفريق 1', score: 0 },
+                                    team2: { name: 'الفريق 2', score: 0 },
+                                    currentTeam: 'team1',
+                                    currentTurn: 'team1',
+                                    gameName: 'معاينة السؤال',
+                                    selectedCategories: [category.id],
+                                    usedQuestions: [], // Empty array instead of Set for JSON serialization
+                                    usedPointValues: [], // Empty array instead of Set for JSON serialization
+                                    gameStarted: true
+                                  }
+                                }
+
+                                console.log('💾 Storing preview data:', previewData)
+
+                                // Store in localStorage instead of sessionStorage for new window access
+                                localStorage.setItem('questionPreview', JSON.stringify(previewData))
+                                console.log('✅ localStorage set, opening new window')
+
+                                // Open in new window
+                                window.open('/question', '_blank')
+                              }}
+                              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-bold"
+                              title="معاينة السؤال"
+                            >
+                              👁️ معاينة
+                            </button>
+                            <button
+                              onClick={() => deleteQuestion(category.id, originalIndex)}
+                              className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                            >
+                              حذف
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -3942,6 +3991,12 @@ function SettingsManager() {
 
   const [slogan, setSlogan] = useState('')
   const [loading, setLoading] = useState(true)
+
+  const [sponsorLogoFile, setSponsorLogoFile] = useState(null)
+  const [sponsorLogoPreview, setSponsorLogoPreview] = useState(null)
+  const [uploadingSponsorLogo, setUploadingSponsorLogo] = useState(false)
+  const [showSponsorLogo, setShowSponsorLogo] = useState(true)
+
   const { getAppSettings, saveAppSettings } = useAuth()
 
   // Load saved logo and size from Firebase on component mount
@@ -3963,6 +4018,12 @@ function SettingsManager() {
         }
         if (settings?.slogan) {
           setSlogan(settings.slogan)
+        }
+        if (settings?.sponsorLogo) {
+          setSponsorLogoPreview(settings.sponsorLogo)
+        }
+        if (settings?.showSponsorLogo !== undefined) {
+          setShowSponsorLogo(settings.showSponsorLogo)
         }
       } catch (error) {
         prodError('Error loading settings:', error)
@@ -4146,6 +4207,95 @@ function SettingsManager() {
     } catch (error) {
       prodError('Error saving slogan:', error)
       alert('حدث خطأ أثناء حفظ الشعار النصي')
+    }
+  }
+
+  // Sponsor Logo handlers
+  const handleSponsorLogoChange = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+      setSponsorLogoFile(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setSponsorLogoPreview(e.target.result)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleSponsorLogoUpload = async () => {
+    if (!sponsorLogoFile) {
+      alert('الرجاء اختيار صورة أولاً')
+      return
+    }
+
+    setUploadingSponsorLogo(true)
+    try {
+      // Compress image before uploading (preserves transparency for PNG/WebP)
+      const compressed = await S3UploadService.compressImage(sponsorLogoFile, 300, 0.85)
+
+      // Upload to S3 with correct extension
+      const extension = compressed.name.split('.').pop()
+      const fileName = `sponsor_logo_${Date.now()}.${extension}`
+      const s3Url = await S3UploadService.uploadImage(compressed, 'images/settings', fileName)
+
+      // Save URL to app settings
+      const success = await saveAppSettings({ sponsorLogo: s3Url })
+
+      if (success) {
+        setSponsorLogoPreview(s3Url)
+        setSponsorLogoFile(null)
+        alert('تم رفع شعار الراعي بنجاح!')
+      } else {
+        alert('حدث خطأ أثناء حفظ شعار الراعي')
+      }
+    } catch (error) {
+      prodError('Error uploading sponsor logo:', error)
+      alert('حدث خطأ أثناء رفع شعار الراعي: ' + error.message)
+    } finally {
+      setUploadingSponsorLogo(false)
+    }
+  }
+
+  const handleSponsorLogoRemove = async () => {
+    if (!confirm('هل أنت متأكد من حذف شعار الراعي؟')) {
+      return
+    }
+
+    try {
+      // Delete from S3 if it's an S3 URL
+      if (sponsorLogoPreview && sponsorLogoPreview.includes('cloudfront')) {
+        await S3UploadService.deleteFile(sponsorLogoPreview)
+      }
+
+      // Remove from settings
+      const success = await saveAppSettings({ sponsorLogo: null })
+      if (success) {
+        setSponsorLogoPreview(null)
+        setSponsorLogoFile(null)
+        alert('تم حذف شعار الراعي بنجاح!')
+      } else {
+        alert('حدث خطأ أثناء حذف شعار الراعي')
+      }
+    } catch (error) {
+      prodError('Error removing sponsor logo:', error)
+      alert('حدث خطأ أثناء حذف شعار الراعي')
+    }
+  }
+
+  const handleShowSponsorLogoToggle = async () => {
+    try {
+      const newValue = !showSponsorLogo
+      const success = await saveAppSettings({ showSponsorLogo: newValue })
+      if (success) {
+        setShowSponsorLogo(newValue)
+        alert(newValue ? 'سيتم عرض شعار الراعي' : 'سيتم إخفاء شعار الراعي')
+      } else {
+        alert('حدث خطأ أثناء حفظ الإعداد')
+      }
+    } catch (error) {
+      prodError('Error toggling sponsor logo visibility:', error)
+      alert('حدث خطأ أثناء حفظ الإعداد')
     }
   }
 
@@ -4370,6 +4520,79 @@ function SettingsManager() {
               حفظ الشعار النصي
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Sponsor Logo Upload Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md border">
+        <h3 className="text-lg font-bold mb-3 text-red-800">شعار الراعي (يظهر في الفوتر)</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          📐 الأبعاد الموصى بها: 240×160 بكسل للحاسوب، 200×120 بكسل للهواتف الأفقية، 60×40 بكسل للهواتف العمودية
+          <br />
+          <span className="text-xs">سيتم ضغط وتحسين الصورة تلقائياً مع الحفاظ على الشفافية (PNG/WebP)</span>
+        </p>
+
+        <div className="space-y-4">
+          {/* Visibility Toggle */}
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <input
+              type="checkbox"
+              id="showSponsorLogo"
+              checked={showSponsorLogo}
+              onChange={handleShowSponsorLogoToggle}
+              className="w-5 h-5 text-blue-600 rounded cursor-pointer"
+            />
+            <label htmlFor="showSponsorLogo" className="font-bold text-blue-800 cursor-pointer">
+              عرض شعار الراعي في لوحة اللعبة
+            </label>
+          </div>
+
+          {/* File Input */}
+          <div>
+            <label className="block text-sm font-bold mb-2">اختر صورة الشعار</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleSponsorLogoChange}
+              className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2"
+            />
+          </div>
+
+          {/* Preview */}
+          {sponsorLogoPreview && (
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-4 bg-gray-100 rounded-lg">
+                <img
+                  src={sponsorLogoPreview}
+                  alt="Sponsor Logo Preview"
+                  className="max-w-xs max-h-32 object-contain"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSponsorLogoRemove}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+                >
+                  حذف الشعار
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Upload Button */}
+          {sponsorLogoFile && (
+            <button
+              onClick={handleSponsorLogoUpload}
+              disabled={uploadingSponsorLogo}
+              className={`w-full py-3 rounded-lg font-bold text-white ${
+                uploadingSponsorLogo
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {uploadingSponsorLogo ? 'جاري الرفع...' : 'رفع شعار الراعي'}
+            </button>
+          )}
         </div>
       </div>
 

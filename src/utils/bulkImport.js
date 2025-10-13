@@ -143,7 +143,7 @@ const uploadMediaFile = async (file, folder) => {
       return await S3UploadService.uploadMedia(processedFile, folder)
     }
 
-    // Upload audio/video directly
+    // Upload audio/video (compression handled automatically by S3UploadService)
     return await S3UploadService.uploadMedia(file, folder)
   } catch (error) {
     prodError(`Error uploading ${file.name}:`, error)

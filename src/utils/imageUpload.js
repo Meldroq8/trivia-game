@@ -33,7 +33,7 @@ export class ImageUploadService {
     if (file.type.startsWith('audio/')) {
       maxSize = 50 * 1024 * 1024 // 50MB for audio
     } else if (file.type.startsWith('video/')) {
-      maxSize = 100 * 1024 * 1024 // 100MB for video
+      maxSize = 200 * 1024 * 1024 // 200MB for video
     }
 
     if (file.size > maxSize) {
