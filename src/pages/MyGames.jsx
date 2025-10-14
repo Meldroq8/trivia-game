@@ -216,11 +216,15 @@ function MyGames({ gameState, setGameState }) {
         },
         activatedPerks: {
           doublePoints: { active: false, team: null }
-        }
+        },
+        // Track that this is updating an existing game (prevent duplicate creation)
+        gameId: selectedGame.id, // Add the game ID for updating
+        isGameContinuation: true // Flag to indicate this updates the existing game, not create new
       }
 
       console.log('🆕 Fresh game state with SAME assigned questions:', freshGameState)
       console.log('🔒 Assigned questions preserved for payment model:', freshGameState.assignedQuestions)
+      console.log('🆔 Game ID for update (prevents duplicate):', freshGameState.gameId)
       setGameState(freshGameState)
 
       // Navigate to game board to start fresh with same questions

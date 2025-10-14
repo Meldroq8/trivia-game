@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
 function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
@@ -8,11 +8,37 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [localError, setLocalError] = useState('')
-  const { signIn, signUp, loading } = useAuth()
+  const [signUpEnabled, setSignUpEnabled] = useState(true)
+  const { signIn, signUp, loading, getAppSettings } = useAuth()
+
+  // Load sign-up setting when modal opens
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getAppSettings()
+        // Default to true if not set (backwards compatibility)
+        setSignUpEnabled(settings?.signUpEnabled !== false)
+      } catch (error) {
+        prodError('Error loading sign-up settings:', error)
+        // Default to enabled on error
+        setSignUpEnabled(true)
+      }
+    }
+
+    if (isOpen) {
+      loadSettings()
+    }
+  }, [isOpen, getAppSettings])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLocalError('')
+
+    // Check if sign-up is disabled
+    if (mode === 'signup' && !signUpEnabled) {
+      setLocalError('التسجيل مغلق حالياً. يمكن للمستخدمين الحاليين تسجيل الدخول فقط.')
+      return
+    }
 
     if (!email || !password) {
       setLocalError('يرجى إدخال البريد الإلكتروني وكلمة المرور')
@@ -51,11 +77,17 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
     if (error.includes('invalid-email')) {
       return 'البريد الإلكتروني غير صحيح'
     }
+    if (error.includes('invalid-credential')) {
+      return 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+    }
     if (error.includes('user-not-found')) {
       return 'المستخدم غير موجود'
     }
     if (error.includes('wrong-password')) {
       return 'كلمة المرور غير صحيحة'
+    }
+    if (error.includes('too-many-requests')) {
+      return 'تم تجاوز عدد المحاولات المسموح بها. يرجى المحاولة لاحقاً'
     }
     return 'حدث خطأ. يرجى المحاولة مرة أخرى'
   }
@@ -139,17 +171,32 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
             </button>
           </form>
 
+          {/* Sign-up disabled notice */}
+          {!signUpEnabled && mode === 'signin' && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg text-center">
+              <p className="text-sm text-yellow-800 font-medium">
+                🔒 التسجيل مغلق حالياً
+              </p>
+              <p className="text-xs text-yellow-700 mt-1">
+                يمكن للمستخدمين الحاليين تسجيل الدخول فقط
+              </p>
+            </div>
+          )}
+
           <div className="mt-4 md:mt-6 text-center">
-            <button
-              onClick={() => {
-                setMode(mode === 'signup' ? 'signin' : 'signup')
-                setLocalError('')
-              }}
-              disabled={loading}
-              className="text-blue-600 hover:text-blue-800 underline text-sm md:text-base"
-            >
-              {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب جديد'}
-            </button>
+            {/* Only show toggle if sign-up is enabled OR we're on sign-up mode */}
+            {(signUpEnabled || mode === 'signup') && (
+              <button
+                onClick={() => {
+                  setMode(mode === 'signup' ? 'signin' : 'signup')
+                  setLocalError('')
+                }}
+                disabled={loading}
+                className="text-blue-600 hover:text-blue-800 underline text-sm md:text-base"
+              >
+                {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب جديد'}
+              </button>
+            )}
           </div>
 
         </div>
