@@ -2092,28 +2092,46 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         finalAssignments.push({ ...hardPool[i], finalDifficulty: 'hard' })
       }
 
-      // Step 5: Update questions with new difficulties
+      // Step 5: Prepare batch updates
+      devLog('📦 Preparing batch updates for Firebase...')
+      const batchUpdates = []
+
       for (const assignment of finalAssignments) {
         const points = assignment.finalDifficulty === 'easy' ? 200 :
                       assignment.finalDifficulty === 'medium' ? 400 : 600
 
+        // Update local state
         updatedQuestions[categoryId][assignment.index] = {
           ...assignment.question,
           difficulty: assignment.finalDifficulty,
           points: points
         }
 
-        // Update in Firebase
+        // Prepare Firebase update
         if (assignment.question.id) {
-          await FirebaseQuestionsService.updateQuestion(assignment.question.id, {
-            difficulty: assignment.finalDifficulty,
-            points: points
+          batchUpdates.push({
+            questionId: assignment.question.id,
+            updateData: {
+              difficulty: assignment.finalDifficulty,
+              points: points
+            }
           })
         }
       }
 
-      // Update local state
+      // Update local state first for immediate UI feedback
       setQuestions(updatedQuestions)
+
+      // Perform batch update to Firebase
+      devLog(`🔄 Updating ${batchUpdates.length} questions in Firebase...`)
+      const updateResult = await FirebaseQuestionsService.batchUpdateQuestions(
+        batchUpdates,
+        (currentBatch, totalBatches, questionsInBatch) => {
+          devLog(`📊 Progress: Batch ${currentBatch}/${totalBatches} (${questionsInBatch} questions)`)
+        }
+      )
+
+      // Clear cache after updates
       GameDataLoader.clearCache()
 
       const finalCounts = {
@@ -2122,7 +2140,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         hard: finalAssignments.filter(a => a.finalDifficulty === 'hard').length
       }
 
-      alert(`✅ تم توزيع الصعوبات بنجاح باستخدام الذكاء الاصطناعي:\n${finalCounts.easy} سهل، ${finalCounts.medium} متوسط، ${finalCounts.hard} صعب`)
+      devLog(`✅ Update complete: ${updateResult.success}/${updateResult.total} successful`)
+      if (updateResult.errors.length > 0) {
+        devWarn(`⚠️ ${updateResult.errors.length} errors occurred during update`)
+      }
+
+      alert(`✅ تم توزيع الصعوبات بنجاح باستخدام الذكاء الاصطناعي:\n${finalCounts.easy} سهل، ${finalCounts.medium} متوسط، ${finalCounts.hard} صعب\n\nتم تحديث ${updateResult.success} من ${updateResult.total} سؤال في قاعدة البيانات`)
     } catch (error) {
       prodError('Error distributing difficulties:', error)
       alert('حدث خطأ أثناء توزيع الصعوبات: ' + error.message)
@@ -3267,7 +3290,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             <div key={category.id} className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex justify-between items-center mb-4">
                 <div>
-                  <h3 className="text-xl font-bold mb-2">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
                     {category.name} ({difficultyCounts.total} سؤال)
                   </h3>
 
@@ -3997,6 +4020,8 @@ function SettingsManager() {
   const [uploadingSponsorLogo, setUploadingSponsorLogo] = useState(false)
   const [showSponsorLogo, setShowSponsorLogo] = useState(true)
 
+  const [signUpEnabled, setSignUpEnabled] = useState(true)
+
   const { getAppSettings, saveAppSettings } = useAuth()
 
   // Load saved logo and size from Firebase on component mount
@@ -4024,6 +4049,9 @@ function SettingsManager() {
         }
         if (settings?.showSponsorLogo !== undefined) {
           setShowSponsorLogo(settings.showSponsorLogo)
+        }
+        if (settings?.signUpEnabled !== undefined) {
+          setSignUpEnabled(settings.signUpEnabled)
         }
       } catch (error) {
         prodError('Error loading settings:', error)
@@ -4295,6 +4323,24 @@ function SettingsManager() {
       }
     } catch (error) {
       prodError('Error toggling sponsor logo visibility:', error)
+      alert('حدث خطأ أثناء حفظ الإعداد')
+    }
+  }
+
+  const handleSignUpToggle = async () => {
+    try {
+      const newValue = !signUpEnabled
+      const success = await saveAppSettings({ signUpEnabled: newValue })
+      if (success) {
+        setSignUpEnabled(newValue)
+        alert(newValue
+          ? 'تم تفعيل التسجيل - يمكن للمستخدمين الجدد إنشاء حسابات'
+          : 'تم إيقاف التسجيل - يمكن للمستخدمين الحاليين تسجيل الدخول فقط')
+      } else {
+        alert('حدث خطأ أثناء حفظ الإعداد')
+      }
+    } catch (error) {
+      prodError('Error toggling sign-up:', error)
       alert('حدث خطأ أثناء حفظ الإعداد')
     }
   }
@@ -4596,13 +4642,38 @@ function SettingsManager() {
         </div>
       </div>
 
-      {/* Future Settings Placeholder */}
-      <div className="bg-[#f7f2e6] p-6 rounded-xl">
-        <h3 className="text-lg font-bold mb-3 text-red-800">إعدادات أخرى</h3>
-        <p className="text-red-800">سيتم تطوير المزيد من الإعدادات قريباً.</p>
-        <p className="text-red-600 text-sm mt-2">
-          الميزات المخططة: تغيير وقت المؤقت، إعدادات العرض، نسخ احتياطي للبيانات
+      {/* Sign-Up Control Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md border">
+        <h3 className="text-lg font-bold mb-3 text-gray-800">التحكم في التسجيل</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          تحكم في إمكانية إنشاء حسابات جديدة. عند إيقاف التسجيل، يمكن للمستخدمين الحاليين تسجيل الدخول فقط.
         </p>
+
+        <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+          <input
+            type="checkbox"
+            id="signUpEnabled"
+            checked={signUpEnabled}
+            onChange={handleSignUpToggle}
+            className="w-6 h-6 text-blue-600 rounded cursor-pointer focus:ring-2 focus:ring-blue-500"
+          />
+          <label htmlFor="signUpEnabled" className="flex-1 cursor-pointer">
+            <div className="font-bold text-blue-900 text-lg">
+              {signUpEnabled ? '✅ التسجيل مفتوح' : '🔒 التسجيل مغلق'}
+            </div>
+            <div className="text-sm text-blue-700 mt-1">
+              {signUpEnabled
+                ? 'يمكن للمستخدمين الجدد إنشاء حسابات'
+                : 'المستخدمون الحاليون فقط يمكنهم تسجيل الدخول'}
+            </div>
+          </label>
+        </div>
+
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-xs text-yellow-800">
+            <strong>ملاحظة:</strong> إيقاف التسجيل لا يؤثر على المستخدمين الحاليين - يمكنهم تسجيل الدخول في أي وقت.
+          </p>
+        </div>
       </div>
     </div>
   )

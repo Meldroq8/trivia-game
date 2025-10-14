@@ -680,6 +680,96 @@ export class FirebaseQuestionsService {
   }
 
   /**
+   * Batch update multiple questions efficiently
+   * @param {Array} updates - Array of {questionId, updateData} objects
+   * @param {Function} progressCallback - Optional callback for progress updates
+   * @returns {Promise<Object>} Result with success count and errors
+   */
+  static async batchUpdateQuestions(updates, progressCallback = null) {
+    try {
+      devLog(`🔄 Starting batch update of ${updates.length} questions...`)
+
+      const results = {
+        total: updates.length,
+        success: 0,
+        errors: []
+      }
+
+      const BATCH_SIZE = 500 // Firestore batch limit
+      const batches = []
+
+      // Split updates into batches
+      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        batches.push(updates.slice(i, i + BATCH_SIZE))
+      }
+
+      devLog(`📦 Split into ${batches.length} batches`)
+
+      // Process each batch
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const currentBatch = batches[batchIndex]
+        const batch = writeBatch(db)
+        let batchOps = 0
+
+        for (const update of currentBatch) {
+          try {
+            if (!update.questionId) {
+              results.errors.push({
+                questionId: 'unknown',
+                error: 'Missing question ID'
+              })
+              continue
+            }
+
+            const questionRef = doc(db, this.COLLECTIONS.QUESTIONS, update.questionId)
+            batch.update(questionRef, {
+              ...update.updateData,
+              updatedAt: serverTimestamp()
+            })
+            batchOps++
+          } catch (error) {
+            results.errors.push({
+              questionId: update.questionId,
+              error: error.message
+            })
+          }
+        }
+
+        // Commit the batch
+        if (batchOps > 0) {
+          try {
+            await batch.commit()
+            results.success += batchOps
+            devLog(`✅ Batch ${batchIndex + 1}/${batches.length}: ${batchOps} questions updated`)
+
+            if (progressCallback) {
+              progressCallback(batchIndex + 1, batches.length, batchOps)
+            }
+
+            // Add small delay between batches to avoid rate limiting
+            if (batchIndex < batches.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+            }
+          } catch (error) {
+            prodError(`Error committing batch ${batchIndex + 1}:`, error)
+            results.errors.push({
+              batch: batchIndex + 1,
+              error: error.message
+            })
+          }
+        }
+      }
+
+      devLog(`✅ Batch update complete: ${results.success}/${results.total} successful, ${results.errors.length} errors`)
+      return results
+
+    } catch (error) {
+      prodError('Error in batch update:', error)
+      throw error
+    }
+  }
+
+  /**
    * Get question statistics
    * @returns {Promise<Object>} Statistics about questions and categories
    */
