@@ -89,7 +89,7 @@ function Admin() {
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-md text-center">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">غير مصرح لك بالدخول</h1>
-          <p className="text-gray-600 mb-6">يجب أن تكون مديراً للوصول إلى هذه الصفحة</p>
+          <p className="text-gray-900 mb-6">يجب أن تكون مديراً للوصول إلى هذه الصفحة</p>
           <button
             onClick={() => navigate('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
@@ -108,7 +108,7 @@ function Admin() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-800">لوحة التحكم</h1>
-            <p className="text-gray-600 mt-1">مرحباً، {user?.displayName || user?.email}</p>
+            <p className="text-gray-900 mt-1">مرحباً، {user?.displayName || user?.email}</p>
           </div>
           <button
             onClick={() => navigate('/')}
@@ -688,15 +688,15 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               ) : (
                 <div className="text-4xl mb-2">{category.image}</div>
               )}
-              <h3 className="font-bold text-lg">{category.name}</h3>
-              <p className="text-sm text-blue-600 font-bold">
+              <h3 className="font-bold text-lg text-black">{category.name}</h3>
+              <p className="text-sm text-gray-900 font-bold">
                 {(questions[category.id] || []).length} سؤال
               </p>
             </div>
 
             {/* Image URL Input */}
             <div className="mb-4">
-              <label className="block text-sm font-bold mb-2">رابط الصورة (URL)</label>
+              <label className="block text-sm font-bold mb-2 text-black">رابط الصورة (URL)</label>
               <input
                 type="url"
                 value={category.imageUrl || ''}
@@ -720,7 +720,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               />
               {uploadingImages[category.id] && (
                 <div className="mt-2 text-center">
-                  <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-blue-500 bg-blue-100">
+                  <div className="inline-flex items-center px-4 py-2 font-semibold leading-6 text-sm shadow rounded-md text-gray-900 bg-blue-100">
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -729,7 +729,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   </div>
                 </div>
               )}
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-900 mt-1">
                 ☁️ <strong>CloudFront/S3:</strong> اختر ملف من جهازك ليتم رفعه تلقائياً إلى السحابة<br/>
                 🌐 أو أدخل رابط صورة من الإنترنت (JPG, PNG, WebP) - حد أقصى 5MB
               </div>
@@ -737,7 +737,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
 
             {/* Fallback Emoji Editor */}
             <div className="mb-4">
-              <label className="block text-sm font-bold mb-2">إيموجي احتياطي (في حالة عدم تحميل الصورة)</label>
+              <label className="block text-sm font-bold mb-2 text-black">إيموجي احتياطي (في حالة عدم تحميل الصورة)</label>
               <input
                 type="text"
                 value={category.image}
@@ -745,7 +745,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                 className="w-full p-2 border rounded-lg text-center text-2xl"
                 placeholder="اختر إيموجي"
               />
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-900 mt-1">
                 يظهر عند عدم توفر رابط صورة أو عند فشل تحميلها
               </div>
             </div>
@@ -798,7 +798,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   <span className="text-sm">إظهار الصورة مع الإجابة</span>
                 </label>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-gray-900 mt-1">
                 يمكنك التحكم في متى تظهر صور الأسئلة في هذه الفئة
               </div>
             </div>
@@ -838,7 +838,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                 )}
                 <div className="relative z-10">
                   {!category.imageUrl && <div className="text-2xl mb-1">{category.image}</div>}
-                  <div className="font-bold">{category.name}</div>
+                  <div className="font-bold text-black">{category.name}</div>
                 </div>
               </BackgroundImage>
             </div>
@@ -889,7 +889,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Category Name */}
                 <div>
-                  <label className="block text-sm font-bold mb-2">اسم الفئة *</label>
+                  <label className="block text-sm font-bold mb-2 text-black">اسم الفئة *</label>
                   <input
                     type="text"
                     value={newCategory.name}
@@ -901,7 +901,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
 
                 {/* Category Emoji */}
                 <div>
-                  <label className="block text-sm font-bold mb-2">إيموجي الفئة</label>
+                  <label className="block text-sm font-bold mb-2 text-black">إيموجي الفئة</label>
                   <input
                     type="text"
                     value={newCategory.image}
@@ -913,7 +913,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
 
                 {/* Category Image URL */}
                 <div>
-                  <label className="block text-sm font-bold mb-2">رابط الصورة (اختياري)</label>
+                  <label className="block text-sm font-bold mb-2 text-black">رابط الصورة (اختياري)</label>
                   <input
                     type="url"
                     value={newCategory.imageUrl}
@@ -925,7 +925,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
 
                 {/* Image Upload */}
                 <div>
-                  <label className="block text-sm font-bold mb-2">أو ارفع صورة من جهازك</label>
+                  <label className="block text-sm font-bold mb-2 text-black">أو ارفع صورة من جهازك</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -937,7 +937,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                     }}
                     className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-900 mt-1">
                     سيتم رفع الصورة إلى CloudFront/S3 تلقائياً
                   </div>
                 </div>
@@ -946,7 +946,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               {/* Preview */}
               {(newCategory.name || newCategory.image || newCategory.imageUrl) && (
                 <div className="mt-6">
-                  <label className="block text-sm font-bold mb-2">معاينة الفئة</label>
+                  <label className="block text-sm font-bold mb-2 text-black">معاينة الفئة</label>
                   <div className="text-center">
                     <BackgroundImage
                       src={newCategory.imageUrl}
@@ -960,7 +960,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                       )}
                       <div className="relative z-10">
                         {!newCategory.imageUrl && <div className="text-2xl mb-1">{newCategory.image || '🧠'}</div>}
-                        <div className="font-bold">{newCategory.name || 'اسم الفئة'}</div>
+                        <div className="font-bold text-black">{newCategory.name || 'اسم الفئة'}</div>
                       </div>
                     </BackgroundImage>
                   </div>
@@ -1018,7 +1018,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               💣 مسح شامل لجميع البيانات المؤقتة
             </button>
           </div>
-          <p className="text-xs text-gray-600 mt-2">
+          <p className="text-xs text-gray-900 mt-2">
             استخدم "المسح الشامل" إذا كانت البيانات المؤقتة مستمرة رغم المسح العادي
           </p>
         </div>
@@ -2564,7 +2564,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">إدارة الأسئلة</h2>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-900 text-sm">
             المجموع: {Object.values(questions).flat().length} سؤال في {categories.length} فئة
           </p>
         </div>
@@ -2722,7 +2722,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             <h3 className="text-xl font-bold text-yellow-800">➕ إضافة سؤال جديد</h3>
             <button
               onClick={() => setShowSingleAdd(false)}
-              className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              className="text-gray-900 hover:text-gray-700 text-2xl font-bold"
             >
               ✕
             </button>
@@ -3029,7 +3029,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             <div className="flex gap-3">
               <button
                 onClick={() => setShowSingleAdd(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 text-gray-900 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 إلغاء
               </button>
@@ -3047,7 +3047,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       {/* Bulk Add Section */}
       <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">إضافة أسئلة مجمعة</h3>
+          <h3 className="text-xl font-bold text-black">إضافة أسئلة مجمعة</h3>
           <button
             onClick={() => setShowBulkAdd(!showBulkAdd)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
@@ -3129,11 +3129,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
                 {/* Bulk Input */}
                 <div className="mb-4">
-                  <label className="block text-sm font-bold mb-2">الأسئلة (بالتنسيق المطلوب):</label>
+                  <label className="block text-sm font-bold mb-2 text-black">الأسئلة (بالتنسيق المطلوب):</label>
                   <textarea
                     value={bulkQuestions}
                     onChange={(e) => setBulkQuestions(e.target.value)}
-                    className="w-full h-64 p-3 border rounded-lg font-mono text-sm"
+                    className="w-full h-64 p-3 border rounded-lg font-mono text-sm text-black"
                     placeholder="أدخل الأسئلة هنا..."
                     style={{ direction: 'ltr', textAlign: 'left' }}
                   />
@@ -3181,23 +3181,23 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
                 <div className="space-y-4 mb-4">
                   <div>
-                    <label className="block text-sm font-bold mb-2">اسم الفئة:</label>
+                    <label className="block text-sm font-bold mb-2 text-black">اسم الفئة:</label>
                     <input
                       type="text"
                       value={bulkCategoryName}
                       onChange={(e) => setBulkCategoryName(e.target.value)}
-                      className="w-full p-3 border rounded-lg"
+                      className="w-full p-3 border rounded-lg text-black"
                       placeholder="أدخل اسم الفئة (سيتم إنشاؤها إذا لم تكن موجودة)"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold mb-2">ملف Excel:</label>
+                    <label className="block text-sm font-bold mb-2 text-black">ملف Excel:</label>
                     <input
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={(e) => setBulkFile(e.target.files[0])}
-                      className="w-full p-3 border rounded-lg"
+                      className="w-full p-3 border rounded-lg text-black"
                     />
                     {bulkFile && (
                       <p className="text-sm text-green-600 mt-2">
@@ -3221,7 +3221,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                         ></div>
                       </div>
                     )}
-                    <p className="text-sm text-blue-600 mt-1">
+                    <p className="text-sm text-gray-900 mt-1">
                       {bulkProgress.current} / {bulkProgress.total}
                     </p>
                   </div>
@@ -3257,23 +3257,23 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
                 <div className="space-y-4 mb-4">
                   <div>
-                    <label className="block text-sm font-bold mb-2">اسم الفئة:</label>
+                    <label className="block text-sm font-bold mb-2 text-black">اسم الفئة:</label>
                     <input
                       type="text"
                       value={bulkCategoryName}
                       onChange={(e) => setBulkCategoryName(e.target.value)}
-                      className="w-full p-3 border rounded-lg"
+                      className="w-full p-3 border rounded-lg text-black"
                       placeholder="أدخل اسم الفئة (سيتم إنشاؤها إذا لم تكن موجودة)"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold mb-2">ملف ZIP:</label>
+                    <label className="block text-sm font-bold mb-2 text-black">ملف ZIP:</label>
                     <input
                       type="file"
                       accept=".zip"
                       onChange={(e) => setBulkFile(e.target.files[0])}
-                      className="w-full p-3 border rounded-lg"
+                      className="w-full p-3 border rounded-lg text-black"
                     />
                     {bulkFile && (
                       <p className="text-sm text-green-600 mt-2">
@@ -3297,7 +3297,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                         ></div>
                       </div>
                     )}
-                    <p className="text-sm text-blue-600 mt-1">
+                    <p className="text-sm text-gray-900 mt-1">
                       {bulkProgress.current} / {bulkProgress.total}
                     </p>
                   </div>
@@ -3404,7 +3404,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
               {!collapsedCategories.has(category.id) && (
                 filteredQuestions.length === 0 ? (
-                  <p className="text-gray-500">
+                  <p className="text-gray-900">
                     {categoryQuestions.length === 0
                       ? 'لا توجد أسئلة في هذه الفئة'
                       : `لا توجد أسئلة بمستوى الصعوبة المحدد`}
@@ -3447,7 +3447,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Question Audio Display */}
                           {question.audioUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">صوت السؤال:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">صوت السؤال:</label>
                               <LazyMediaPlayer
                                 src={question.audioUrl}
                                 type="audio"
@@ -3459,7 +3459,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Question Video Display */}
                           {question.videoUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">فيديو السؤال:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">فيديو السؤال:</label>
                               <LazyMediaPlayer
                                 src={question.videoUrl}
                                 type="video"
@@ -3471,7 +3471,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Answer Image Display */}
                           {question.answerImageUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">صورة الإجابة:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">صورة الإجابة:</label>
                               <img
                                 src={question.answerImageUrl}
                                 alt="صورة الإجابة"
@@ -3483,7 +3483,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Answer Audio Display */}
                           {question.answerAudioUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">صوت الإجابة:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">صوت الإجابة:</label>
                               <LazyMediaPlayer
                                 src={question.answerAudioUrl}
                                 type="audio"
@@ -3495,7 +3495,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Answer Video Display */}
                           {question.answerVideoUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-600">فيديو الإجابة:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">فيديو الإجابة:</label>
                               <LazyMediaPlayer
                                 src={question.answerVideoUrl}
                                 type="video"
@@ -3506,7 +3506,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
                           {/* Question Image Upload */}
                           <div className="mb-3">
-                            <label className="block text-xs font-bold mb-1 text-gray-600">
+                            <label className="block text-xs font-bold mb-1 text-gray-900">
                               {question.imageUrl ? 'تغيير صورة السؤال:' : 'إضافة صورة للسؤال:'}
                             </label>
                             <input
@@ -3904,7 +3904,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Multiple Choice Options */}
                           {question.options && question.options.length > 1 && (
                             <div className="mb-2">
-                              <p className="text-sm font-bold text-gray-600 mb-1">الخيارات:</p>
+                              <p className="text-sm font-bold text-gray-900 mb-1">الخيارات:</p>
                               <div className="grid grid-cols-2 gap-1 text-sm">
                                 {question.options.map((option, idx) => (
                                   <span
@@ -4395,7 +4395,7 @@ function SettingsManager() {
       {/* Logo Upload Section */}
       <div className="bg-white p-6 rounded-xl shadow-md border">
         <h3 className="text-xl font-bold mb-4 text-gray-800">شعار اللعبة</h3>
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-900 mb-4">
           يمكنك رفع شعار مخصص ليظهر في جميع صفحات اللعبة. يُفضل أن يكون الشعار مربع الشكل ولا يتجاوز 2 ميجابايت.
         </p>
 
@@ -4425,7 +4425,7 @@ function SettingsManager() {
               type="file"
               accept="image/*"
               onChange={handleLogoChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+              className="block w-full text-sm text-gray-900 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
             />
           </div>
 
@@ -4478,7 +4478,7 @@ function SettingsManager() {
       {/* Large Logo Upload Section */}
       <div className="bg-white p-6 rounded-xl shadow-md border">
         <h3 className="text-xl font-bold mb-4 text-gray-800">الشعار الكبير للصفحة الرئيسية</h3>
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-900 mb-4">
           يمكنك رفع شعار كبير ليظهر في الصفحة الرئيسية للعبة. يُفضل أن يكون الشعار مربع الشكل ولا يتجاوز 5 ميجابايت.
         </p>
 
@@ -4576,7 +4576,7 @@ function SettingsManager() {
       {/* Slogan Management Section */}
       <div className="bg-white p-6 rounded-xl shadow-md border">
         <h3 className="text-xl font-bold mb-4 text-gray-800">شعار اللعبة النصي</h3>
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-900 mb-4">
           يمكنك تعديل النص الذي يظهر في الصفحة الرئيسية تحت الشعار الكبير.
         </p>
 
@@ -4599,7 +4599,7 @@ function SettingsManager() {
               className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
               maxLength={200}
             />
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-900 mt-1">
               {slogan.length}/200 حرف
             </p>
             <button
@@ -4615,7 +4615,7 @@ function SettingsManager() {
       {/* Sponsor Logo Upload Section */}
       <div className="bg-white p-6 rounded-xl shadow-md border">
         <h3 className="text-lg font-bold mb-3 text-red-800">شعار الراعي (يظهر في الفوتر)</h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-gray-900 mb-4">
           📐 الأبعاد الموصى بها: 240×160 بكسل للحاسوب، 200×120 بكسل للهواتف الأفقية، 60×40 بكسل للهواتف العمودية
           <br />
           <span className="text-xs">سيتم ضغط وتحسين الصورة تلقائياً مع الحفاظ على الشفافية (PNG/WebP)</span>
@@ -4688,7 +4688,7 @@ function SettingsManager() {
       {/* Sign-Up Control Section */}
       <div className="bg-white p-6 rounded-xl shadow-md border">
         <h3 className="text-lg font-bold mb-3 text-gray-800">التحكم في التسجيل</h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-gray-900 mb-4">
           تحكم في إمكانية إنشاء حسابات جديدة. عند إيقاف التسجيل، يمكن للمستخدمين الحاليين تسجيل الدخول فقط.
         </p>
 
@@ -4783,7 +4783,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">جاري تحميل المستخدمين...</p>
+        <p className="mt-4 text-gray-900">جاري تحميل المستخدمين...</p>
       </div>
     )
   }
@@ -4817,11 +4817,11 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المستخدم</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الإيميل</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الدور الحالي</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">تاريخ التسجيل</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">إجراءات</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider">المستخدم</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider">الإيميل</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider">الدور الحالي</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider">تاريخ التسجيل</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-900 uppercase tracking-wider">إجراءات</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -4835,14 +4835,14 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{user.email}</div>
+                      <div className="text-sm text-gray-900">{user.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${role.color}`}>
                         {role.text}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.createdAt?.toLocaleDateString('ar-EG') || 'غير محدد'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -4860,7 +4860,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
                           </select>
                         )}
                         {user.isAdmin && (
-                          <span className="text-xs text-gray-500 px-2 py-1">لا يمكن التعديل</span>
+                          <span className="text-xs text-gray-900 px-2 py-1">لا يمكن التعديل</span>
                         )}
                       </div>
                     </td>
@@ -4873,7 +4873,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
 
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-500">
+            <p className="text-gray-900">
               {searchTerm ? 'لا توجد نتائج للبحث' : 'لا توجد مستخدمون'}
             </p>
           </div>
@@ -5031,7 +5031,7 @@ function PendingQuestionsManager() {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">جاري تحميل الأسئلة المعلقة...</p>
+        <p className="mt-4 text-gray-900">جاري تحميل الأسئلة المعلقة...</p>
       </div>
     )
   }
@@ -5051,8 +5051,8 @@ function PendingQuestionsManager() {
       {pendingQuestions.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <div className="text-6xl mb-4">📝</div>
-          <h3 className="text-xl font-bold text-gray-600 mb-2">لا توجد أسئلة معلقة</h3>
-          <p className="text-gray-500">عندما يرسل المشرفون أسئلة للمراجعة، ستظهر هنا</p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">لا توجد أسئلة معلقة</h3>
+          <p className="text-gray-900">عندما يرسل المشرفون أسئلة للمراجعة، ستظهر هنا</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -5067,7 +5067,7 @@ function PendingQuestionsManager() {
                   <span className={`px-3 py-1 rounded-lg font-bold ${getDifficultyColor(question.difficulty)}`}>
                     {getDifficultyName(question.difficulty)}
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-900">
                     📅 {question.createdAt?.toDate?.()?.toLocaleDateString('ar-EG') || 'غير متوفر'}
                   </span>
                 </div>
@@ -5328,7 +5328,7 @@ function InviteCodesManager({ user }) {
       ) : (
         <div className="space-y-4">
           {inviteCodes.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">لا توجد رموز دعوة بعد</p>
+            <p className="text-gray-900 text-center py-8">لا توجد رموز دعوة بعد</p>
           ) : (
             inviteCodes.map((invite) => (
               <div
@@ -5352,17 +5352,17 @@ function InviteCodesManager({ user }) {
                       </span>
                     </div>
                     {invite.usedBy && (
-                      <p className="text-sm text-gray-600">المستخدم: {invite.usedBy}</p>
+                      <p className="text-sm text-gray-900">المستخدم: {invite.usedBy}</p>
                     )}
                     {invite.revoked && (
                       <p className="text-sm text-red-600">
                         تم الإلغاء في: {invite.revokedAt?.toDate?.().toLocaleDateString('ar-EG')}
                       </p>
                     )}
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-900">
                       تاريخ الإنشاء: {invite.createdAt?.toDate?.().toLocaleDateString('ar-EG')}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-900">
                       ينتهي في: {invite.expiresAt?.toDate?.().toLocaleDateString('ar-EG')}
                     </p>
                   </div>
