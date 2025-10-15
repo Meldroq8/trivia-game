@@ -293,7 +293,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             image: category.image,
             imageUrl: category.imageUrl,
             showImageInQuestion: category.showImageInQuestion,
-            showImageInAnswer: category.showImageInAnswer
+            showImageInAnswer: category.showImageInAnswer,
+            enableQrMiniGame: category.enableQrMiniGame || false
           }))
           continue
         }
@@ -303,7 +304,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
           image: category.image,
           imageUrl: category.imageUrl,
           showImageInQuestion: category.showImageInQuestion,
-          showImageInAnswer: category.showImageInAnswer
+          showImageInAnswer: category.showImageInAnswer,
+          enableQrMiniGame: category.enableQrMiniGame || false // Default to false
         })
       }
       devLog('✅ Categories saved to Firebase')
@@ -390,6 +392,24 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       } : cat
     )
     saveCategories(updatedCategories)
+  }
+
+  const handleQrMiniGameToggle = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId)
+    const newValue = !category.enableQrMiniGame
+
+    const updatedCategories = categories.map(cat =>
+      cat.id === categoryId ? {
+        ...cat,
+        enableQrMiniGame: newValue
+      } : cat
+    )
+    saveCategories(updatedCategories)
+
+    alert(newValue
+      ? 'تم تفعيل وضع اللعبة المصغرة بالكود لهذه الفئة'
+      : 'تم إلغاء وضع اللعبة المصغرة بالكود لهذه الفئة'
+    )
   }
 
   const exportCategoryQuestions = (categoryId) => {
@@ -781,6 +801,27 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               <div className="text-xs text-gray-500 mt-1">
                 يمكنك التحكم في متى تظهر صور الأسئلة في هذه الفئة
               </div>
+            </div>
+
+            {/* QR Mini-Game Toggle */}
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <label className="flex items-start cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={category.enableQrMiniGame === true}
+                  onChange={() => handleQrMiniGameToggle(category.id)}
+                  className="mr-3 mt-1 w-5 h-5 text-blue-600 rounded cursor-pointer"
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-blue-900 flex items-center gap-2">
+                    <span>🎮</span>
+                    <span>تفعيل اللعبة المصغرة بالكود</span>
+                  </div>
+                  <div className="text-xs text-blue-700 mt-1">
+                    عند التفعيل، سيظهر كود QR بدلاً من الإجابة المباشرة. شخص واحد يمسح الكود ويرى الإجابة، ثم يشرحها للفريق بطريقة إبداعية (تمثيل، رسم، شرح)
+                  </div>
+                </div>
+              </label>
             </div>
 
             {/* Preview */}
@@ -1299,7 +1340,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             image: category.image,
             imageUrl: category.imageUrl,
             showImageInQuestion: category.showImageInQuestion,
-            showImageInAnswer: category.showImageInAnswer
+            showImageInAnswer: category.showImageInAnswer,
+            enableQrMiniGame: category.enableQrMiniGame || false
           }))
           continue
         }
@@ -1309,7 +1351,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
           image: category.image,
           imageUrl: category.imageUrl,
           showImageInQuestion: category.showImageInQuestion,
-          showImageInAnswer: category.showImageInAnswer
+          showImageInAnswer: category.showImageInAnswer,
+          enableQrMiniGame: category.enableQrMiniGame || false // Default to false
         })
       }
       devLog('✅ Categories saved to Firebase')

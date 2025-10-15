@@ -11,6 +11,7 @@ import CategorySelection from './pages/CategorySelection'
 import GameBoard from './pages/GameBoard'
 import QuestionView from './pages/QuestionView'
 import Results from './pages/Results'
+import AnswerViewPage from './pages/AnswerViewPage'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -359,6 +360,10 @@ function App() {
             <Route
               path="/results"
               element={<Results gameState={gameState} setGameState={setGameState} />}
+            />
+            <Route
+              path="/answer-view/:questionId"
+              element={<AnswerViewPage />}
             />
             <Route
               path="/statistics"
