@@ -19,6 +19,7 @@
     "jszip": "^3.10.1",
     "node-fetch": "^3.3.2",
     "puppeteer": "^24.23.0",
+    "qrcode.react": "^4.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",

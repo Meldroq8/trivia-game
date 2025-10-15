@@ -10,6 +10,7 @@ import PerkModal from '../components/PerkModal'
 import gamePreloader from '../utils/preloader'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
+import QRCodeWithLogo from '../components/QRCodeWithLogo'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import SmartImage from '../components/SmartImage'
 
@@ -17,24 +18,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Debug: Log current question with video URLs
-  useEffect(() => {
-    if (gameState?.currentQuestion) {
-      devLog('🎬 Current question data:', {
-        text: gameState.currentQuestion.text?.substring(0, 50) + '...',
-        hasVideoUrl: !!gameState.currentQuestion.videoUrl,
-        hasAnswerVideoUrl: !!gameState.currentQuestion.answerVideoUrl,
-        videoUrl: gameState.currentQuestion.videoUrl,
-        answerVideoUrl: gameState.currentQuestion.answerVideoUrl,
-        allKeys: Object.keys(gameState.currentQuestion)
-      })
-
-      // Check if this is a question that has video but is missing video URLs
-      if (!gameState.currentQuestion.videoUrl && !gameState.currentQuestion.answerVideoUrl) {
-        devLog('⚠️ Question has no video URLs - cache might need clearing!')
-      }
-    }
-  }, [gameState?.currentQuestion])
 
   // Responsive scaling system - viewport-aware scaling to prevent scrolling
   const getResponsiveStyles = () => {
@@ -365,6 +348,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [preloadedImages, setPreloadedImages] = useState(new Set())
   const [imageLoading, setImageLoading] = useState(false)
 
+  // QR Mini-Game timer state
+  const [qrTimerStarted, setQrTimerStarted] = useState(false)
+  const [qrTimeRemaining, setQrTimeRemaining] = useState(60)
+  const [qrTimerPaused, setQrTimerPaused] = useState(false)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -382,10 +369,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    devLog('🔧 QuestionView: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      devLog('✅ QuestionView: Set questionUsageTracker user ID to:', user.uid)
     }
   }, [user])
 
@@ -395,7 +380,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Check if we should stay on this page
     if (shouldStayOnCurrentPage(gameState, location.pathname)) {
-      devLog('🛡️ QuestionView: Staying on current page - no redirects allowed')
       return
     }
 
@@ -404,7 +388,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Give time for Firebase to load, then check again
       const timeout = setTimeout(() => {
         if (!gameState.selectedCategories.length && !hasGameStarted(gameState) && !shouldStayOnCurrentPage(gameState, location.pathname)) {
-          devLog('🔄 QuestionView: Fresh start - redirecting to categories')
           navigate('/categories')
         }
       }, 2000) // Extended timeout for Firebase
@@ -540,18 +523,19 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     }
   }, [previewMode, previewGameData, previewQuestion])
 
-  // Load game data for category settings
+  // Load game data for category settings (force refresh to get latest QR settings)
   useEffect(() => {
     const loadGameData = async () => {
       try {
-        const data = await GameDataLoader.loadGameData()
+        const data = await GameDataLoader.loadGameData(true) // Force refresh to get latest category settings
         setGameData(data)
+        devLog('✅ QuestionView: Loaded fresh game data with', data?.categories?.length, 'categories')
       } catch (error) {
         prodError('Error loading game data in QuestionView:', error)
       }
     }
     loadGameData()
-  }, [])
+  }, [currentQuestion?.id]) // Reload when question changes to get fresh settings
 
   const getCategoryById = (categoryId) => {
     if (gameData && gameData.categories) {
@@ -690,6 +674,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     setShowScoring(false)
     setTimerActive(true)
     setImageZoomed(false)
+    // Reset QR mini-game timer
+    setQrTimerStarted(false)
+    setQrTimeRemaining(60)
+    setQrTimerPaused(false)
 
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -749,6 +737,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     return () => clearInterval(timer)
   }, [activeTimer.active, activeTimer.timeLeft, activeTimer.paused])
+
+  // Handle QR mini-game countdown timer
+  useEffect(() => {
+    if (!qrTimerStarted || qrTimeRemaining <= 0 || qrTimerPaused) return
+
+    const timer = setInterval(() => {
+      setQrTimeRemaining(prev => {
+        if (prev <= 1) {
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [qrTimerStarted, qrTimeRemaining, qrTimerPaused])
 
   // Close burger menu when clicking outside
   useEffect(() => {
@@ -1576,6 +1580,143 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       />
                     </div>
                   )}
+
+                  {/* QR Code for Mini-Game (shown under question) */}
+                  {(() => {
+                    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                    const category = gameData?.categories?.find(c => c.id === categoryId)
+                    const isQrMiniGame = category?.enableQrMiniGame === true
+                    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+
+                    if (!isQrMiniGame || !questionId) return null
+
+                    return (
+                      <div
+                        className="relative w-full h-full flex items-center justify-center mx-auto cursor-pointer"
+                        style={{
+                          display: 'block',
+                          height: styles.imageAreaHeight + 'px',
+                          maxHeight: styles.imageAreaHeight + 'px',
+                          width: '90%',
+                          maxWidth: '90%'
+                        }}
+                      >
+                        <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 lg:scale-150">
+                          {/* QR Code */}
+                          <div
+                            className="bg-white rounded-lg shadow-xl flex-shrink-0 portrait:scale-90"
+                            style={{
+                              padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
+                            }}
+                          >
+                            <QRCodeWithLogo
+                              questionId={questionId}
+                              size={Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)}
+                            />
+                          </div>
+
+                          {/* Instructions */}
+                          <div className="flex flex-col portrait:gap-1.5 landscape:gap-2.5 portrait:scale-90">
+                            {/* Instruction 1 */}
+                            <div
+                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
+                              style={{
+                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
+                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
+                              }}
+                            >
+                              <div
+                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{
+                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
+                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
+                                }}
+                              >
+                                <span
+                                  className="text-red-600 font-bold"
+                                  style={{
+                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                  }}
+                                >1</span>
+                              </div>
+                              <p
+                                className="text-white font-semibold leading-tight"
+                                style={{
+                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
+                                }}
+                              >
+                                اختر شخص لتمثيل فريقك
+                              </p>
+                            </div>
+
+                            {/* Instruction 2 */}
+                            <div
+                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
+                              style={{
+                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
+                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
+                              }}
+                            >
+                              <div
+                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{
+                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
+                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
+                                }}
+                              >
+                                <span
+                                  className="text-red-600 font-bold"
+                                  style={{
+                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                  }}
+                                >2</span>
+                              </div>
+                              <p
+                                className="text-white font-semibold leading-tight"
+                                style={{
+                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
+                                }}
+                              >
+                                شخص واحد مسموح له يصور الباركود
+                              </p>
+                            </div>
+
+                            {/* Instruction 3 */}
+                            <div
+                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
+                              style={{
+                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
+                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
+                              }}
+                            >
+                              <div
+                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{
+                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
+                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
+                                }}
+                              >
+                                <span
+                                  className="text-red-600 font-bold"
+                                  style={{
+                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                  }}
+                                >3</span>
+                              </div>
+                              <p
+                                className="text-white font-semibold leading-tight"
+                                style={{
+                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
+                                }}
+                              >
+                                اذا كنت مستعد اضغط جاهز
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
                 )}
               </div>
@@ -1597,54 +1738,142 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
 
                 {/* Timer Controls */}
-                <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
-                     style={{
-                       padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                       maxWidth: `${styles.timerSize}px`
-                     }}>
-                  <button type="button" className="flex items-center justify-center p-1" onClick={handleResetTimer}>
-                    <svg
-                      viewBox="0 0 44 44"
-                      style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                      className="active:scale-110 duration-100"
-                    >
-                      <path
-                        d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
-                        fill="#fff"
-                      />
-                      <path
-                        d="M18 2H26V6H18V2Z"
-                        fill="#fff"
-                      />
-                    </svg>
-                  </button>
+                {(() => {
+                  const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                  const category = gameData?.categories?.find(c => c.id === categoryId)
+                  const isQrMiniGame = category?.enableQrMiniGame === true
 
-                  <span className="inline-flex items-center text-white justify-center font-cairo"
-                        style={{ fontSize: `${styles.timerFontSize}px` }}>
-                    {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
-                  </span>
+                  if (isQrMiniGame) {
+                    // QR Mini-Game Timer - Show Ready button or countdown with controls
+                    if (!qrTimerStarted) {
+                      return (
+                        <button
+                          type="button"
+                          className="px-6 py-2 bg-green-600 text-white rounded-full font-bold text-lg hover:bg-green-700 active:scale-95 transition-all"
+                          onClick={() => setQrTimerStarted(true)}
+                        >
+                          جاهز
+                        </button>
+                      )
+                    } else {
+                      return (
+                        <div
+                          className={`grid grid-flow-col justify-between gap-3 ${qrTimeRemaining === 0 ? 'bg-red-600' : 'bg-[#2A2634]'} rounded-full btn-wrapper mx-auto flex items-center`}
+                          style={{
+                            padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
+                            maxWidth: `${styles.timerSize}px`
+                          }}>
+                          <button
+                            type="button"
+                            className="flex items-center justify-center p-1"
+                            onClick={() => {
+                              setQrTimerStarted(false)
+                              setQrTimeRemaining(60)
+                              setQrTimerPaused(false)
+                            }}
+                          >
+                            <svg
+                              viewBox="0 0 44 44"
+                              style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                              className="active:scale-110 duration-100"
+                            >
+                              <path
+                                d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
+                                fill="#fff"
+                              />
+                              <path
+                                d="M18 2H26V6H18V2Z"
+                                fill="#fff"
+                              />
+                            </svg>
+                          </button>
 
-                  <button type="button" className="flex items-center justify-center p-1" onClick={() => setTimerActive(!timerActive)}>
-                    {timerActive ? (
-                      <svg
-                        viewBox="0 0 24 24"
-                        style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                        className="active:scale-110 duration-100"
-                      >
-                        <path d="M6 4H10V20H6V4Z" fill="#fff"/>
-                        <path d="M14 4H18V20H14V4Z" fill="#fff"/>
-                      </svg>
-                    ) : (
-                      <svg
-                        viewBox="0 0 24 24"
-                        style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                        className="active:scale-110 duration-100"
-                      >
-                        <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
-                      </svg>
-                    )}
-                  </button>
-                </div>
+                          <span className="inline-flex items-center text-white justify-center font-cairo"
+                                style={{ fontSize: `${styles.timerFontSize}px` }}>
+                            {String(Math.floor(qrTimeRemaining / 60)).padStart(2, '0')}:{String(qrTimeRemaining % 60).padStart(2, '0')}
+                          </span>
+
+                          <button
+                            type="button"
+                            className="flex items-center justify-center p-1"
+                            onClick={() => setQrTimerPaused(!qrTimerPaused)}
+                          >
+                            {!qrTimerPaused ? (
+                              <svg
+                                viewBox="0 0 24 24"
+                                style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                                className="active:scale-110 duration-100"
+                              >
+                                <path d="M6 4H10V20H6V4Z" fill="#fff"/>
+                                <path d="M14 4H18V20H14V4Z" fill="#fff"/>
+                              </svg>
+                            ) : (
+                              <svg
+                                viewBox="0 0 24 24"
+                                style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                                className="active:scale-110 duration-100"
+                              >
+                                <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      )
+                    }
+                  }
+
+                  // Normal Timer Controls
+                  return (
+                    <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
+                         style={{
+                           padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
+                           maxWidth: `${styles.timerSize}px`
+                         }}>
+                      <button type="button" className="flex items-center justify-center p-1" onClick={handleResetTimer}>
+                        <svg
+                          viewBox="0 0 44 44"
+                          style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                          className="active:scale-110 duration-100"
+                        >
+                          <path
+                            d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
+                            fill="#fff"
+                          />
+                          <path
+                            d="M18 2H26V6H18V2Z"
+                            fill="#fff"
+                          />
+                        </svg>
+                      </button>
+
+                      <span className="inline-flex items-center text-white justify-center font-cairo"
+                            style={{ fontSize: `${styles.timerFontSize}px` }}>
+                        {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
+                      </span>
+
+                      <button type="button" className="flex items-center justify-center p-1" onClick={() => setTimerActive(!timerActive)}>
+                        {timerActive ? (
+                          <svg
+                            viewBox="0 0 24 24"
+                            style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                            className="active:scale-110 duration-100"
+                          >
+                            <path d="M6 4H10V20H6V4Z" fill="#fff"/>
+                            <path d="M14 4H18V20H14V4Z" fill="#fff"/>
+                          </svg>
+                        ) : (
+                          <svg
+                            viewBox="0 0 24 24"
+                            style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                            className="active:scale-110 duration-100"
+                          >
+                            <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )
+                })()}
 
                 <div className="w-11 text-center"></div>
               </div>

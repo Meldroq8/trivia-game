@@ -106,7 +106,8 @@ export class GameDataLoader {
       image: cat.image || '📝',
       imageUrl: cat.imageUrl || '',
       showImageInQuestion: cat.showImageInQuestion !== false, // Default to true
-      showImageInAnswer: cat.showImageInAnswer !== false      // Default to true
+      showImageInAnswer: cat.showImageInAnswer !== false,     // Default to true
+      enableQrMiniGame: cat.enableQrMiniGame || false         // QR mini-game setting
     }))
 
     // Add Mystery Category at the end
@@ -136,6 +137,7 @@ export class GameDataLoader {
       imageUrl: (mysteryCategoryCustomizations.imageUrl && mysteryCategoryCustomizations.imageUrl.trim()) || '/images/categories/category_mystery_1758939021986.webp',
       showImageInQuestion: mysteryCategoryCustomizations.showImageInQuestion !== false,
       showImageInAnswer: mysteryCategoryCustomizations.showImageInAnswer !== false,
+      enableQrMiniGame: mysteryCategoryCustomizations.enableQrMiniGame || false,
       isMystery: true // Special flag to identify this as the mystery category
     }
 
@@ -168,7 +170,8 @@ export class GameDataLoader {
         image: '📝',
         imageUrl: '',
         showImageInQuestion: true, // Default to true
-        showImageInAnswer: true    // Default to true
+        showImageInAnswer: true,   // Default to true
+        enableQrMiniGame: false    // Default to false
       })
     }
 
