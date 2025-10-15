@@ -1473,24 +1473,24 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 <div className="absolute bottom-16 right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28">
                     {/* Circular Progress SVG */}
-                    <svg className="transform -rotate-90 w-full h-full drop-shadow-lg">
+                    <svg className="transform -rotate-90 w-full h-full drop-shadow-lg" viewBox="0 0 100 100">
                       {/* Background circle */}
                       <circle
-                        cx="50%"
-                        cy="50%"
-                        r="40%"
+                        cx="50"
+                        cy="50"
+                        r="40"
                         stroke="#e5e7eb"
-                        strokeWidth="8%"
+                        strokeWidth="8"
                         fill="white"
                         fillOpacity="0.9"
                       />
                       {/* Progress circle */}
                       <circle
-                        cx="50%"
-                        cy="50%"
-                        r="40%"
+                        cx="50"
+                        cy="50"
+                        r="40"
                         stroke="#dc2626"
-                        strokeWidth="8%"
+                        strokeWidth="8"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 40}`}
                         strokeDashoffset={`${2 * Math.PI * 40 * (1 - activeTimer.timeLeft / (activeTimer.type === 'phone' ? 30 : 15))}`}
