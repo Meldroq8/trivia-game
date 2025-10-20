@@ -539,9 +539,22 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     const category = categories.find(cat => cat.id === categoryId)
     const questionCount = (questions[categoryId] || []).length
 
-    const confirmMessage = questionCount > 0
+    // Check if this category is used as a source in any merged categories
+    const mergedCategoriesUsingThis = categories.filter(cat =>
+      cat.isMergedCategory &&
+      cat.sourceCategoryIds &&
+      cat.sourceCategoryIds.includes(categoryId)
+    )
+
+    let confirmMessage = questionCount > 0
       ? `هل أنت متأكد من حذف فئة "${category?.name}" مع جميع أسئلتها (${questionCount} سؤال)؟\n\nلا يمكن التراجع عن هذا الإجراء!`
       : `هل أنت متأكد من حذف فئة "${category?.name}"؟`
+
+    // Add warning if category is used in merged categories
+    if (mergedCategoriesUsingThis.length > 0) {
+      const mergedNames = mergedCategoriesUsingThis.map(c => c.name).join('، ')
+      confirmMessage += `\n\n⚠️ تحذير: هذه الفئة مستخدمة في الفئات المدمجة التالية:\n${mergedNames}\n\nحذف هذه الفئة سيؤثر على الفئات المدمجة!`
+    }
 
     if (window.confirm(confirmMessage)) {
       try {
@@ -696,41 +709,28 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     }
 
     try {
-      // Create new merged category
+      // Create new merged category with dynamic references
       const mergedCategoryData = {
         name: mergedCategoryName,
         image: mergedCategoryImage || '🔀',
         imageUrl: mergedCategoryImageUrl || '',
         showImageInQuestion: true,
-        showImageInAnswer: true
+        showImageInAnswer: true,
+        isMergedCategory: true,
+        sourceCategoryIds: selectedCategoriesToMerge // Save references instead of copying
       }
 
-      // Add to Firebase and get the new category ID
+      devLog('🔀 Creating merged category with references:', mergedCategoryData)
+
+      // Add to Firebase with references
       const newCategoryId = await FirebaseQuestionsService.createCategory(mergedCategoryData)
 
-      // Collect all questions from selected categories
-      const allQuestions = []
-      for (const categoryId of selectedCategoriesToMerge) {
-        const categoryQuestions = questions[categoryId] || []
-        allQuestions.push(...categoryQuestions)
-      }
+      // Count total questions from source categories for user feedback
+      const totalQuestions = selectedCategoriesToMerge.reduce((total, catId) =>
+        total + (questions[catId] || []).length, 0
+      )
 
-      // Add all questions to the new merged category
-      for (const question of allQuestions) {
-        // Create a copy of the question for the new category
-        await FirebaseQuestionsService.addSingleQuestion(newCategoryId, {
-          text: question.text || question.question?.text,
-          answer: question.answer || question.question?.answer,
-          difficulty: question.difficulty || question.question?.difficulty || 'medium',
-          points: question.points || 200,
-          imageUrl: question.imageUrl || question.question?.imageUrl || '',
-          audioUrl: question.audioUrl || question.question?.audioUrl || '',
-          videoUrl: question.videoUrl || question.question?.videoUrl || '',
-          answerImageUrl: question.answerImageUrl || question.question?.answerImageUrl || '',
-          answerAudioUrl: question.answerAudioUrl || question.question?.answerAudioUrl || '',
-          answerVideoUrl: question.answerVideoUrl || question.question?.answerVideoUrl || ''
-        })
-      }
+      devLog(`✅ Merged category created with ${selectedCategoriesToMerge.length} source categories (${totalQuestions} total questions)`)
 
       // Clear cache and reload data
       GameDataLoader.clearCache()
@@ -743,7 +743,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       setSelectedCategoriesToMerge([])
       setShowCategoryMerge(false)
 
-      alert(`تم دمج الفئات بنجاح!\nتم إضافة ${allQuestions.length} سؤال إلى الفئة الجديدة "${mergedCategoryName}"`)
+      alert(`تم دمج الفئات بنجاح!\nالفئة الجديدة "${mergedCategoryName}" تحتوي على ${totalQuestions} سؤال من ${selectedCategoriesToMerge.length} فئة\n\n✨ أي تغييرات في الفئات الأصلية ستظهر تلقائياً في هذه الفئة!`)
     } catch (error) {
       prodError('Error merging categories:', error)
       alert('حدث خطأ في دمج الفئات: ' + error.message)
@@ -856,6 +856,25 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                   </button>
+                </div>
+              )}
+
+              {/* Merged Category Indicator */}
+              {category.isMergedCategory && category.sourceCategoryIds && (
+                <div className="mt-2 mb-2 p-2 bg-blue-50 rounded-lg border border-blue-300">
+                  <div className="text-xs font-bold text-blue-900 mb-1 flex items-center gap-1">
+                    <span>🔀</span>
+                    <span>فئة مدمجة</span>
+                  </div>
+                  <div className="text-xs text-blue-700">
+                    مصادر: {category.sourceCategoryIds.map(sourceId => {
+                      const sourceCategory = categories.find(c => c.id === sourceId)
+                      return sourceCategory?.name || sourceId
+                    }).join(' + ')}
+                  </div>
+                  <div className="text-xs text-blue-600 mt-1 font-semibold">
+                    ✨ يتم تحديث الأسئلة تلقائياً من المصادر
+                  </div>
                 </div>
               )}
 
@@ -1190,8 +1209,11 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               {/* Category Selection */}
               <div className="mb-6">
                 <label className="block text-sm font-bold mb-3 text-black">اختر الفئات للدمج *</label>
+                <div className="text-xs text-blue-700 mb-2">
+                  💡 يمكنك اختيار فئتين أو أكثر. لا يمكن دمج الفئات المدمجة (لتجنب التداخل).
+                </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2 border-2 border-blue-200 rounded-lg">
-                  {categories.filter(cat => cat.id !== 'mystery').map((category) => (
+                  {categories.filter(cat => cat.id !== 'mystery' && !cat.isMergedCategory).map((category) => (
                     <label
                       key={category.id}
                       className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${

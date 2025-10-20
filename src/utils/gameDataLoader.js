@@ -107,7 +107,9 @@ export class GameDataLoader {
       imageUrl: cat.imageUrl || '',
       showImageInQuestion: cat.showImageInQuestion !== false, // Default to true
       showImageInAnswer: cat.showImageInAnswer !== false,     // Default to true
-      enableQrMiniGame: cat.enableQrMiniGame || false         // QR mini-game setting
+      enableQrMiniGame: cat.enableQrMiniGame || false,        // QR mini-game setting
+      isMergedCategory: cat.isMergedCategory || false,        // Merged category flag
+      sourceCategoryIds: cat.sourceCategoryIds || []          // Source category references
     }))
 
     // Add Mystery Category at the end
@@ -174,6 +176,40 @@ export class GameDataLoader {
         enableQrMiniGame: false    // Default to false
       })
     }
+
+    // Handle merged categories - dynamically pull questions from source categories
+    devLog('🔀 Processing merged categories...')
+    transformedCategories.forEach(category => {
+      if (category.isMergedCategory && category.sourceCategoryIds && category.sourceCategoryIds.length > 0) {
+        devLog(`🔀 Found merged category: ${category.name} with sources:`, category.sourceCategoryIds)
+
+        // Collect questions from all source categories
+        const mergedQuestions = []
+        const validSources = []
+        const missingSources = []
+
+        category.sourceCategoryIds.forEach(sourceId => {
+          if (questionsByCategory[sourceId]) {
+            const sourceQuestions = questionsByCategory[sourceId]
+            mergedQuestions.push(...sourceQuestions)
+            validSources.push(sourceId)
+            devLog(`  ✓ Pulled ${sourceQuestions.length} questions from ${sourceId}`)
+          } else {
+            missingSources.push(sourceId)
+            devWarn(`  ⚠️ Source category ${sourceId} has no questions or doesn't exist`)
+          }
+        })
+
+        // Store the dynamically merged questions
+        questionsByCategory[category.id] = mergedQuestions
+
+        devLog(`🔀 Merged category ${category.name} now has ${mergedQuestions.length} questions from ${validSources.length} sources`)
+
+        if (missingSources.length > 0) {
+          devWarn(`⚠️ Missing source categories for ${category.name}:`, missingSources)
+        }
+      }
+    })
 
     return {
       categories: transformedCategories,
