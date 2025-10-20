@@ -27,6 +27,9 @@ async function simpleSyncFirebaseImages() {
       }
     });
 
+    // Track total processed images across all categories
+    let processedCount = 0;
+
     // Process category images
     console.log('📥 Downloading category images...');
 
@@ -36,8 +39,6 @@ async function simpleSyncFirebaseImages() {
       });
 
       console.log(`📊 Found ${categoryFiles.length} files in categories/ folder`);
-
-      let processedCount = 0;
 
       for (const file of categoryFiles) {
         console.log(`🔍 Checking file: ${file.name}`);
