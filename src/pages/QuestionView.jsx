@@ -194,7 +194,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const questionFontSize = baseFontSize * 1.1 * globalScaleFactor
       // Responsive media sizing based on screen size and available space
       let imageAreaHeight
-      if (actualVH <= 344) {
+      if (isPC) {
+        imageAreaHeight = Math.max(400, finalQuestionAreaHeight * 0.8) // PC: 80% instead of 60%
+      } else if (actualVH <= 344) {
         imageAreaHeight = Math.max(120, finalQuestionAreaHeight * 0.4) // Smaller for tiny screens
       } else if (actualVH <= 390) {
         imageAreaHeight = Math.max(140, finalQuestionAreaHeight * 0.45) // iPhone SE and similar
@@ -554,6 +556,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     return category ? category.showImageInAnswer !== false : true
   }
 
+  // Helper function to get QR timer duration based on points
+  const getQrTimerDuration = (points) => {
+    // Points-based timing: 200pts=90s, 400pts=60s, 600pts=45s
+    if (points === 200) {
+      return 90  // Easy
+    } else if (points === 400) {
+      return 60  // Medium
+    } else if (points === 600) {
+      return 45  // Hard
+    } else {
+      return 60  // Default to medium
+    }
+  }
+
   // Helper function to get cached image URL from preloader
   const getCachedImageUrl = (originalUrl) => {
     if (!originalUrl) return null
@@ -676,7 +692,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     setImageZoomed(false)
     // Reset QR mini-game timer
     setQrTimerStarted(false)
-    setQrTimeRemaining(60)
+    setQrTimeRemaining(getQrTimerDuration(currentQuestion?.points))
     setQrTimerPaused(false)
 
     const updateDimensions = () => {
@@ -1522,15 +1538,227 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper">
 
                 {/* Question Content - Only show when not in answer mode */}
-                {!showAnswer && (
-                  <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
-                  <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black"
-                         style={{
-                           direction: 'rtl',
-                           fontSize: `${styles.questionFontSize}px`
-                         }}>
-                    {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
-                  </label>
+                {!showAnswer && (() => {
+                  const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                  const category = gameData?.categories?.find(c => c.id === categoryId)
+                  const isQrMiniGame = category?.enableQrMiniGame === true
+
+                  // Show circular timer if QR mini-game and timer has started
+                  if (isQrMiniGame && qrTimerStarted) {
+                    const maxTime = getQrTimerDuration(currentQuestion?.points)
+                    const progress = (qrTimeRemaining / maxTime) * 100
+
+                    // Responsive sizing based on screen size and available width
+                    const availableWidth = styles.questionAreaWidth || 300
+                    const maxTimerWidth = Math.min(availableWidth * 0.85, 400) // 85% of available width, max 400px
+
+                    let timerSize
+                    if (styles.isPC) {
+                      timerSize = Math.min(350, styles.imageAreaHeight * 0.7)  // PC: 70% of image area, max 350px
+                    } else if (styles.isUltraNarrow || styles.actualVH <= 344) {
+                      // Very narrow phones (Z Fold folded, iPhone SE)
+                      timerSize = Math.min(Math.max(160, styles.imageAreaHeight * 0.5), maxTimerWidth, 220)
+                    } else if (styles.actualVH <= 390) {
+                      // iPhone SE and similar
+                      timerSize = Math.min(Math.max(180, styles.imageAreaHeight * 0.55), maxTimerWidth, 240)
+                    } else {
+                      // Standard phones and tablets
+                      timerSize = Math.min(Math.max(200, styles.imageAreaHeight * 0.6), maxTimerWidth, 280)
+                    }
+
+                    const radius = timerSize * 0.42 // 42% of timer size
+                    const strokeWidth = timerSize * 0.07 // 7% of timer size
+                    const center = timerSize / 2
+
+                    const circumference = 2 * Math.PI * radius
+                    const strokeDashoffset = circumference - (progress / 100) * circumference
+
+                    // Responsive font sizes
+                    let timerNumberSize, labelSize
+                    if (styles.isPC) {
+                      timerNumberSize = Math.max(60, timerSize * 0.25)  // PC: 25% of timer size, min 60px
+                      labelSize = Math.max(24, timerSize * 0.1)   // PC: 10% of timer size, min 24px
+                    } else if (styles.isUltraNarrow || styles.actualVH <= 344) {
+                      // Very narrow/small screens
+                      timerNumberSize = Math.max(32, timerSize * 0.2)  // 20% of timer size, min 32px
+                      labelSize = Math.max(12, timerSize * 0.075)      // 7.5% of timer size, min 12px
+                    } else if (styles.actualVH <= 390) {
+                      // iPhone SE and similar
+                      timerNumberSize = Math.max(36, timerSize * 0.21)  // 21% of timer size, min 36px
+                      labelSize = Math.max(14, timerSize * 0.08)        // 8% of timer size, min 14px
+                    } else {
+                      // Standard phones
+                      timerNumberSize = Math.max(40, timerSize * 0.22)  // 22% of timer size, min 40px
+                      labelSize = Math.max(16, timerSize * 0.08)        // 8% of timer size, min 16px
+                    }
+
+                    const buttonPadding = styles.isPC
+                      ? '12px 32px'
+                      : (styles.isUltraNarrow || styles.actualVH <= 344)
+                        ? '6px 16px'  // Smaller padding for narrow phones
+                        : '8px 24px'
+                    const buttonFontSize = styles.isPC
+                      ? Math.max(18, styles.buttonFontSize * 1.1)
+                      : (styles.isUltraNarrow || styles.actualVH <= 344)
+                        ? Math.max(12, styles.buttonFontSize * 0.8)
+                        : Math.max(14, styles.buttonFontSize * 0.9)
+                    const iconSize = styles.isPC
+                      ? 24
+                      : (styles.isUltraNarrow || styles.actualVH <= 344)
+                        ? 16
+                        : 20
+                    const buttonGap = styles.isPC
+                      ? 12
+                      : (styles.isUltraNarrow || styles.actualVH <= 344)
+                        ? 6
+                        : 8
+                    const buttonMarginTop = styles.isPC
+                      ? 32
+                      : (styles.isUltraNarrow || styles.actualVH <= 344)
+                        ? 16
+                        : 24
+
+                    // Determine progress color based on remaining time percentage
+                    const progressPercent = (qrTimeRemaining / maxTime) * 100
+                    let progressColor, progressGlow, glowIntensity
+                    if (qrTimeRemaining === 0) {
+                      progressColor = "#dc2626"  // Bright red (red-600)
+                      progressGlow = "0 0 20px rgba(220, 38, 38, 0.6)"
+                      glowIntensity = 'strong'
+                    } else if (progressPercent > 50) {
+                      progressColor = "#ef4444"  // Medium red (red-500) - plenty of time
+                      progressGlow = "0 0 12px rgba(239, 68, 68, 0.4)"
+                      glowIntensity = 'soft'
+                    } else if (progressPercent > 25) {
+                      progressColor = "#dc2626"  // Brighter red (red-600) - warning
+                      progressGlow = "0 0 16px rgba(220, 38, 38, 0.5)"
+                      glowIntensity = 'medium'
+                    } else {
+                      progressColor = "#b91c1c"  // Dark red (red-700) - critical
+                      progressGlow = "0 0 20px rgba(185, 28, 28, 0.6)"
+                      glowIntensity = 'strong'
+                    }
+
+                    return (
+                      <div className="flex justify-center items-center w-full flex-col h-full">
+                        {/* Circular Timer */}
+                        <div className="relative flex flex-col items-center justify-center">
+                          <svg
+                            className="transform -rotate-90"
+                            width={timerSize}
+                            height={timerSize}
+                            style={{
+                              overflow: 'visible'
+                            }}
+                          >
+                            {/* Background circle with gradient */}
+                            <defs>
+                              <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#d4c5b0" stopOpacity="0.4" />
+                                <stop offset="100%" stopColor="#c8b89a" stopOpacity="0.6" />
+                              </linearGradient>
+                              <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor={progressColor} stopOpacity="1" />
+                                <stop offset="100%" stopColor={progressColor} stopOpacity="0.9" />
+                              </linearGradient>
+                            </defs>
+
+                            {/* Background circle */}
+                            <circle
+                              cx={center}
+                              cy={center}
+                              r={radius}
+                              stroke="url(#bgGradient)"
+                              strokeWidth={strokeWidth}
+                              fill="none"
+                              opacity="0.7"
+                            />
+                            {/* Progress circle */}
+                            <circle
+                              cx={center}
+                              cy={center}
+                              r={radius}
+                              stroke="url(#progressGradient)"
+                              strokeWidth={strokeWidth}
+                              fill="none"
+                              strokeDasharray={circumference}
+                              strokeDashoffset={strokeDashoffset}
+                              strokeLinecap="round"
+                              className="transition-all duration-500 ease-out"
+                            />
+                          </svg>
+                          {/* Time display in center */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span
+                              className="font-bold font-cairo"
+                              style={{
+                                fontSize: `${timerNumberSize}px`,
+                                color: qrTimeRemaining <= 10 ? '#dc2626' : '#1a1a1a',
+                                textShadow: qrTimeRemaining <= 10
+                                  ? '0 0 25px rgba(220, 38, 38, 0.9), 0 3px 6px rgba(0, 0, 0, 0.4)'
+                                  : '0 2px 6px rgba(0, 0, 0, 0.3)',
+                                transition: 'all 0.3s ease',
+                                WebkitTextStroke: qrTimeRemaining <= 10 ? '1px rgba(220, 38, 38, 0.5)' : '0'
+                              }}
+                            >
+                              {qrTimeRemaining}
+                            </span>
+                            <span
+                              className="font-cairo font-semibold"
+                              style={{
+                                fontSize: `${labelSize}px`,
+                                marginTop: `${labelSize * 0.3}px`,
+                                color: qrTimeRemaining <= 10 ? '#dc2626' : '#5a5a5a',
+                                textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
+                              }}
+                            >
+                              ثانية
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Reset Button */}
+                        <button
+                          type="button"
+                          className="bg-red-600 hover:bg-red-700 text-[#f7f2e6] rounded-full font-bold flex items-center active:scale-95 transition-all"
+                          style={{
+                            padding: buttonPadding,
+                            fontSize: `${buttonFontSize}px`,
+                            gap: `${buttonGap}px`,
+                            marginTop: `${buttonMarginTop}px`,
+                            boxShadow: '0 4px 14px rgba(220, 38, 38, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2)',
+                            border: '2px solid rgba(247, 242, 230, 0.3)'
+                          }}
+                          onClick={() => {
+                            // Only reset the time, keep the circular timer visible
+                            setQrTimeRemaining(getQrTimerDuration(currentQuestion?.points))
+                            setQrTimerPaused(false)
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 44 44"
+                            style={{ width: `${iconSize}px`, height: `${iconSize}px` }}
+                            fill="#f7f2e6"
+                          >
+                            <path d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z" />
+                            <path d="M18 2H26V6H18V2Z" />
+                          </svg>
+                          إعادة ضبط الوقت
+                        </button>
+                      </div>
+                    )
+                  }
+
+                  // Show normal question content
+                  return (
+                    <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
+                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black"
+                           style={{
+                             direction: 'rtl',
+                             fontSize: `${styles.questionFontSize}px`
+                           }}>
+                      {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
+                    </label>
 
                   {/* Media Player for Question */}
                   {(() => {
@@ -1543,8 +1771,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                            display: 'block',
                            height: styles.imageAreaHeight + 'px',
                            maxHeight: styles.imageAreaHeight + 'px',
-                           width: '90%',
-                           maxWidth: '90%'
+                           width: styles.isPC ? '100%' : '90%',
+                           maxWidth: styles.isPC ? '100%' : '90%'
                          }}>
                       <QuestionMediaPlayer
                         currentQuestion={currentQuestion}
@@ -1567,8 +1795,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                            display: 'block',
                            height: styles.imageAreaHeight + 'px',
                            maxHeight: styles.imageAreaHeight + 'px',
-                           width: '90%',
-                           maxWidth: '90%'
+                           width: styles.isPC ? '100%' : '90%',
+                           maxWidth: styles.isPC ? '100%' : '90%'
                          }}>
                       <SmartImage
                         src={currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl}
@@ -1597,8 +1825,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           display: 'block',
                           height: styles.imageAreaHeight + 'px',
                           maxHeight: styles.imageAreaHeight + 'px',
-                          width: '90%',
-                          maxWidth: '90%'
+                          width: styles.isPC ? '100%' : '90%',
+                          maxWidth: styles.isPC ? '100%' : '90%'
                         }}
                       >
                         <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 lg:scale-150">
@@ -1611,7 +1839,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           >
                             <QRCodeWithLogo
                               questionId={questionId}
-                              size={Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)}
+                              size={styles.isPC
+                                ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
+                                : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px
+                              }
                             />
                           </div>
 
@@ -1718,7 +1949,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     )
                   })()}
                 </div>
-                )}
+                  )
+                })()}
               </div>
 
               {/* Absolute Positioned Elements */}
@@ -1744,7 +1976,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   const isQrMiniGame = category?.enableQrMiniGame === true
 
                   if (isQrMiniGame) {
-                    // QR Mini-Game Timer - Show Ready button or countdown with controls
+                    // QR Mini-Game Timer - Show Ready button only when timer not started
                     if (!qrTimerStarted) {
                       return (
                         <button
@@ -1755,71 +1987,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           جاهز
                         </button>
                       )
-                    } else {
-                      return (
-                        <div
-                          className={`grid grid-flow-col justify-between gap-3 ${qrTimeRemaining === 0 ? 'bg-red-600' : 'bg-[#2A2634]'} rounded-full btn-wrapper mx-auto flex items-center`}
-                          style={{
-                            padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                            maxWidth: `${styles.timerSize}px`
-                          }}>
-                          <button
-                            type="button"
-                            className="flex items-center justify-center p-1"
-                            onClick={() => {
-                              setQrTimerStarted(false)
-                              setQrTimeRemaining(60)
-                              setQrTimerPaused(false)
-                            }}
-                          >
-                            <svg
-                              viewBox="0 0 44 44"
-                              style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                              className="active:scale-110 duration-100"
-                            >
-                              <path
-                                d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
-                                fill="#fff"
-                              />
-                              <path
-                                d="M18 2H26V6H18V2Z"
-                                fill="#fff"
-                              />
-                            </svg>
-                          </button>
-
-                          <span className="inline-flex items-center text-white justify-center font-cairo"
-                                style={{ fontSize: `${styles.timerFontSize}px` }}>
-                            {String(Math.floor(qrTimeRemaining / 60)).padStart(2, '0')}:{String(qrTimeRemaining % 60).padStart(2, '0')}
-                          </span>
-
-                          <button
-                            type="button"
-                            className="flex items-center justify-center p-1"
-                            onClick={() => setQrTimerPaused(!qrTimerPaused)}
-                          >
-                            {!qrTimerPaused ? (
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                                className="active:scale-110 duration-100"
-                              >
-                                <path d="M6 4H10V20H6V4Z" fill="#fff"/>
-                                <path d="M14 4H18V20H14V4Z" fill="#fff"/>
-                              </svg>
-                            ) : (
-                              <svg
-                                viewBox="0 0 24 24"
-                                style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                                className="active:scale-110 duration-100"
-                              >
-                                <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
-                              </svg>
-                            )}
-                          </button>
-                        </div>
-                      )
                     }
+                    // When timer is started, return null (circular timer shown in main content area)
+                    return null
                   }
 
                   // Normal Timer Controls
@@ -1924,8 +2094,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                              display: 'block',
                              height: styles.imageAreaHeight + 'px',
                              maxHeight: styles.imageAreaHeight + 'px',
-                             width: '90%',
-                             maxWidth: '90%'
+                             width: styles.isPC ? '100%' : '90%',
+                             maxWidth: styles.isPC ? '100%' : '90%'
                            }}>
                         <QuestionMediaPlayer
                           currentQuestion={currentQuestion}
@@ -1971,8 +2141,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                              display: 'block',
                              height: styles.imageAreaHeight + 'px',
                              maxHeight: styles.imageAreaHeight + 'px',
-                             width: '90%',
-                             maxWidth: '90%'
+                             width: styles.isPC ? '100%' : '90%',
+                             maxWidth: styles.isPC ? '100%' : '90%'
                            }}>
                         <SmartImage
                           src={(() => {

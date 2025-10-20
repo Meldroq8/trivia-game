@@ -242,12 +242,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   const [categories, setCategories] = useState([])
   const [questions, setQuestions] = useState({})
   const [uploadingImages, setUploadingImages] = useState({})
+  const [editingCategoryId, setEditingCategoryId] = useState(null)
+  const [editingCategoryName, setEditingCategoryName] = useState('')
   const [showCategoryAdd, setShowCategoryAdd] = useState(false)
   const [newCategory, setNewCategory] = useState({
     name: '',
     image: '🧠',
     imageUrl: ''
   })
+  const [showCategoryMerge, setShowCategoryMerge] = useState(false)
+  const [selectedCategoriesToMerge, setSelectedCategoriesToMerge] = useState([])
+  const [mergedCategoryName, setMergedCategoryName] = useState('')
+  const [mergedCategoryImage, setMergedCategoryImage] = useState('🔀')
+  const [mergedCategoryImageUrl, setMergedCategoryImageUrl] = useState('')
 
   useEffect(() => {
     // Load directly from Firebase - no localStorage dependency
@@ -298,15 +305,36 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
           }))
           continue
         }
-        await FirebaseQuestionsService.updateCategory(category.id, {
-          name: category.name,
-          color: category.color,
-          image: category.image,
-          imageUrl: category.imageUrl,
-          showImageInQuestion: category.showImageInQuestion,
-          showImageInAnswer: category.showImageInAnswer,
-          enableQrMiniGame: category.enableQrMiniGame || false // Default to false
-        })
+
+        try {
+          // Try to update existing category
+          await FirebaseQuestionsService.updateCategory(category.id, {
+            name: category.name,
+            color: category.color,
+            image: category.image,
+            imageUrl: category.imageUrl,
+            showImageInQuestion: category.showImageInQuestion,
+            showImageInAnswer: category.showImageInAnswer,
+            enableQrMiniGame: category.enableQrMiniGame || false // Default to false
+          })
+        } catch (updateError) {
+          // If category doesn't exist in Firebase, create it
+          if (updateError.message.includes('No document to update')) {
+            devLog(`📝 Category ${category.id} doesn't exist in Firebase, creating it...`)
+            await FirebaseQuestionsService.createCategory({
+              id: category.id,
+              name: category.name,
+              color: category.color,
+              image: category.image,
+              imageUrl: category.imageUrl,
+              showImageInQuestion: category.showImageInQuestion,
+              showImageInAnswer: category.showImageInAnswer,
+              enableQrMiniGame: category.enableQrMiniGame || false
+            })
+          } else {
+            throw updateError
+          }
+        }
       }
       devLog('✅ Categories saved to Firebase')
 
@@ -410,6 +438,30 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       ? 'تم تفعيل وضع اللعبة المصغرة بالكود لهذه الفئة'
       : 'تم إلغاء وضع اللعبة المصغرة بالكود لهذه الفئة'
     )
+  }
+
+  const startEditingCategoryName = (categoryId, currentName) => {
+    setEditingCategoryId(categoryId)
+    setEditingCategoryName(currentName)
+  }
+
+  const cancelEditingCategoryName = () => {
+    setEditingCategoryId(null)
+    setEditingCategoryName('')
+  }
+
+  const saveCategoryName = () => {
+    if (!editingCategoryName.trim()) {
+      alert('يرجى إدخال اسم الفئة')
+      return
+    }
+
+    const updatedCategories = categories.map(cat =>
+      cat.id === editingCategoryId ? { ...cat, name: editingCategoryName.trim() } : cat
+    )
+    saveCategories(updatedCategories)
+    setEditingCategoryId(null)
+    setEditingCategoryName('')
   }
 
   const exportCategoryQuestions = (categoryId) => {
@@ -621,6 +673,83 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     }
   }
 
+  // Category merge handlers
+  const toggleCategorySelection = (categoryId) => {
+    setSelectedCategoriesToMerge(prev => {
+      if (prev.includes(categoryId)) {
+        return prev.filter(id => id !== categoryId)
+      } else {
+        return [...prev, categoryId]
+      }
+    })
+  }
+
+  const handleMergeCategories = async () => {
+    if (!mergedCategoryName.trim()) {
+      alert('يرجى إدخال اسم الفئة الجديدة')
+      return
+    }
+
+    if (selectedCategoriesToMerge.length < 2) {
+      alert('يرجى اختيار فئتين على الأقل للدمج')
+      return
+    }
+
+    try {
+      // Create new merged category
+      const mergedCategoryData = {
+        name: mergedCategoryName,
+        image: mergedCategoryImage || '🔀',
+        imageUrl: mergedCategoryImageUrl || '',
+        showImageInQuestion: true,
+        showImageInAnswer: true
+      }
+
+      // Add to Firebase and get the new category ID
+      const newCategoryId = await FirebaseQuestionsService.createCategory(mergedCategoryData)
+
+      // Collect all questions from selected categories
+      const allQuestions = []
+      for (const categoryId of selectedCategoriesToMerge) {
+        const categoryQuestions = questions[categoryId] || []
+        allQuestions.push(...categoryQuestions)
+      }
+
+      // Add all questions to the new merged category
+      for (const question of allQuestions) {
+        // Create a copy of the question for the new category
+        await FirebaseQuestionsService.addSingleQuestion(newCategoryId, {
+          text: question.text || question.question?.text,
+          answer: question.answer || question.question?.answer,
+          difficulty: question.difficulty || question.question?.difficulty || 'medium',
+          points: question.points || 200,
+          imageUrl: question.imageUrl || question.question?.imageUrl || '',
+          audioUrl: question.audioUrl || question.question?.audioUrl || '',
+          videoUrl: question.videoUrl || question.question?.videoUrl || '',
+          answerImageUrl: question.answerImageUrl || question.question?.answerImageUrl || '',
+          answerAudioUrl: question.answerAudioUrl || question.question?.answerAudioUrl || '',
+          answerVideoUrl: question.answerVideoUrl || question.question?.answerVideoUrl || ''
+        })
+      }
+
+      // Clear cache and reload data
+      GameDataLoader.clearCache()
+      await loadDataFromFirebase()
+
+      // Reset form
+      setMergedCategoryName('')
+      setMergedCategoryImage('🔀')
+      setMergedCategoryImageUrl('')
+      setSelectedCategoriesToMerge([])
+      setShowCategoryMerge(false)
+
+      alert(`تم دمج الفئات بنجاح!\nتم إضافة ${allQuestions.length} سؤال إلى الفئة الجديدة "${mergedCategoryName}"`)
+    } catch (error) {
+      prodError('Error merging categories:', error)
+      alert('حدث خطأ في دمج الفئات: ' + error.message)
+    }
+  }
+
   const handleCategoryImageUpload = async (file) => {
     if (!file) return
 
@@ -688,7 +817,48 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
               ) : (
                 <div className="text-4xl mb-2">{category.image}</div>
               )}
-              <h3 className="font-bold text-lg text-black">{category.name}</h3>
+
+              {/* Category Name - Editable */}
+              {editingCategoryId === category.id ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={editingCategoryName}
+                    onChange={(e) => setEditingCategoryName(e.target.value)}
+                    className="w-full p-2 border-2 border-blue-500 rounded-lg text-center font-bold text-lg text-black"
+                    placeholder="اسم الفئة"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={saveCategoryName}
+                      className="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg text-sm font-bold transition-colors"
+                    >
+                      ✓ حفظ
+                    </button>
+                    <button
+                      onClick={cancelEditingCategoryName}
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-1 rounded-lg text-sm font-bold transition-colors"
+                    >
+                      ✕ إلغاء
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <h3 className="font-bold text-lg text-black">{category.name}</h3>
+                  <button
+                    onClick={() => startEditingCategoryName(category.id, category.name)}
+                    className="text-blue-500 hover:text-blue-700 transition-colors"
+                    title="تعديل اسم الفئة"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               <p className="text-sm text-gray-900 font-bold">
                 {(questions[category.id] || []).length} سؤال
               </p>
@@ -975,6 +1145,172 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
                 >
                   ✨ إنشاء الفئة
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Merge Categories Section */}
+      {(isAdmin || isModerator) && (
+        <div className="mb-8 bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-blue-900">دمج الفئات</h3>
+            <button
+              onClick={() => {
+                setShowCategoryMerge(!showCategoryMerge)
+                if (showCategoryMerge) {
+                  // Reset when closing
+                  setSelectedCategoriesToMerge([])
+                  setMergedCategoryName('')
+                  setMergedCategoryImage('🔀')
+                  setMergedCategoryImageUrl('')
+                }
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold"
+            >
+              {showCategoryMerge ? '❌ إلغاء' : '🔀 دمج الفئات'}
+            </button>
+          </div>
+
+          {showCategoryMerge && (
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              {/* Instructions */}
+              <div className="mb-6 p-4 bg-blue-100 rounded-lg border border-blue-300">
+                <h4 className="font-bold text-blue-900 mb-2">📝 كيف يعمل الدمج؟</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• اختر فئتين أو أكثر من القائمة أدناه</li>
+                  <li>• أدخل اسم الفئة الجديدة المدمجة</li>
+                  <li>• سيتم نسخ جميع الأسئلة من الفئات المختارة إلى الفئة الجديدة</li>
+                  <li>• الفئات الأصلية ستبقى كما هي ولن يتم حذفها</li>
+                </ul>
+              </div>
+
+              {/* Category Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-bold mb-3 text-black">اختر الفئات للدمج *</label>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-2 border-2 border-blue-200 rounded-lg">
+                  {categories.filter(cat => cat.id !== 'mystery').map((category) => (
+                    <label
+                      key={category.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                        selectedCategoriesToMerge.includes(category.id)
+                          ? 'bg-blue-100 border-2 border-blue-500'
+                          : 'bg-gray-50 border-2 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCategoriesToMerge.includes(category.id)}
+                        onChange={() => toggleCategorySelection(category.id)}
+                        className="w-5 h-5 text-blue-600"
+                      />
+                      <div className="flex items-center gap-2 flex-1">
+                        {category.imageUrl ? (
+                          <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
+                            <SmartImage
+                              src={category.imageUrl}
+                              alt={category.name}
+                              size="thumb"
+                              context="thumbnail"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-2xl flex-shrink-0">{category.image}</span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm text-black truncate">{category.name}</div>
+                          <div className="text-xs text-gray-600">
+                            {(questions[category.id] || []).length} سؤال
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {selectedCategoriesToMerge.length > 0 && (
+                  <div className="mt-2 text-sm text-blue-700 font-bold">
+                    ✓ تم اختيار {selectedCategoriesToMerge.length} فئة
+                    {selectedCategoriesToMerge.length > 0 && ` - إجمالي ${selectedCategoriesToMerge.reduce((total, catId) => total + (questions[catId] || []).length, 0)} سؤال`}
+                  </div>
+                )}
+              </div>
+
+              {/* New Category Details */}
+              <div className="grid md:grid-cols-2 gap-6 mb-6">
+                {/* Category Name */}
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-black">اسم الفئة الجديدة *</label>
+                  <input
+                    type="text"
+                    value={mergedCategoryName}
+                    onChange={(e) => setMergedCategoryName(e.target.value)}
+                    placeholder="مثال: ثقافة عامة, علوم ورياضة..."
+                    className="w-full p-3 border-2 border-blue-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Category Emoji */}
+                <div>
+                  <label className="block text-sm font-bold mb-2 text-black">إيموجي الفئة الجديدة</label>
+                  <input
+                    type="text"
+                    value={mergedCategoryImage}
+                    onChange={(e) => setMergedCategoryImage(e.target.value)}
+                    placeholder="🔀"
+                    className="w-full p-3 border-2 border-blue-300 rounded-lg text-center text-2xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Category Image URL */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold mb-2 text-black">رابط الصورة (اختياري)</label>
+                  <input
+                    type="url"
+                    value={mergedCategoryImageUrl}
+                    onChange={(e) => setMergedCategoryImageUrl(e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                    className="w-full p-3 border-2 border-blue-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              {(mergedCategoryName || mergedCategoryImage || mergedCategoryImageUrl) && selectedCategoriesToMerge.length >= 2 && (
+                <div className="mb-6">
+                  <label className="block text-sm font-bold mb-2 text-black">معاينة الفئة الجديدة</label>
+                  <div className="text-center">
+                    <BackgroundImage
+                      src={mergedCategoryImageUrl}
+                      size="medium"
+                      context="category"
+                      className="bg-blue-500 text-white rounded-xl p-4 inline-block relative overflow-hidden"
+                    >
+                      {mergedCategoryImageUrl && (
+                        <div className="absolute inset-0 bg-black/30 rounded-xl"></div>
+                      )}
+                      <div className="relative z-10">
+                        {!mergedCategoryImageUrl && <div className="text-2xl mb-1">{mergedCategoryImage || '🔀'}</div>}
+                        <div className="font-bold text-black">{mergedCategoryName || 'اسم الفئة'}</div>
+                        <div className="text-sm text-white mt-1">
+                          {selectedCategoriesToMerge.reduce((total, catId) => total + (questions[catId] || []).length, 0)} سؤال من {selectedCategoriesToMerge.length} فئة
+                        </div>
+                      </div>
+                    </BackgroundImage>
+                  </div>
+                </div>
+              )}
+
+              {/* Merge Button */}
+              <div className="text-center">
+                <button
+                  onClick={handleMergeCategories}
+                  disabled={!mergedCategoryName.trim() || selectedCategoriesToMerge.length < 2}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors"
+                >
+                  🔀 دمج الفئات
                 </button>
               </div>
             </div>
@@ -1345,15 +1681,36 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
           }))
           continue
         }
-        await FirebaseQuestionsService.updateCategory(category.id, {
-          name: category.name,
-          color: category.color,
-          image: category.image,
-          imageUrl: category.imageUrl,
-          showImageInQuestion: category.showImageInQuestion,
-          showImageInAnswer: category.showImageInAnswer,
-          enableQrMiniGame: category.enableQrMiniGame || false // Default to false
-        })
+
+        try {
+          // Try to update existing category
+          await FirebaseQuestionsService.updateCategory(category.id, {
+            name: category.name,
+            color: category.color,
+            image: category.image,
+            imageUrl: category.imageUrl,
+            showImageInQuestion: category.showImageInQuestion,
+            showImageInAnswer: category.showImageInAnswer,
+            enableQrMiniGame: category.enableQrMiniGame || false // Default to false
+          })
+        } catch (updateError) {
+          // If category doesn't exist in Firebase, create it
+          if (updateError.message.includes('No document to update')) {
+            devLog(`📝 Category ${category.id} doesn't exist in Firebase, creating it...`)
+            await FirebaseQuestionsService.createCategory({
+              id: category.id,
+              name: category.name,
+              color: category.color,
+              image: category.image,
+              imageUrl: category.imageUrl,
+              showImageInQuestion: category.showImageInQuestion,
+              showImageInAnswer: category.showImageInAnswer,
+              enableQrMiniGame: category.enableQrMiniGame || false
+            })
+          } else {
+            throw updateError
+          }
+        }
       }
       devLog('✅ Categories saved to Firebase')
 

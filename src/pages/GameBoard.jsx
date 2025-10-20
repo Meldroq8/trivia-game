@@ -1560,8 +1560,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             <div className="flex items-center gap-2">
               <LogoDisplay />
               <div className="flex items-center gap-1">
-                <span style={{ fontSize: `${styles.headerFontSize * 0.7}px` }}>دور:</span>
-                <span className="font-bold" style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}>
+                <span className="text-xs sm:text-sm md:text-base">دور:</span>
+                <span className="font-bold text-sm sm:text-base md:text-lg">
                   {gameState.currentTurn === 'team1'
                     ? gameState.team1.name
                     : gameState.currentTurn === 'team2'
@@ -1572,13 +1572,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             <div className="flex items-center flex-1 justify-center px-2">
-              <h1 className="font-bold text-center" style={{
-                fontSize: `${Math.max(styles.headerFontSize * 0.6, styles.headerFontSize * 0.9 - (gameState.gameName.length > 15 ? (gameState.gameName.length - 15) * 1 : 0))}px`,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%'
-              }}>
+              <h1 className="font-bold text-center text-sm sm:text-base md:text-lg truncate max-w-full">
                 {gameState.gameName}
               </h1>
             </div>
@@ -1586,12 +1580,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             <div className="flex items-center portrait-menu relative">
               <button
                 onClick={() => setPortraitMenuOpen(!portraitMenuOpen)}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
-                style={{
-                  fontSize: `${styles.headerFontSize * 1}px`,
-                  width: '32px',
-                  height: '32px'
-                }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-lg sm:text-xl"
               >
                 ☰
               </button>
@@ -1602,13 +1591,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center gap-3">
               <LogoDisplay />
-              <span className="font-bold text-white" style={{ fontSize: `${styles.headerFontSize * 0.9}px` }}>
+              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl">
                 دور الفريق:
               </span>
-              <span
-                className="font-bold text-white"
-                style={{ fontSize: `${styles.headerFontSize * 0.9}px` }}
-              >
+              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl">
                 {gameState.currentTurn === 'team1'
                   ? gameState.team1.name
                   : gameState.currentTurn === 'team2'
@@ -1620,12 +1606,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   ...prev,
                   currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
                 }))}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
-                style={{
-                  width: `${styles.headerFontSize * 1.8}px`,
-                  height: `${styles.headerFontSize * 1.8}px`,
-                  padding: '4px'
-                }}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center w-8 h-8 md:w-10 md:h-10 lg:w-11 lg:h-11 xl:w-12 xl:h-12 p-1"
               >
                 <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none">
                   <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
@@ -1634,24 +1615,22 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             <div className="flex items-center gap-4">
-              <h1 className="font-bold text-center" style={{ fontSize: `${styles.headerFontSize * 1.2}px` }}>
+              <h1 className="font-bold text-center text-base md:text-lg lg:text-xl xl:text-2xl">
                 {gameState.gameName}
               </h1>
             </div>
 
             <div className="flex gap-3">
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.8}px` }} />
+              <PresentationModeToggle className="text-sm md:text-base" />
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors text-sm md:text-base"
               >
                 الرجوع للوحة
               </button>
               <button
                 onClick={() => navigate('/results')}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
-                style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
+                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors text-sm md:text-base"
               >
                 انهاء
               </button>
@@ -1686,7 +1665,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               return (
                 <div
                   key={`skeleton-${categoryIndex}`}
-                  className="relative flex items-center justify-center animate-pulse"
+                  className="relative flex items-center justify-center animate-pulse max-sm:max-w-80 max-md:max-w-[420px] lg:max-w-[500px] xl:max-w-[550px] 4xl:max-w-[600px] mx-auto"
                   style={{
                     width: `${styles.categoryGroupWidth}px`,
                     height: `${styles.categoryGroupHeight}px`,
@@ -1726,268 +1705,124 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             return (
               <div
                 key={categoryId}
-                className="relative flex items-center justify-center"
+                className="relative flex items-center justify-center max-sm:max-w-80 max-md:max-w-[420px] lg:max-w-[500px] xl:max-w-[550px] 4xl:max-w-[600px] mx-auto"
                 style={{
                   width: '100%',
                   height: '100%',
                   maxWidth: `${styles.categoryGroupWidth}px`,
                   maxHeight: `${styles.categoryGroupHeight}px`,
                   padding: '0',
-                  margin: '0',
-                  overflow: 'hidden'
+                  margin: '0 auto',
+                  overflow: 'hidden',
+                  minHeight: 0
                 }}
               >
-                {/* Wide Buttons spanning full width */}
-                <div
-                  className="absolute inset-0 flex flex-col justify-center items-center"
-                  style={{
-                    gap: `${styles.innerRowGap}px`,
-                    zIndex: 30,
-                    padding: '0',
-                    margin: '0 auto',
-                    maxHeight: '100%'
-                  }}
-                >
-                  {/* 200 Points Wide Button - Sized to match card coverage */}
-                  <div
-                    className="shadow-md overflow-hidden cursor-pointer"
-                    style={{
-                      width: `${styles.cardWidth + (styles.buttonWidth * 1.6)}px`, // Card width + space for both badges
-                      height: `${styles.buttonHeight}px`,
-                      borderRadius: `${styles.buttonBorderRadius}px`,
-                      border: 'none'
-                    }}
-                  >
-                    <div className="flex h-full">
-                      {/* Left Badge */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 200, 0);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 200, 0)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 200, 0)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120,
-                          pointerEvents: 'auto'
-                        }}
-                      >
-                        200
-                      </button>
-                      {/* Center Spacer for Card - matches card width exactly */}
-                      <div
-                        className="bg-transparent"
-                        style={{ width: `${styles.cardWidth}px` }}
-                      />
-                      {/* Right Badge */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 200, 1);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 200, 1)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 200, 1)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120,
-                          pointerEvents: 'auto'
-                        }}
-                      >
-                        200
-                      </button>
-                    </div>
+                {/* Senjem-Style 3-Column Grid: Left Buttons | Card | Right Buttons - NO GAP between columns */}
+                <div className="grid items-stretch justify-center w-full" style={{ height: '100%', maxHeight: '100%', minHeight: 0, gridTemplateColumns: '1fr 2fr 1fr' }}>
+
+                  {/* LEFT COLUMN: Score Buttons - Rounded on RIGHT side (facing card) */}
+                  <div className="flex gap-1 landscape:max-lg:gap-0.5 flex-col h-full">
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 200, 0)}
+                      disabled={isPointValueUsed(categoryId, 200, 0)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                        isPointValueUsed(categoryId, 200, 0)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      200
+                    </button>
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 400, 0)}
+                      disabled={isPointValueUsed(categoryId, 400, 0)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                        isPointValueUsed(categoryId, 400, 0)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      400
+                    </button>
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 600, 0)}
+                      disabled={isPointValueUsed(categoryId, 600, 0)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                        isPointValueUsed(categoryId, 600, 0)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      600
+                    </button>
                   </div>
 
-                  {/* 400 Points Wide Button - Sized to match card coverage */}
-                  <div
-                    className="shadow-md overflow-hidden cursor-pointer"
-                    style={{
-                      width: `${styles.cardWidth + (styles.buttonWidth * 1.6)}px`, // Card width + space for both badges
-                      height: `${styles.buttonHeight}px`,
-                      borderRadius: `${styles.buttonBorderRadius}px`
-                    }}
-                  >
-                    <div className="flex h-full">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 400, 0);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 400, 0)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 400, 0)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120
-                        }}
-                      >
-                        400
-                      </button>
-                      <div
-                        className="bg-white"
-                        style={{
-                          width: `${styles.cardWidth}px`,
-                          height: '100%',
-                          border: 'none',
-                          pointerEvents: 'auto'
-                        }}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 400, 1);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 400, 1)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 400, 1)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120
-                        }}
-                      >
-                        400
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 600 Points Wide Button - Sized to match card coverage */}
-                  <div
-                    className="shadow-md overflow-hidden cursor-pointer"
-                    style={{
-                      width: `${styles.cardWidth + (styles.buttonWidth * 1.6)}px`, // Card width + space for both badges
-                      height: `${styles.buttonHeight}px`,
-                      borderRadius: `${styles.buttonBorderRadius}px`
-                    }}
-                  >
-                    <div className="flex h-full">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 600, 0);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 600, 0)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 600, 0)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120
-                        }}
-                      >
-                        600
-                      </button>
-                      <div
-                        className="bg-white"
-                        style={{
-                          width: `${styles.cardWidth}px`,
-                          height: '100%',
-                          border: 'none',
-                          pointerEvents: 'auto'
-                        }}
-                      />
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleQuestionClick(categoryId, 600, 1);
-                        }}
-                        disabled={isPointValueUsed(categoryId, 600, 1)}
-                        className={`flex-none px-2 font-bold transition-all duration-200 ${
-                          isPointValueUsed(categoryId, 600, 1)
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                            : 'bg-red-600 text-white hover:bg-red-700'
-                        }`}
-                        style={{
-                          width: `${styles.buttonWidth * 0.8}px`, // Fixed width for badges
-                          fontSize: `${styles.fontSize * 0.8}px`,
-                          position: 'relative',
-                          zIndex: 120
-                        }}
-                      >
-                        600
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Category Card positioned - bottom for phones, center for PC */}
-                <div className={`absolute inset-0 flex items-center justify-center`} style={{ zIndex: 50, pointerEvents: 'none', overflow: (styles.isMobileLayout && !styles.isPhonePortrait) ? 'visible' : 'hidden' }}>
-                  <div
-                    className="flex flex-col border-2 border-gray-300 shadow-lg bg-white relative"
-                    style={{
-                      width: `${styles.cardWidth}px`,
-                      height: `${(styles.isMobileLayout || styles.isPhonePortrait) ? (styles.buttonHeight * 3 + styles.innerRowGap * 2) : styles.cardHeight}px`,
-                      zIndex: 100,
-                      backgroundColor: 'white',
-                      overflow: (styles.isMobileLayout && !styles.isPhonePortrait) ? 'visible' : 'hidden'
-                    }}
-                  >
-                    {/* Image section - fills entire card */}
+                  {/* CENTER COLUMN: Category Card */}
+                  <div className="overflow-hidden relative h-full w-full">
                     <BackgroundImage
                       src={category.imageUrl}
                       size="medium"
                       context="category"
                       categoryId={category.id}
-                      className="absolute inset-0"
+                      className="absolute inset-0 w-full h-full object-cover"
                       fallbackGradient="from-gray-200 to-gray-400"
                     >
                       {!category.imageUrl && category.image && (
-                        <div className="absolute inset-0 flex items-center justify-center"
-                             style={{ fontSize: `${styles.cardWidth * 0.3}px` }}>
+                        <div className="absolute inset-0 flex items-center justify-center text-6xl sm:text-7xl md:text-8xl lg:text-9xl">
                           {category.image}
                         </div>
                       )}
                     </BackgroundImage>
 
-                    {/* Text section - overlays at bottom of card with higher z-index */}
-                    <div
-                      className="bg-gray-300 text-gray-800 text-center font-bold flex items-center justify-center absolute left-0 right-0 bottom-0"
-                      style={{
-                        fontSize: `${styles.getCardFontSize(category.name, styles.cardWidth, styles.cardHeight, styles.fontSize)}px`,
-                        lineHeight: '1.2',
-                        height: `${(styles.isUltraNarrow || styles.isPhonePortrait) ? styles.buttonHeight : Math.max(18, Math.min(30, styles.cardHeight * 0.06)) * styles.pcScaleFactor}px`,
-                        width: '100%',
-                        margin: '0',
-                        padding: `0 ${(styles.isUltraNarrow || styles.isPhonePortrait) ? 2 : 10}px`,
-                        boxShadow: 'none',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        zIndex: 150,
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      <span style={{ whiteSpace: 'nowrap' }}>
+                    {/* Text section at bottom */}
+                    <div className="category-text-section bg-gray-300 text-gray-800 text-center font-bold flex items-center justify-center absolute left-0 right-0 bottom-0 border-t-2 border-t-black text-[7px] sm:text-[15px] md:text-lg lg:text-2xl xl:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl portrait:sm:text-sm portrait:md:text-base portrait:lg:text-xl portrait:xl:text-3xl portrait:2xl:text-4xl landscape:sm:text-[9px] landscape:md:text-sm landscape:lg:text-lg landscape:xl:text-2xl landscape:2xl:text-4xl px-1 sm:px-2 py-1 sm:py-1.5 xl:py-2 leading-normal"
+                         style={{
+                           lineHeight: '1.4',
+                           paddingBottom: '0.35em'
+                         }}>
+                      <span className="whitespace-nowrap inline-block truncate">
                         {category.name}
                       </span>
                     </div>
                   </div>
+
+                  {/* RIGHT COLUMN: Score Buttons - Rounded on LEFT side (facing card) */}
+                  <div className="flex gap-1 landscape:max-lg:gap-0.5 flex-col h-full">
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 200, 1)}
+                      disabled={isPointValueUsed(categoryId, 200, 1)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                        isPointValueUsed(categoryId, 200, 1)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      200
+                    </button>
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 400, 1)}
+                      disabled={isPointValueUsed(categoryId, 400, 1)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                        isPointValueUsed(categoryId, 400, 1)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      400
+                    </button>
+                    <button
+                      onClick={() => handleQuestionClick(categoryId, 600, 1)}
+                      disabled={isPointValueUsed(categoryId, 600, 1)}
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                        isPointValueUsed(categoryId, 600, 1)
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      600
+                    </button>
+                  </div>
+
                 </div>
 
               </div>
@@ -1997,12 +1832,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       </div>
 
       {/* Footer Score Controls */}
-      <div ref={footerRef} className="bg-[#f7f2e6] border-t-2 border-gray-200 flex-shrink-0 sticky bottom-0 z-10" style={{
-        paddingLeft: `${styles.footerHorizontalPadding}px`,
-        paddingRight: `${styles.footerHorizontalPadding}px`,
-        paddingTop: `${styles.footerVerticalPadding}px`,
-        paddingBottom: `${styles.footerVerticalPadding}px`
-      }}>
+      <div ref={footerRef} className="bg-[#f7f2e6] border-t-2 border-gray-200 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6">
         {styles.isPhonePortrait ? (
           <div className="flex flex-col gap-2 w-full relative">
             {/* Center Logo spanning both rows */}
@@ -2011,41 +1841,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 <img
                   src={sponsorLogo}
                   alt="Game Logo"
-                  style={{
-                    width: `${styles.footerScoreWidth * 0.6}px`,
-                    height: 'auto',
-                    maxHeight: '50px',
-                    objectFit: 'contain'
-                  }}
+                  className="w-12 sm:w-16 md:w-20 max-h-[50px] object-contain"
                 />
               </div>
             )}
 
             {/* First Row: Team Names */}
             <div className="flex items-center w-full justify-between">
-              <div
-                className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
-                style={{
-                  fontSize: `${gameState.team1.name.length > 12 ? 11 : gameState.team1.name.length > 10 ? 13 : 15}px`,
-                  width: `${styles.footerTeamNameWidth}px`,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
+              <div className="footer-element-portrait bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm truncate">
                 {gameState.team1.name}
               </div>
 
-              <div
-                className="bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center"
-                style={{
-                  fontSize: `${gameState.team2.name.length > 12 ? 11 : gameState.team2.name.length > 10 ? 13 : 15}px`,
-                  width: `${styles.footerTeamNameWidth}px`,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
+              <div className="footer-element-portrait bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm truncate">
                 {gameState.team2.name}
               </div>
             </div>
@@ -2055,16 +1862,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               {/* Team 1 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
                 {/* Score with integrated +/- buttons */}
-                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
-                  fontSize: `${styles.headerFontSize * 0.7}px`,
-                  color: '#B91C1C',
-                  width: `${styles.footerScoreWidth}px`,
-                  paddingLeft: '24px',
-                  paddingRight: '24px',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  position: 'relative'
-                }}>
+                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-0.5">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2103,36 +1901,33 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
                 {/* Team 1 Perks */}
                 <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors ${
+                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
                     (gameState.perkUsage?.team1?.double || 0) >= 1
                       ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                       : gameState.currentTurn !== 'team1'
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   onClick={() => handlePerkClick('double', 'team1')}
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -2142,51 +1937,39 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               <div className="flex items-center" style={{ gap: '4px' }}>
                 {/* Team 2 Perks */}
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors ${
+                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
                     (gameState.perkUsage?.team2?.double || 0) >= 1
                       ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                       : gameState.currentTurn !== 'team2'
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{ width: `${styles.footerPerkSize}px`, height: `${styles.footerPerkSize}px`, fontSize: '7.5px' }}
                   onClick={() => handlePerkClick('double', 'team2')}
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
 
                 {/* Score with integrated +/- buttons */}
-                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
-                  fontSize: `${styles.headerFontSize * 0.7}px`,
-                  color: '#B91C1C',
-                  width: `${styles.footerScoreWidth}px`,
-                  paddingLeft: '24px',
-                  paddingRight: '24px',
-                  paddingTop: '2px',
-                  paddingBottom: '2px',
-                  position: 'relative'
-                }}>
+                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-0.5">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2233,43 +2016,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 <img
                   src={sponsorLogo}
                   alt="Game Logo"
-                  style={{
-                    width: `${styles.pcScaleFactor > 1 ? 240 : (styles.footerMiddleGap - 20)}px`,
-                    height: 'auto',
-                    maxHeight: styles.pcScaleFactor > 1 ? '160px' : '120px',
-                    objectFit: 'contain'
-                  }}
+                  className="w-24 sm:w-32 md:w-36 lg:w-40 xl:w-48 4xl:w-60 max-h-[120px] xl:max-h-[160px] object-contain"
                 />
               </div>
             )}
 
             {/* First Row: Team Names Only */}
             <div className="flex items-center w-full justify-between">
-              <div className="bg-red-500 text-white rounded-full font-bold text-center" style={{
-                fontSize: `${gameState.team1.name.length > 14 ? 16 : gameState.team1.name.length > 12 ? 18 : 20}px`,
-                width: `${styles.footerTeamNameWidth}px`,
-                paddingLeft: '16px',
-                paddingRight: '16px',
-                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
-                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
+              <div className="footer-element-landscape bg-red-500 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl truncate">
                 {gameState.team1.name}
               </div>
 
-              <div className="bg-red-500 text-white rounded-full font-bold text-center" style={{
-                fontSize: `${gameState.team2.name.length > 14 ? 16 : gameState.team2.name.length > 12 ? 18 : 20}px`,
-                width: `${styles.footerTeamNameWidth}px`,
-                paddingLeft: '16px',
-                paddingRight: '16px',
-                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
-                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
+              <div className="footer-element-landscape bg-red-500 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl truncate">
                 {gameState.team2.name}
               </div>
             </div>
@@ -2277,18 +2035,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             {/* Second Row: Score & Perks */}
             <div className="flex items-center w-full justify-between">
               {/* Team 1 Controls (Left) */}
-              <div className="flex items-center flex-shrink-0" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
+              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
                 {/* Score with integrated +/- buttons */}
-                <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
-                  fontSize: '18px',
-                  color: '#B91C1C',
-                  width: `${styles.footerScoreWidth}px`,
-                  paddingLeft: '32px',
-                  paddingRight: '32px',
-                  paddingTop: styles.isUltraNarrow ? '4px' : '8px',
-                  paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
-                  position: 'relative'
-                }}>
+                <div className="footer-element-landscape bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2325,50 +2074,35 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   </button>
                 </div>
               {/* Team 1 Perks */}
-              <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
+              <div className="flex items-center gap-2 md:gap-4">
                 <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors ${
+                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
                     (gameState.perkUsage?.team1?.double || 0) >= 1
                       ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                       : gameState.currentTurn !== 'team1'
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
                   onClick={() => handlePerkClick('double', 'team1')}
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
@@ -2376,68 +2110,44 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Team 2 Controls (Right) */}
-            <div className="flex items-center flex-shrink-0" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
+            <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
               {/* Team 2 Perks */}
-              <div className="flex items-center" style={{ gap: `${styles.pcScaleFactor > 1 ? 16 : 8}px` }}>
+              <div className="flex items-center gap-2 md:gap-4">
                 <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors ${
+                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
                     (gameState.perkUsage?.team2?.double || 0) >= 1
                       ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
                       : gameState.currentTurn !== 'team2'
                       ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
                       : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
                   }`}
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
                   onClick={() => handlePerkClick('double', 'team2')}
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
                     <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
                 <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
-                  style={{
-                    width: `${styles.footerPerkSize}px`,
-                    height: `${styles.footerPerkSize}px`,
-                    fontSize: `${styles.pcScaleFactor === 1 ? 7.5 : styles.headerFontSize * 0.5}px`
-                  }}
+                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
                   title="متاح فقط أثناء السؤال"
                 >
-                  <svg width={styles.pcScaleFactor === 1 ? "28" : "50"} height={styles.pcScaleFactor === 1 ? "28" : "50"} viewBox="0 0 24 24" fill="none">
+                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
                     <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
                   </svg>
                 </div>
               </div>
 
               {/* Score with integrated +/- buttons */}
-              <div className="bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative" style={{
-                fontSize: '18px',
-                color: '#B91C1C',
-                width: `${styles.footerScoreWidth}px`,
-                paddingLeft: '32px',
-                paddingRight: '32px',
-                paddingTop: styles.isUltraNarrow ? '4px' : '8px',
-                paddingBottom: styles.isUltraNarrow ? '4px' : '8px',
-                position: 'relative'
-              }}>
+              <div className="footer-element-landscape bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
                 <button
                   onClick={() => setGameState(prev => ({
                     ...prev,
