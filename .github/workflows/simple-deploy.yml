@@ -104,10 +104,9 @@ jobs:
       run: npm run build
 
     - name: Deploy to Firebase Hosting
-      env:
-        FIREBASE_TOKEN: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}
-      run: |
-        echo "$FIREBASE_TOKEN" > service-account.json
-        export GOOGLE_APPLICATION_CREDENTIALS="service-account.json"
-        firebase deploy --only hosting --project lamah-357f3
-        rm -f service-account.json
+      uses: FirebaseExtended/action-hosting-deploy@v0
+      with:
+        repoToken: '${{ secrets.GITHUB_TOKEN }}'
+        firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_LAMAH_357F3 }}'
+        projectId: lamah-357f3
+        channelId: live
