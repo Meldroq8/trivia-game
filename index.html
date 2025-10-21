@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Tailwind config for Arabic font + container screens
+      // Tailwind config for Arabic font + container screens + responsive utilities
       tailwind.config = {
         theme: {
           extend: {
@@ -30,12 +30,105 @@
             },
             boxShadow: {
               soft: '0 10px 25px rgba(0,0,0,0.25)',
+            },
+            screens: {
+              'xs': '475px',
+              '3xl': '1920px',
+              '4xl': '2560px',
+              '5xl': '3840px',
+            },
+            spacing: {
+              '128': '32rem',
+              '144': '36rem',
             }
           }
         },
         corePlugins: { preflight: true }
       }
     </script>
+    <style>
+      /* Locked footer element widths - change once, applies to both team names and scores */
+      :root {
+        /* Portrait mode widths - wider like Senjem */
+        --footer-element-width-xs: 90px;
+        --footer-element-width-sm: 120px;
+        --footer-element-width-md: 150px;
+
+        /* Landscape mode widths - wider like Senjem */
+        --footer-element-width-landscape: 140px;
+        --footer-element-width-landscape-sm: 160px;
+        --footer-element-width-landscape-md: 180px;
+        --footer-element-width-landscape-lg: 192px;
+        --footer-element-width-landscape-xl: 192px;
+        --footer-element-width-landscape-4xl: 200px;
+      }
+
+      /* Portrait mode: locked widths for team names and scores */
+      .footer-element-portrait {
+        width: var(--footer-element-width-xs);
+      }
+      @media (min-width: 640px) {
+        .footer-element-portrait {
+          width: var(--footer-element-width-sm);
+        }
+      }
+      @media (min-width: 768px) {
+        .footer-element-portrait {
+          width: var(--footer-element-width-md);
+        }
+      }
+
+      /* Landscape mode: locked widths for team names and scores */
+      .footer-element-landscape {
+        width: var(--footer-element-width-landscape);
+      }
+      @media (min-width: 640px) {
+        .footer-element-landscape {
+          width: var(--footer-element-width-landscape-sm);
+        }
+      }
+      @media (min-width: 768px) {
+        .footer-element-landscape {
+          width: var(--footer-element-width-landscape-md);
+        }
+      }
+      @media (min-width: 1024px) {
+        .footer-element-landscape {
+          width: var(--footer-element-width-landscape-lg);
+        }
+      }
+      @media (min-width: 1280px) {
+        .footer-element-landscape {
+          width: var(--footer-element-width-landscape-xl);
+        }
+      }
+      @media (min-width: 2560px) {
+        .footer-element-landscape {
+          width: var(--footer-element-width-landscape-4xl);
+        }
+      }
+
+      /* Category text section heights - matching Senjem exactly */
+      .category-text-section {
+        height: 24px; /* h-6 */
+      }
+      @media (min-width: 640px) {
+        .category-text-section {
+          height: 40px; /* sm:h-10 */
+        }
+      }
+      @media (min-width: 1536px) {
+        .category-text-section {
+          height: 48px; /* 2xl:h-12 */
+        }
+      }
+      /* Landscape-specific heights for phones/tablets */
+      @media (orientation: landscape) and (max-width: 1023px) {
+        .category-text-section {
+          height: 32px; /* Smaller in landscape on mobile devices */
+        }
+      }
+    </style>
 
   </head>
   <body style="margin:0;background:#0b1020;color:#E6E8EF;">
