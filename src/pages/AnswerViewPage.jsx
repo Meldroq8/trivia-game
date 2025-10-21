@@ -83,11 +83,6 @@ function AnswerViewPage() {
         <div className="max-w-2xl w-full border-[5px] border-[#E34B4B] rounded-3xl md:rounded-[54px] p-8 md:p-12"
              style={{ backgroundColor: '#f7f2e6' }}>
           <div className="space-y-6">
-            {/* Answer heading */}
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-700 text-center">
-              الإجابة:
-            </h2>
-
             {/* Answer text */}
             <div className="text-4xl md:text-5xl font-bold text-gray-900 text-center leading-relaxed">
               {answer?.text}
