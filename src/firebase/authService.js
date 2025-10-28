@@ -246,8 +246,13 @@ export class AuthService {
       const isGameContinuation = gameData.gameData?.isGameContinuation
 
       // Build the final document with guaranteed clean data
+      // Get user's display name for leaderboard
+      const currentUser = AuthService.currentUser
+      const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'لاعب مجهول'
+
       const documentToSave = {
         userId: String(uid),
+        userName: String(userName),
         gameData: gameDataForFirebase,
         finalScore: Number(gameData.finalScore || 0),
         updatedAt: new Date(),
@@ -517,34 +522,51 @@ export class AuthService {
       // Check cache first (5 minute TTL)
       const cached = AuthService.getCached('leaderboard')
       if (cached) {
+        devLog('🏆 Using cached leaderboard:', cached.length, 'entries')
         return cached
       }
 
-      devLog('🏆 Loading public leaderboard from Firestore')
+      devLog('🏆 Loading public leaderboard from users collection')
 
-      const leaderboardQuery = query(
-        collection(db, 'leaderboard'),
-        orderBy('gamesPlayed', 'desc'),
-        limit(10)
-      )
-
-      const snapshot = await getDocs(leaderboardQuery)
+      // Load from users collection instead - their gameStats should be populated
+      const usersSnapshot = await getDocs(collection(db, 'users'))
       const leaderboard = []
 
-      snapshot.forEach(doc => {
-        leaderboard.push({
-          id: doc.id,
-          ...doc.data()
-        })
+      usersSnapshot.forEach(doc => {
+        const userData = doc.data()
+        const gamesPlayed = userData.gameStats?.gamesPlayed || 0
+
+        // Only include users who have played at least one game
+        if (gamesPlayed > 0) {
+          leaderboard.push({
+            id: doc.id,
+            userId: doc.id,
+            name: userData.displayName || userData.email?.split('@')[0] || 'لاعب مجهول',
+            gamesPlayed: gamesPlayed,
+            lastUpdated: userData.gameStats?.lastPlayed || new Date()
+          })
+        }
       })
 
-      devLog('🏆 Loaded', leaderboard.length, 'leaderboard entries')
+      devLog('🏆 Loaded', leaderboard.length, 'users with games')
 
-      // Cache the result for 5 minutes
-      AuthService.setCached('leaderboard', leaderboard, 5)
+      // Sort by games played
+      const sortedLeaderboard = leaderboard
+        .sort((a, b) => (b.gamesPlayed || 0) - (a.gamesPlayed || 0))
+        .slice(0, 10)
 
-      return leaderboard
+      devLog('🏆 Sorted top 10:', sortedLeaderboard)
+
+      // Cache the result for 5 minutes (longer for unauthenticated to reduce errors)
+      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.currentUser ? 5 : 60)
+
+      return sortedLeaderboard
     } catch (error) {
+      // If permission denied (not logged in), return empty array instead of throwing
+      if (error.code === 'permission-denied') {
+        devLog('⚠️ Leaderboard not accessible (not logged in) - returning empty array')
+        return []
+      }
       prodError('❌ Error loading public leaderboard:', error)
       throw error
     }
@@ -555,71 +577,43 @@ export class AuthService {
    */
   static async updateLeaderboard() {
     try {
-      const leaderboardData = []
       const currentUser = AuthService.currentUser
-
-      // Only get stats for the current user (to respect security rules)
-      if (currentUser) {
-        try {
-          // Count games from the games collection for current user only
-          const gamesQuery = query(
-            collection(db, 'games'),
-            where('userId', '==', currentUser.uid)
-          )
-          const gamesSnapshot = await getDocs(gamesQuery)
-          const gameCount = gamesSnapshot.size
-
-          if (gameCount > 0) {
-            leaderboardData.push({
-              userId: currentUser.uid,
-              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'لاعب مجهول',
-              gamesPlayed: gameCount,
-              lastUpdated: new Date()
-            })
-          }
-        } catch (error) {
-          devWarn('Error loading games for current user:', error)
-        }
+      if (!currentUser) {
+        devLog('⚠️ No user logged in, skipping leaderboard update')
+        return []
       }
 
-      // Always add demo players to make the leaderboard look populated
-      const demoPlayers = [
-        { userId: 'demo1', name: 'أحمد العزيز', gamesPlayed: 15, lastUpdated: new Date() },
-        { userId: 'demo2', name: 'فاطمة السعيد', gamesPlayed: 12, lastUpdated: new Date() },
-        { userId: 'demo3', name: 'محمد النشيط', gamesPlayed: 10, lastUpdated: new Date() },
-        { userId: 'demo4', name: 'عائشة الذكية', gamesPlayed: 8, lastUpdated: new Date() },
-        { userId: 'demo5', name: 'عمر المتفوق', gamesPlayed: 6, lastUpdated: new Date() }
-      ]
-
-      // Add demo players (they'll be sorted by score anyway)
-      leaderboardData.push(...demoPlayers)
-
-      // Sort by games played
-      const sortedData = leaderboardData.sort((a, b) => b.gamesPlayed - a.gamesPlayed)
-
-      // Clear existing leaderboard and add new data
-      const leaderboardCollection = collection(db, 'leaderboard')
-
-      // Delete existing entries
-      const existingSnapshot = await getDocs(leaderboardCollection)
-      const deletePromises = existingSnapshot.docs.map(doc => deleteDoc(doc.ref))
-      await Promise.all(deletePromises)
-
-      // Add new entries
-      const addPromises = sortedData.slice(0, 10).map((entry, index) =>
-        setDoc(doc(leaderboardCollection, `rank_${index + 1}`), {
-          ...entry,
-          rank: index + 1
-        })
+      // Count games for current user only
+      const gamesQuery = query(
+        collection(db, 'games'),
+        where('userId', '==', currentUser.uid)
       )
-      await Promise.all(addPromises)
+      const gamesSnapshot = await getDocs(gamesQuery)
+      const gameCount = gamesSnapshot.size
 
-      devLog('✅ Leaderboard updated successfully')
+      if (gameCount === 0) {
+        devLog('⚠️ No games found for current user')
+        return []
+      }
+
+      const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'لاعب مجهول'
+
+      // Update only current user's entry in leaderboard
+      const leaderboardRef = doc(db, 'leaderboard', currentUser.uid)
+      await setDoc(leaderboardRef, {
+        userId: currentUser.uid,
+        name: userName,
+        gamesPlayed: gameCount,
+        lastUpdated: new Date()
+      })
+
+      devLog('✅ Leaderboard entry updated for current user')
 
       // Invalidate leaderboard cache
       AuthService.cache.delete('leaderboard')
 
-      return sortedData.slice(0, 10)
+      // Return updated public leaderboard
+      return await AuthService.getPublicLeaderboard()
     } catch (error) {
       prodError('❌ Error updating leaderboard:', error)
       throw error

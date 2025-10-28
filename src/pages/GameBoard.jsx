@@ -1548,7 +1548,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       {/* Red Header Bar */}
       <div
         ref={headerRef}
-        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-visible relative"
+        className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-visible relative shadow-lg"
         style={{
           padding: `${styles.headerPadding}px`,
           height: `${styles.headerHeight}px`
@@ -1561,7 +1561,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               <LogoDisplay />
               <div className="flex items-center gap-1">
                 <span className="text-xs sm:text-sm md:text-base">دور:</span>
-                <span className="font-bold text-sm sm:text-base md:text-lg">
+                <span className="font-bold text-sm sm:text-base md:text-lg" dir="auto">
                   {gameState.currentTurn === 'team1'
                     ? gameState.team1.name
                     : gameState.currentTurn === 'team2'
@@ -1572,7 +1572,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             <div className="flex items-center flex-1 justify-center px-2">
-              <h1 className="font-bold text-center text-sm sm:text-base md:text-lg truncate max-w-full">
+              <h1 className="font-bold text-center text-sm sm:text-base md:text-lg truncate max-w-full" dir="auto">
                 {gameState.gameName}
               </h1>
             </div>
@@ -1588,13 +1588,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           </div>
         ) : (
           /* Landscape Mode: Original full header */
-          <div className="flex justify-between items-center h-full">
+          <div className="flex justify-between items-center h-full md:px-12 lg:px-16 xl:px-20 2xl:px-28">
             <div className="flex items-center gap-3">
               <LogoDisplay />
               <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl">
-                دور الفريق:
+                دور:
               </span>
-              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl">
+              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl" dir="auto">
                 {gameState.currentTurn === 'team1'
                   ? gameState.team1.name
                   : gameState.currentTurn === 'team2'
@@ -1606,16 +1606,16 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   ...prev,
                   currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
                 }))}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center w-8 h-8 md:w-10 md:h-10 lg:w-11 lg:h-11 xl:w-12 xl:h-12 p-1"
+                className="hover:bg-white/10 text-white rounded-lg transition-colors flex items-center justify-center p-1"
               >
-                <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9">
                   <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
                 </svg>
               </button>
             </div>
 
             <div className="flex items-center gap-4">
-              <h1 className="font-bold text-center text-base md:text-lg lg:text-xl xl:text-2xl">
+              <h1 className="font-bold text-center text-base md:text-lg lg:text-xl xl:text-2xl" dir="auto">
                 {gameState.gameName}
               </h1>
             </div>
@@ -1725,10 +1725,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 200, 0)}
                       disabled={isPointValueUsed(categoryId, 200, 0)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 0)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       200
@@ -1736,10 +1736,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 400, 0)}
                       disabled={isPointValueUsed(categoryId, 400, 0)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 0)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       400
@@ -1747,10 +1747,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 600, 0)}
                       disabled={isPointValueUsed(categoryId, 600, 0)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 0)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       600
@@ -1774,8 +1774,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       )}
                     </BackgroundImage>
 
-                    {/* Text section at bottom */}
-                    <div className="category-text-section bg-gray-300 text-gray-800 text-center font-bold flex items-center justify-center absolute left-0 right-0 bottom-0 border-t-2 border-t-black text-[7px] sm:text-[15px] md:text-lg lg:text-2xl xl:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl portrait:sm:text-sm portrait:md:text-base portrait:lg:text-xl portrait:xl:text-3xl portrait:2xl:text-4xl landscape:sm:text-[9px] landscape:md:text-sm landscape:lg:text-lg landscape:xl:text-2xl landscape:2xl:text-4xl px-1 sm:px-2 py-1 sm:py-1.5 xl:py-2 leading-normal"
+                    {/* Text section at bottom with red gradient */}
+                    <div className="category-text-section bg-gradient-to-b from-red-100 to-red-200 text-gray-900 text-center font-bold flex items-center justify-center absolute left-0 right-0 bottom-0 border-t-2 border-t-red-600 text-[7px] sm:text-[15px] md:text-lg lg:text-2xl xl:text-5xl 2xl:text-6xl 3xl:text-7xl 4xl:text-8xl portrait:sm:text-sm portrait:md:text-base portrait:lg:text-xl portrait:xl:text-3xl portrait:2xl:text-4xl landscape:sm:text-[9px] landscape:md:text-sm landscape:lg:text-lg landscape:xl:text-2xl landscape:2xl:text-4xl px-1 sm:px-2 py-1 sm:py-1.5 xl:py-2 leading-normal shadow-inner"
                          style={{
                            lineHeight: '1.4',
                            paddingBottom: '0.35em'
@@ -1791,10 +1791,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 200, 1)}
                       disabled={isPointValueUsed(categoryId, 200, 1)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 1)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       200
@@ -1802,10 +1802,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 400, 1)}
                       disabled={isPointValueUsed(categoryId, 400, 1)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 1)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       400
@@ -1813,10 +1813,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <button
                       onClick={() => handleQuestionClick(categoryId, 600, 1)}
                       disabled={isPointValueUsed(categoryId, 600, 1)}
-                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full ${
+                      className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 1)
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                          : 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
                       600
@@ -1832,28 +1832,35 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       </div>
 
       {/* Footer Score Controls */}
-      <div ref={footerRef} className="bg-[#f7f2e6] border-t-2 border-gray-200 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6">
+      <div ref={footerRef} className="bg-gradient-to-b from-amber-100 to-[#f7f2e6] border-t-2 border-red-200 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6 shadow-lg">
         {styles.isPhonePortrait ? (
-          <div className="flex flex-col gap-2 w-full relative">
-            {/* Center Logo spanning both rows */}
-            {sponsorLogoLoaded && sponsorLogo && showSponsorLogo && (
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center">
-                <img
-                  src={sponsorLogo}
-                  alt="Game Logo"
-                  className="w-12 sm:w-16 md:w-20 max-h-[50px] object-contain"
-                />
-              </div>
-            )}
-
+          <div className="flex flex-col gap-2 w-full">
             {/* First Row: Team Names */}
-            <div className="flex items-center w-full justify-between">
-              <div className="footer-element-portrait bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm truncate">
-                {gameState.team1.name}
+            <div className="flex items-center w-full justify-between mb-2">
+              {/* Team 1 Name wrapper matching controls width */}
+              <div className="flex items-center relative" style={{ gap: '4px' }}>
+                {/* Invisible structure matching controls below */}
+                <div className="footer-element-portrait invisible">placeholder</div>
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                {/* Team name overlaying all */}
+                <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
+                  {gameState.team1.name}
+                </div>
               </div>
 
-              <div className="footer-element-portrait bg-red-500 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm truncate">
-                {gameState.team2.name}
+              {/* Team 2 Name wrapper matching controls width */}
+              <div className="flex items-center relative" style={{ gap: '4px' }}>
+                {/* Invisible structure matching controls below */}
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="footer-element-portrait invisible">placeholder</div>
+                {/* Team name overlaying all */}
+                <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
+                  {gameState.team2.name}
+                </div>
               </div>
             </div>
 
@@ -1862,7 +1869,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               {/* Team 1 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
                 {/* Score with integrated +/- buttons */}
-                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-0.5">
+                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -1969,7 +1976,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 </div>
 
                 {/* Score with integrated +/- buttons */}
-                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-0.5">
+                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2007,33 +2014,62 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 </div>
               </div>
             </div>
+
+            {/* Third Row: Sponsor Logo (if doesn't fit in center) */}
+            {sponsorLogoLoaded && sponsorLogo && showSponsorLogo && (
+              <div className="w-fit mx-auto h-full flex items-center justify-center py-1">
+                <img
+                  src={sponsorLogo}
+                  alt="Game Logo"
+                  className="mx-auto max-md:w-24 md:max-h-[6.5rem] 2xl:max-h-[6.7rem] object-contain"
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-2 w-full relative">
             {/* Center Logo spanning both rows */}
             {sponsorLogoLoaded && sponsorLogo && showSponsorLogo && (
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center">
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-fit mx-auto flex items-center justify-center p-2 md:p-3 lg:p-4">
                 <img
                   src={sponsorLogo}
                   alt="Game Logo"
-                  className="w-24 sm:w-32 md:w-36 lg:w-40 xl:w-48 4xl:w-60 max-h-[120px] xl:max-h-[160px] object-contain"
+                  className="mx-auto max-md:w-24 md:max-h-[6.5rem] 2xl:max-h-[6.7rem] object-contain"
                 />
               </div>
             )}
 
             {/* First Row: Team Names Only */}
-            <div className="flex items-center w-full justify-between">
-              <div className="footer-element-landscape bg-red-500 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl truncate">
-                {gameState.team1.name}
+            <div className="flex items-center w-full justify-between mb-2 md:px-12 lg:px-16 xl:px-20 2xl:px-28">
+              {/* Team 1 Name wrapper matching controls width */}
+              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4 relative">
+                {/* Invisible structure matching controls below */}
+                <div className="footer-element-landscape invisible">placeholder</div>
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                {/* Team name overlaying all */}
+                <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
+                  {gameState.team1.name}
+                </div>
               </div>
 
-              <div className="footer-element-landscape bg-red-500 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl truncate">
-                {gameState.team2.name}
+              {/* Team 2 Name wrapper matching controls width */}
+              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4 relative">
+                {/* Invisible structure matching controls below */}
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="footer-element-landscape invisible">placeholder</div>
+                {/* Team name overlaying all */}
+                <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
+                  {gameState.team2.name}
+                </div>
               </div>
             </div>
 
             {/* Second Row: Score & Perks */}
-            <div className="flex items-center w-full justify-between">
+            <div className="flex items-center w-full justify-between md:px-12 lg:px-16 xl:px-20 2xl:px-28">
               {/* Team 1 Controls (Left) */}
               <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
                 {/* Score with integrated +/- buttons */}

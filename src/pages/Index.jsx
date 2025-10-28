@@ -78,14 +78,9 @@ function Index({ setGameState }) {
   const loadLeaderboard = async () => {
     setLeaderboardLoading(true)
     try {
-      // Try to load existing public leaderboard
-      let leaderboardData = await getPublicLeaderboard()
-
-      // If no data exists, create initial leaderboard automatically
-      if (leaderboardData.length === 0) {
-        leaderboardData = await updateLeaderboard()
-      }
-
+      // Load public leaderboard from users collection
+      const leaderboardData = await getPublicLeaderboard()
+      console.log('📊 Leaderboard data loaded:', leaderboardData)
       setLeaderboard(leaderboardData)
     } catch (error) {
       console.error('Error loading leaderboard:', error)

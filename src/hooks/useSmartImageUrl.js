@@ -15,15 +15,31 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
   useEffect(() => {
     devLog('🔍 useSmartImageUrl called with:', { categoryId, firebaseUrl, size, context });
 
+    // Detect iOS devices
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
     // Special handling for mystery category - try to find a mystery image
     if (categoryId === 'mystery' && (!firebaseUrl || firebaseUrl === '')) {
       devLog('🔍 Mystery category detected without Firebase URL, searching for local mystery images...');
 
       // Try to find the latest mystery category image
       const testMysteryImage = new Image();
+      testMysteryImage.crossOrigin = 'anonymous'; // Better CORS handling
+
+      const mysteryUrl = '/images/categories/category_mystery_1758939021986.webp';
+
+      // On iOS, skip testing and trust the URL
+      if (isIOS) {
+        devLog('📱 iOS detected, using mystery image without testing');
+        setCurrentUrl(mysteryUrl);
+        setIsLoading(false);
+        return;
+      }
+
       testMysteryImage.onload = () => {
         devLog('✅ Found mystery category image');
-        setCurrentUrl('/images/categories/category_mystery_1758939021986.webp'); // Use the latest one
+        setCurrentUrl(mysteryUrl);
         setIsLoading(false);
       };
       testMysteryImage.onerror = () => {
@@ -31,7 +47,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
         setCurrentUrl(null);
         setIsLoading(false);
       };
-      testMysteryImage.src = '/images/categories/category_mystery_1758939021986.webp';
+      testMysteryImage.src = mysteryUrl;
       return;
     }
 
@@ -56,8 +72,17 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
     const optimizedUrl = getOptimizedMediaUrl(firebaseUrl, size, context);
     devLog(`🚀 Testing optimized URL: ${optimizedUrl}`);
 
+    // On iOS, skip image testing and trust the URL (iOS Safari has issues with Image() constructor testing)
+    if (isIOS) {
+      devLog('📱 iOS detected, using URL without testing:', optimizedUrl);
+      setCurrentUrl(optimizedUrl);
+      setIsLoading(false);
+      return;
+    }
+
     // Test the optimized URL (CloudFront first, Firebase as fallback)
     const testImage = new Image();
+    testImage.crossOrigin = 'anonymous'; // Better CORS handling
 
     testImage.onload = () => {
       devLog(`✅ Optimized URL loaded successfully: ${optimizedUrl}`);
@@ -73,6 +98,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
       devLog(`🔄 Trying local fallback: ${localUrl}`);
 
       const localTestImage = new Image();
+      localTestImage.crossOrigin = 'anonymous'; // Better CORS handling
       localTestImage.onload = () => {
         devLog(`✅ Local fallback loaded: ${localUrl}`);
         setCurrentUrl(localUrl);
@@ -94,6 +120,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
         devLog(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
 
         const fallbackImage = new Image();
+        fallbackImage.crossOrigin = 'anonymous'; // Better CORS handling
         fallbackImage.onload = () => {
           devLog(`✅ Original filename found: ${fallbackLocalUrl}`);
           setCurrentUrl(fallbackLocalUrl);
@@ -104,6 +131,7 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
           devLog(`⚠️ Original filename not found, trying encoded: ${encodedLocalUrl}`);
 
           const encodedImage = new Image();
+          encodedImage.crossOrigin = 'anonymous'; // Better CORS handling
           encodedImage.onload = () => {
             devLog(`✅ URL-encoded filename found: ${encodedLocalUrl}`);
             setCurrentUrl(encodedLocalUrl);

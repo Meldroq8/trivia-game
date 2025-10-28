@@ -78,9 +78,9 @@ function PerkModal({
 
   devLog('PerkModal rendering with:', { isOpen, perkType, teamName })
 
-  // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
+  // Responsive sizing
   const isPC = window.innerWidth >= 1024 && window.innerHeight >= 768
-  const pcScaleFactor = isPC ? 2.0 : 1.0
+  const isMobile = window.innerWidth < 640
 
   const perkInfo = getPerkInfo(perkType)
 
@@ -111,130 +111,75 @@ function PerkModal({
     return null
   }
 
-  // Use the exact same approach as the working debug modal, just styled better
+  // Modern responsive modal with Tailwind
   return (
     <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        zIndex: 99999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}
+      className="fixed inset-0 bg-black/75 z-[99999] flex items-center justify-center p-4 transition-opacity duration-200"
       onClick={onClose}
     >
       <div
-        style={{
-          backgroundColor: 'white',
-          width: Math.min(isPC ? 500 : 380, window.innerWidth - 40),
-          maxWidth: '85vw',
-          height: Math.min(isPC ? 600 : 420, window.innerHeight - 40),
-          maxHeight: isPC ? '90vh' : '85vh',
-          padding: 0,
-          borderRadius: 12,
-          border: '4px solid #dc2626',
-          fontSize: Math.max(18, 16 * pcScaleFactor),
-          fontFamily: "'Tajawal','Cairo','Tahoma','Arial',sans-serif",
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}
+        className="bg-white rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{
-          backgroundColor: '#dc2626',
-          color: 'white',
-          padding: '16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: `${Math.max(28, 24 * pcScaleFactor)}px` }}>{perkInfo.icon}</span>
-            <h2 style={{ fontWeight: 'bold', fontSize: `${Math.max(22, 18 * pcScaleFactor)}px`, margin: 0 }}>{perkInfo.title}</h2>
+        {/* Header with gradient */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-3 sm:p-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex-shrink-0">
+              {perkInfo.icon}
+            </div>
+            <h2 className="font-bold text-lg sm:text-xl lg:text-2xl">{perkInfo.title}</h2>
           </div>
           <button
             onClick={onClose}
-            style={{
-              backgroundColor: '#b91c1c',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: `${Math.max(24, 20 * pcScaleFactor)}px`,
-              border: 'none',
-              cursor: 'pointer'
-            }}
+            className="bg-red-700 hover:bg-red-800 rounded-full w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center text-white font-bold text-xl sm:text-2xl transition-colors flex-shrink-0"
           >
             ×
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <span style={{ fontWeight: 'bold', color: '#dc2626', fontSize: `${Math.max(20, 18 * pcScaleFactor)}px` }}>فريق: {teamName}</span>
+        <div className="p-4 sm:p-6 flex-1 flex flex-col justify-between overflow-y-auto">
+          <div className="space-y-3 sm:space-y-4">
+            {/* Team name badge */}
+            <div className="flex justify-center">
+              <div className="bg-red-50 border-2 border-red-200 rounded-full px-4 py-1.5 sm:px-6 sm:py-2">
+                <span className="font-bold text-red-600 text-base sm:text-lg lg:text-xl" dir="auto">
+                  فريق: {teamName}
+                </span>
+              </div>
             </div>
 
-
-            <div style={{ textAlign: 'center', marginBottom: '24px', padding: '0 8px' }}>
-              <p style={{ color: '#374151', lineHeight: '1.6', direction: 'rtl', margin: 0, fontSize: `${Math.max(17, 15 * pcScaleFactor)}px` }}>{perkInfo.description}</p>
+            {/* Description */}
+            <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+              <p className="text-gray-700 text-center leading-relaxed text-sm sm:text-base lg:text-lg font-bold" dir="rtl">
+                {perkInfo.description}
+              </p>
             </div>
 
+            {/* Timer display */}
             {timerActive && (
-              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                <div style={{
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  borderRadius: '50%',
-                  margin: '0 auto',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: `${80 * pcScaleFactor}px`,
-                  height: `${80 * pcScaleFactor}px`,
-                  fontSize: `${Math.max(22, 20 * pcScaleFactor)}px`
-                }}>
+              <div className="text-center">
+                <div className="bg-red-600 text-white font-bold rounded-full w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex items-center justify-center mx-auto text-xl sm:text-2xl lg:text-3xl shadow-lg">
                   {String(Math.floor(timeLeft / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
                 </div>
-                <p style={{ marginTop: '8px', color: '#6b7280', margin: '8px 0 0 0', fontSize: `${Math.max(16, 14 * pcScaleFactor)}px` }}>الوقت المتبقي</p>
+                <p className="mt-2 text-gray-600 text-xs sm:text-sm lg:text-base">الوقت المتبقي</p>
               </div>
             )}
 
+            {/* Timer finished */}
             {timerFinished && (
-              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                <div style={{ color: '#059669', fontWeight: 'bold', fontSize: `${Math.max(22, 20 * pcScaleFactor)}px` }}>✅ انتهى الوقت!</div>
+              <div className="text-center">
+                <div className="text-green-600 font-bold text-lg sm:text-xl lg:text-2xl">✅ انتهى الوقت!</div>
               </div>
             )}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: 'auto', paddingTop: '16px' }}>
+          {/* Buttons */}
+          <div className="flex justify-center gap-2 sm:gap-3 mt-4 sm:mt-6">
             {readOnly ? (
               <button
                 onClick={onClose}
-                style={{
-                  backgroundColor: '#6b7280',
-                  color: 'white',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  padding: '12px 24px',
-                  minWidth: '120px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: `${Math.max(16, 14 * pcScaleFactor)}px`
-                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-bold px-5 py-2.5 sm:px-6 sm:py-3 min-w-[100px] transition-colors text-sm sm:text-base lg:text-lg"
               >
                 إغلاق
               </button>
@@ -243,17 +188,7 @@ function PerkModal({
                 {isUsed || usageCount >= maxUses ? (
                   <button
                     disabled
-                    style={{
-                      backgroundColor: '#9ca3af',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontWeight: 'bold',
-                      cursor: 'not-allowed',
-                      padding: '12px 24px',
-                      minWidth: '96px',
-                      border: 'none',
-                      fontSize: `${Math.max(16, 14 * pcScaleFactor)}px`
-                    }}
+                    className="bg-gray-400 text-white rounded-xl font-bold cursor-not-allowed px-5 py-2.5 sm:px-6 sm:py-3 min-w-[90px] text-sm sm:text-base lg:text-lg"
                   >
                     مستخدمة
                   </button>
@@ -261,33 +196,13 @@ function PerkModal({
                   <>
                     <button
                       onClick={onClose}
-                      style={{
-                        backgroundColor: '#6b7280',
-                        color: 'white',
-                        borderRadius: '8px',
-                        fontWeight: 'bold',
-                        padding: '12px 24px',
-                        minWidth: '96px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: `${Math.max(16, 14 * pcScaleFactor)}px`
-                      }}
+                      className="bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-bold px-4 py-2.5 sm:px-6 sm:py-3 min-w-[80px] transition-colors text-sm sm:text-base lg:text-lg"
                     >
                       إلغاء
                     </button>
                     <button
                       onClick={perkInfo.duration ? handleStartTimer : handleConfirm}
-                      style={{
-                        backgroundColor: '#059669',
-                        color: 'white',
-                        borderRadius: '8px',
-                        fontWeight: 'bold',
-                        padding: '12px 24px',
-                        minWidth: '96px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: `${Math.max(16, 14 * pcScaleFactor)}px`
-                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold px-5 py-2.5 sm:px-6 sm:py-3 min-w-[90px] transition-colors text-sm sm:text-base lg:text-lg shadow-lg"
                     >
                       {perkInfo.buttonText}
                     </button>
@@ -302,17 +217,7 @@ function PerkModal({
                   setTimerActive(false)
                   setTimeLeft(0)
                 }}
-                style={{
-                  backgroundColor: '#dc2626',
-                  color: 'white',
-                  borderRadius: '8px',
-                  fontWeight: 'bold',
-                  padding: '12px 24px',
-                  minWidth: '96px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: `${Math.max(16, 14 * pcScaleFactor)}px`
-                }}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold px-5 py-2.5 sm:px-6 sm:py-3 min-w-[90px] transition-colors text-sm sm:text-base lg:text-lg"
               >
                 إيقاف المؤقت
               </button>
@@ -326,18 +231,30 @@ function PerkModal({
 
 // Helper function to get perk information
 function getPerkInfo(perkType) {
+  const isMobile = window.innerWidth < 640
+  const iconSize = isMobile ? 32 : 40 // Smaller on mobile
+
   switch (perkType) {
     case 'double':
       return {
-        icon: '×2',
-        title: 'مضاعفة النقاط',
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" className="drop-shadow-md">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="white" stroke="none"/>
+            <text x="12" y="15" textAnchor="middle" fontSize="8" fill="#dc2626" fontWeight="bold">2</text>
+          </svg>
+        ),
+        title: 'دبلها',
         description: 'يحصل الفريق على ضعف النقاط إذا أجاب بشكل صحيح على السؤال الحالي',
         duration: null,
         buttonText: 'تفعيل المضاعفة'
       }
     case 'phone':
       return {
-        icon: '📞',
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" className="drop-shadow-md">
+            <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill="white" stroke="none"/>
+          </svg>
+        ),
         title: 'اتصال بصديق',
         description: 'يمكن للفريق الاتصال بصديق للمساعدة في الإجابة لمدة 30 ثانية',
         duration: 30,
@@ -345,8 +262,12 @@ function getPerkInfo(perkType) {
       }
     case 'search':
       return {
-        icon: '🔍',
-        title: 'البحث في جوجل',
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" className="drop-shadow-md">
+            <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill="white" stroke="none"/>
+          </svg>
+        ),
+        title: 'جوجلها',
         description: 'يمكن للفريق البحث في جوجل عن إجابة السؤال لمدة 15 ثانية',
         duration: 15,
         buttonText: 'بدء البحث'

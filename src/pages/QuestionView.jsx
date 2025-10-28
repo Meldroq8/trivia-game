@@ -1168,11 +1168,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           height: `${styles.headerHeight}px`
         }}
       >
-        <div className="flex justify-between items-center h-full">
+        <div className="flex justify-between items-center h-full md:px-12 lg:px-16 xl:px-20 2xl:px-28">
           <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
             <LogoDisplay />
             <span className="font-bold text-white" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
-              دور الفريق:
+              دور:
             </span>
             <span
               className="font-bold text-white"
@@ -1189,14 +1189,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 ...prev,
                 currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
               }))}
-              className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
-              style={{
-                width: `${styles.headerFontSize * 1.8}px`,
-                height: `${styles.headerFontSize * 1.8}px`,
-                padding: '4px'
-              }}
+              className="hover:bg-white/10 text-white rounded-lg transition-colors flex items-center justify-center p-1"
             >
-              <svg width="100%" height="100%" viewBox="0 0 24 24" fill="none">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9">
                 <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
               </svg>
             </button>
@@ -1322,9 +1317,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       <div className="flex-1 flex flex-col px-4 py-5 2xl:h-[calc(100vh_-_112px)] 4xl:h-[calc(100vh_-_130px)] xl:h-[calc(100vh-76px)] sm:h-[calc(100vh-92px)] xs:h-[calc(100vh-118px)] h-[calc(100vh-107px)] height-container" style={{
         minHeight: 0
       }}>
-        <div className={`xl:grid flex flex-col-reverse landscape:flex landscape:flex-row xl:grid xl:grid-cols-12 gap-x-5 pt-2 sm:pt-4 md:pt-6 lg:pt-8 xl:pt-10 2xl:pt-12 ${styles.teamContainerTopPadding} h-full max-xl:justify-between landscape:justify-start game-panel_wrapper text-center`}>
+        <div className={`xl:grid flex flex-col-reverse landscape:flex landscape:flex-row xl:grid xl:grid-cols-12 gap-x-5 landscape:gap-x-2 xl:gap-x-3 pt-2 sm:pt-4 md:pt-6 lg:pt-8 xl:pt-10 2xl:pt-12 ${styles.teamContainerTopPadding} h-full max-xl:justify-between landscape:justify-start game-panel_wrapper text-center`}>
           {/* Teams Sidebar - xl:col-span-3 */}
-          <div className={`xl:col-span-3 xl:order-1 landscape:w-auto landscape:flex-shrink-0 max-xl:flex max-md:grid grid-cols-2 max-md:flex-col landscape:flex landscape:flex-col max-xl:justify-around max-xl:flex-row-reverse landscape:justify-start max-xl:gap-x-5 ${styles.teamContainerGap} max-sm:gap-x-2 max-xl:[&>*]:flex-shrink-0 styled-scrollbar xl:px-2.5 ${styles.teamContainerPadding} max-xl:w-full max-xl:mx-auto max-xl:items-center landscape:items-stretch xl:h-[calc(90vh_-_112px)] landscape:h-[calc(90vh_-_112px)] mb-3 landscape:mb-0 landscpe_btn-view`}>
+          <div className={`xl:col-span-3 xl:order-1 landscape:flex-shrink-0 max-xl:flex max-md:grid grid-cols-2 max-md:flex-col landscape:flex landscape:flex-col max-xl:justify-around max-xl:flex-row-reverse landscape:justify-start max-xl:gap-x-5 ${styles.teamContainerGap} max-sm:gap-x-2 max-xl:[&>*]:flex-shrink-0 styled-scrollbar xl:px-1 landscape:px-1 ${styles.teamContainerPadding} max-xl:w-full max-xl:mx-auto max-xl:items-center landscape:items-stretch xl:h-[calc(90vh_-_112px)] landscape:h-full mb-3 landscape:mb-0 landscpe_btn-view`}
+               style={{
+                 width: (window.innerWidth > window.innerHeight || window.innerWidth >= 1280) ? `${styles.teamSectionWidth}px` : undefined
+               }}>
 
             {/* Team 1 Section */}
             <section className="about_score_footer_secMain">
@@ -1478,10 +1476,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           {/* Main Question Area - xl:col-span-9 */}
           <div className="xl:col-span-9 xl:order-2 landscape:flex-1 max-xl:row-start-1 h-full relative gamemain_section max-xl:mb-7 landscape:mb-0 barcode-box barcode-more"
                style={{ backgroundColor: '#f7f2e6' }}>
-            <div className="h-full game-mainSec px-3.5 landscape:px-6 xs:px-6 border-[5px] border-[#E34B4B] 2xl:rounded-[78px] xl:rounded-[54px] rounded-3xl pt-2 game-section_wrapper flex justify-center hint-question-wrapper"
+            <div className="h-full game-mainSec px-3.5 landscape:px-6 xs:px-6 2xl:rounded-[78px] xl:rounded-[54px] rounded-3xl pt-2 game-section_wrapper flex justify-center hint-question-wrapper"
                  style={{
                    paddingBottom: `${styles.bottomPadding}px`,
-                   backgroundColor: '#f7f2e6'
+                   backgroundColor: '#f7f2e6',
+                   background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                   border: '5px solid transparent'
                  }}>
 
               {/* Perk Timer Circle - Bottom Right */}
@@ -2053,10 +2053,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               {!showAnswer && !showScoring && (
                 <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
                   <div className="flex gap-1 sm:gap-2 landscape:gap-2 justify-end px-1 sm:px-0 landscape:px-0">
-                    <div className="md:text-xl sm:text-base text-xs text-white bg-[#FF7546] py-1.5 4xl:py-2.5 xl:px-5 lg:px-3 md:px-2.5 sm:px-2 px-2 rounded-2xl w-fit font-semibold flex items-center justify-center ml-auto mr-[5%]">
+                    <div className="md:text-xl sm:text-base text-xs text-white bg-gradient-to-r from-amber-500 to-amber-600 py-1.5 4xl:py-2.5 xl:px-5 lg:px-3 md:px-2.5 sm:px-2 px-2 rounded-2xl w-fit font-bold flex items-center justify-center ml-auto mr-[5%] shadow-md">
                       {currentQuestion?.category || 'فئة السؤال'}
                     </div>
-                    <div className="cursor-pointer sm:text-xl 2xl:text-3xl bg-[#265B13] text-white md:px-6 px-5 py-1 md:py-3 inline-flex items-center justify-center text-center rounded-full go-to-answer"
+                    <div className="cursor-pointer sm:text-xl 2xl:text-3xl bg-gradient-to-r from-green-600 to-green-700 text-white md:px-6 px-5 py-1 md:py-3 inline-flex items-center justify-center text-center rounded-full go-to-answer font-bold shadow-md"
                          onClick={handleShowAnswer}>
                       الإجابة
                     </div>
@@ -2186,11 +2186,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   {/* Navigation Buttons */}
                   <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
                     <div className="flex items-stretch justify-between">
-                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#D10C0C] rounded-full prev-step-btn font-arabic font-bold"
+                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-red-600 to-red-700 rounded-full prev-step-btn font-arabic font-bold shadow-md"
                            onClick={() => setShowAnswer(false)}>
                         <span className="shrink-0">ارجع للسؤال</span>
                       </div>
-                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#00619B] rounded-full next-step-btn font-arabic font-bold"
+                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-full next-step-btn font-arabic font-bold shadow-md"
                            onClick={handleShowScoring}>
                         <span className="shrink-0">منو جاوب؟</span>
                       </div>
@@ -2219,37 +2219,57 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     </div>
 
                     {/* First Row - Team Buttons Side by Side */}
-                    <div style={{ width: '90%' }} className="flex gap-4">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: 'fit-content', margin: '0 auto' }} className="md:gap-6 lg:gap-8">
                       <button
                         onClick={() => handleScoreTeam('team1')}
-                        className="text-white font-bold rounded-full px-6 py-3 font-arabic flex-1 hover:opacity-90 transition-opacity"
+                        className="text-white font-bold rounded-full font-arabic hover:opacity-90 transition-opacity px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 xl:px-12 xl:py-6 whitespace-nowrap"
                         style={{
                           fontSize: `${styles.buttonFontSize}px`,
-                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)'
+                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
+                          minWidth: '120px'
                         }}
                       >
                         {gameState.team1.name}
                       </button>
                       <button
                         onClick={() => handleScoreTeam('team2')}
-                        className="text-white font-bold rounded-full px-6 py-3 font-arabic flex-1 hover:opacity-90 transition-opacity"
+                        className="text-white font-bold rounded-full font-arabic hover:opacity-90 transition-opacity px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 xl:px-12 xl:py-6 whitespace-nowrap"
                         style={{
                           fontSize: `${styles.buttonFontSize}px`,
-                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)'
+                          background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
+                          minWidth: '120px'
                         }}
                       >
                         {gameState.team2?.name || 'الفريق 2'}
                       </button>
                     </div>
 
-                    {/* Second Row - No One Button Spanning Full Width */}
-                    <div style={{ width: '90%' }}>
+                    {/* Second Row - No One Button Matching Combined Width */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: 'fit-content', margin: '0 auto', position: 'relative' }} className="md:gap-6 lg:gap-8">
+                      {/* Invisible team buttons to establish width */}
+                      <div className="text-white font-bold rounded-full font-arabic invisible px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 xl:px-12 xl:py-6 whitespace-nowrap" style={{
+                        fontSize: `${styles.buttonFontSize}px`,
+                        minWidth: '120px',
+                        gridColumn: '1'
+                      }}>
+                        {gameState.team1.name}
+                      </div>
+                      <div className="text-white font-bold rounded-full font-arabic invisible px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 xl:px-12 xl:py-6 whitespace-nowrap" style={{
+                        fontSize: `${styles.buttonFontSize}px`,
+                        minWidth: '120px',
+                        gridColumn: '2'
+                      }}>
+                        {gameState.team2?.name || 'الفريق 2'}
+                      </div>
+                      {/* Gray button overlaying full width */}
                       <button
                         onClick={() => handleNoAnswer()}
-                        className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-full px-6 py-3 w-full"
-                        style={{ fontSize: `${styles.buttonFontSize}px` }}
+                        className="bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-full absolute inset-0 flex items-center justify-center"
+                        style={{
+                          fontSize: `${styles.buttonFontSize}px`
+                        }}
                       >
-                        لا أحد
+                        محد
                       </button>
                     </div>
                   </div>
@@ -2257,14 +2277,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   {/* Navigation Buttons at Bottom - Return to Answer and Question */}
                   <div className="absolute bottom-0 translate-y-1/4 left-0 right-0">
                     <div className="flex items-stretch justify-between">
-                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#D10C0C] rounded-full prev-step-btn font-arabic font-bold"
+                      <div className="cursor-pointer 2xl:text-3xl xl:text-xl text-sm text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-red-600 to-red-700 rounded-full prev-step-btn font-arabic font-bold shadow-md"
                            onClick={() => {
                              setShowScoring(false)
                              setShowAnswer(false)
                            }}>
                         <span className="shrink-0">ارجع للسؤال</span>
                       </div>
-                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-[#00619B] rounded-full next-step-btn font-arabic font-bold"
+                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-full next-step-btn font-arabic font-bold shadow-md"
                            onClick={() => setShowScoring(false)}>
                         <span className="shrink-0">ارجع للإجابة</span>
                       </div>
