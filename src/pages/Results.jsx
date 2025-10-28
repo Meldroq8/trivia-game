@@ -240,35 +240,35 @@ function Results({ gameState, setGameState }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center p-4 bg-[#f7f2e6] overflow-y-auto">
+      <div className="flex-1 flex items-center justify-center p-2 sm:p-4 landscape:p-2 bg-[#f7f2e6] overflow-y-auto">
         {/* Main Results Card */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-4xl text-center animate-fadeIn relative z-10"
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl landscape:rounded-2xl shadow-2xl p-4 sm:p-8 landscape:p-4 w-full max-w-4xl text-center animate-fadeIn relative z-10"
              style={{ color: '#1f2937' }}>
         {/* Winner Announcement */}
-        <div className="mb-8">
-          <div className="text-8xl mb-4">{getWinnerEmoji()}</div>
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 text-gray-800">
+        <div className="mb-4 sm:mb-8 landscape:mb-4">
+          <div className="text-5xl sm:text-8xl landscape:text-6xl mb-2 sm:mb-4 landscape:mb-2">{getWinnerEmoji()}</div>
+          <h1 className="text-2xl sm:text-4xl md:text-6xl landscape:text-3xl font-bold mb-2 sm:mb-4 landscape:mb-2 text-gray-800">
             {getWinnerText()}
           </h1>
           {!isDraw && (
-            <p className="text-xl text-red-600">
+            <p className="text-base sm:text-xl landscape:text-lg text-red-600">
               بفارق {getScoreDifference()} نقطة
             </p>
           )}
         </div>
 
         {/* Scores */}
-        <div className="grid md:grid-cols-2 gap-8 mb-8">
-          <div className={`p-6 rounded-2xl ${winner === 'team1' ? 'bg-yellow-100 border-4 border-yellow-400' : 'bg-blue-50'}`}>
-            <div className="text-2xl font-bold text-blue-800 mb-2">{team1.name}</div>
-            <div className="text-5xl font-bold text-blue-600">{team1.score}</div>
-            {winner === 'team1' && <div className="text-yellow-600 font-bold mt-2">🏆 الفائز</div>}
+        <div className="grid grid-cols-2 gap-4 sm:gap-8 landscape:gap-4 mb-4 sm:mb-8 landscape:mb-4">
+          <div className={`p-3 sm:p-6 landscape:p-3 rounded-2xl ${winner === 'team1' ? 'bg-yellow-100 border-4 landscape:border-2 border-yellow-400' : 'bg-blue-50'}`}>
+            <div className="text-lg sm:text-2xl landscape:text-base font-bold text-blue-800 mb-1 sm:mb-2 landscape:mb-1">{team1.name}</div>
+            <div className="text-3xl sm:text-5xl landscape:text-3xl font-bold text-blue-600">{team1.score}</div>
+            {winner === 'team1' && <div className="text-yellow-600 font-bold mt-1 sm:mt-2 landscape:mt-1 text-sm sm:text-base landscape:text-xs">🏆 الفائز</div>}
           </div>
 
-          <div className={`p-6 rounded-2xl ${winner === 'team2' ? 'bg-yellow-100 border-4 border-yellow-400' : 'bg-red-50'}`}>
-            <div className="text-2xl font-bold text-red-800 mb-2">{team2.name}</div>
-            <div className="text-5xl font-bold text-red-600">{team2.score}</div>
-            {winner === 'team2' && <div className="text-yellow-600 font-bold mt-2">🏆 الفائز</div>}
+          <div className={`p-3 sm:p-6 landscape:p-3 rounded-2xl ${winner === 'team2' ? 'bg-yellow-100 border-4 landscape:border-2 border-yellow-400' : 'bg-red-50'}`}>
+            <div className="text-lg sm:text-2xl landscape:text-base font-bold text-red-800 mb-1 sm:mb-2 landscape:mb-1">{team2.name}</div>
+            <div className="text-3xl sm:text-5xl landscape:text-3xl font-bold text-red-600">{team2.score}</div>
+            {winner === 'team2' && <div className="text-yellow-600 font-bold mt-1 sm:mt-2 landscape:mt-1 text-sm sm:text-base landscape:text-xs">🏆 الفائز</div>}
           </div>
         </div>
 
@@ -342,32 +342,18 @@ function Results({ gameState, setGameState }) {
         )}
 
         {/* Action Buttons */}
-        <div className="grid md:grid-cols-3 gap-4">
-          <button
-            onClick={() => navigate('/statistics')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transform transition-all duration-200 hover:scale-105"
-          >
-            عرض الإحصائيات
-          </button>
-
+        <div className="flex justify-center mt-2 sm:mt-0">
           <button
             onClick={handleExit}
-            className="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transform transition-all duration-200 hover:scale-105"
+            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 sm:py-3 landscape:py-2 px-4 sm:px-6 landscape:px-4 rounded-xl transform transition-all duration-200 hover:scale-105 text-sm sm:text-base landscape:text-sm"
           >
             الخروج
-          </button>
-
-          <button
-            onClick={() => navigate('/categories')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transform transition-all duration-200 hover:scale-105"
-          >
-            لعب مرة أخرى
           </button>
         </div>
 
         {/* Motivational Message */}
-        <div className="mt-6 p-4 bg-gradient-to-r from-red-100 to-blue-100 rounded-xl">
-          <p className="text-gray-800 font-medium">
+        <div className="mt-3 sm:mt-6 landscape:mt-3 p-3 sm:p-4 landscape:p-3 bg-gradient-to-r from-red-100 to-blue-100 rounded-xl">
+          <p className="text-gray-800 font-medium text-sm sm:text-base landscape:text-sm">
             {isDraw ?
               "لعبة رائعة! كلا الفريقين أظهر مهارات متميزة 👏" :
               winner === 'team1' ?

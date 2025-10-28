@@ -184,9 +184,17 @@ class QuestionUsageTracker {
 
       if (docSnap.exists()) {
         const data = docSnap.data()
-        return data.poolSize || 0
+        const firestorePoolSize = data.poolSize || 0
+
+        // If Firestore has no pool size, fallback to localStorage
+        if (firestorePoolSize === 0) {
+          return this.getLocalPoolSize()
+        }
+
+        return firestorePoolSize
       } else {
-        return 0
+        // Firestore document doesn't exist yet, use localStorage
+        return this.getLocalPoolSize()
       }
     } catch (error) {
       prodError('❌ Error loading pool size from Firestore:', error)
@@ -381,7 +389,7 @@ class QuestionUsageTracker {
     const totalTracked = Object.keys(usageData).length
     const usedQuestions = Object.values(usageData).filter(count => count > 0).length
     const unusedQuestions = totalTracked - usedQuestions
-    const completionPercentage = poolSize > 0 ? (usedQuestions / poolSize * 100).toFixed(1) : 0
+    const completionPercentage = poolSize > 0 ? parseFloat((usedQuestions / poolSize * 100).toFixed(1)) : 0
 
     return {
       poolSize,

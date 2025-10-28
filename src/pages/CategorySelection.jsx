@@ -450,7 +450,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   type="text"
                   value={gameName}
                   onChange={(e) => setGameName(e.target.value)}
-                  onFocus={() => setGameName('')}
+                  dir="auto"
                   className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
                   style={{
                     padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
@@ -475,7 +475,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     type="text"
                     value={team1Name}
                     onChange={(e) => setTeam1Name(e.target.value)}
-                    onFocus={() => setTeam1Name('')}
+                    dir="auto"
                     className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
                     style={{
                       padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
@@ -498,7 +498,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     type="text"
                     value={team2Name}
                     onChange={(e) => setTeam2Name(e.target.value)}
-                    onFocus={() => setTeam2Name('')}
+                    dir="auto"
                     className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
                     style={{
                       padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
