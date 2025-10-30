@@ -126,7 +126,7 @@ function Header({
   return (
     <div
       ref={headerRef}
-      className="bg-red-600 text-white flex-shrink-0"
+      className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 shadow-lg"
       style={{
         padding: `${styles.basePadding}px`,
         height: `${Math.max(56, styles.headerFontSize * 3)}px`

@@ -1403,6 +1403,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     answer: '',
     choices: ['', '', '', ''],
     explanation: '',
+    toleranceHint: { enabled: false, value: '1' },
     imageUrl: null,
     answerImageUrl: null,
     audioUrl: null,         // For question audio (MP3)
@@ -2029,6 +2030,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       answer: question.answer,
       difficulty: question.difficulty,
       points: question.points,
+      toleranceHint: question.toleranceHint || { enabled: false, value: '1' },
       audioUrl: question.audioUrl || '',
       imageUrl: question.imageUrl || '',
       videoUrl: question.videoUrl || '',
@@ -2189,6 +2191,15 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       firebaseUpdate.answer = editingData.answer
       firebaseUpdate.difficulty = editingData.difficulty
       firebaseUpdate.points = editingData.points
+
+      // Handle tolerance hint
+      if (editingData.toleranceHint?.enabled) {
+        updatedQuestion.toleranceHint = editingData.toleranceHint
+        firebaseUpdate.toleranceHint = editingData.toleranceHint
+      } else {
+        delete updatedQuestion.toleranceHint
+        firebaseUpdate.toleranceHint = deleteField()
+      }
 
       // Handle optional fields - use deleteField() for empty values
       if (editingData.audioUrl && editingData.audioUrl.trim()) {
@@ -2754,6 +2765,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         submittedBy: user?.uid || null
       }
 
+      // Add tolerance hint if enabled
+      if (singleQuestion.toleranceHint?.enabled) {
+        newQuestion.toleranceHint = singleQuestion.toleranceHint
+      }
+
       devLog('🚀 Submitting question with media:', {
         hasQuestionImage: !!newQuestion.imageUrl,
         hasAnswerImage: !!newQuestion.answerImageUrl,
@@ -2796,6 +2812,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         answer: '',
         choices: ['', '', '', ''],
         explanation: '',
+        toleranceHint: { enabled: false, value: '1' },
         imageUrl: null,
         answerImageUrl: null,
         audioUrl: null,
@@ -3166,6 +3183,43 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
               placeholder="الإجابة الصحيحة..."
               required
             />
+          </div>
+
+          {/* Tolerance Hint */}
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={singleQuestion.toleranceHint?.enabled || false}
+                onChange={(e) => setSingleQuestion(prev => ({
+                  ...prev,
+                  toleranceHint: {
+                    enabled: e.target.checked,
+                    value: prev.toleranceHint?.value || '1'
+                  }
+                }))}
+                className="w-4 h-4"
+              />
+              <label className="text-sm font-bold text-amber-700">إظهار هامش خطأ مسموح</label>
+            </div>
+            {singleQuestion.toleranceHint?.enabled && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={singleQuestion.toleranceHint?.value || '1'}
+                  onChange={(e) => setSingleQuestion(prev => ({
+                    ...prev,
+                    toleranceHint: {
+                      ...prev.toleranceHint,
+                      value: e.target.value
+                    }
+                  }))}
+                  className="w-32 p-2 border rounded-lg text-sm text-gray-900 bg-white"
+                  placeholder="1 أو نص"
+                />
+                <span className="text-xs text-amber-600">سيظهر تحت نص السؤال للاعبين</span>
+              </div>
+            )}
           </div>
 
           {/* Multiple Choice Options */}
@@ -3953,6 +4007,37 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white"
                                 placeholder="الإجابة الصحيحة..."
                               />
+
+                              {/* Tolerance Hint */}
+                              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={editingData.toleranceHint?.enabled || false}
+                                    onChange={(e) => updateEditingData('toleranceHint', {
+                                      enabled: e.target.checked,
+                                      value: editingData.toleranceHint?.value || '1'
+                                    })}
+                                    className="w-4 h-4"
+                                  />
+                                  <label className="text-xs font-bold text-amber-700">إظهار هامش خطأ مسموح</label>
+                                </div>
+                                {editingData.toleranceHint?.enabled && (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      value={editingData.toleranceHint?.value || '1'}
+                                      onChange={(e) => updateEditingData('toleranceHint', {
+                                        ...editingData.toleranceHint,
+                                        value: e.target.value
+                                      })}
+                                      className="w-32 p-2 border rounded-lg text-xs text-gray-900 bg-white"
+                                      placeholder="1 أو نص"
+                                    />
+                                    <span className="text-xs text-amber-600">سيظهر تحت نص السؤال</span>
+                                  </div>
+                                )}
+                              </div>
 
                               <div className="grid grid-cols-2 gap-4 mb-3">
                                 <div>
