@@ -191,7 +191,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const timerFontSize = baseFontSize * 0.9 * globalScaleFactor
       const pointsFontSize = baseFontSize * 0.7 * globalScaleFactor
       const pointsPadding = Math.max(4, 6 * globalScaleFactor)
-      const questionFontSize = baseFontSize * 1.1 * globalScaleFactor
+      // Question font size - reduce for ultra-narrow landscape (iPhone SE)
+      const isUltraNarrowLandscape = isLandscape && !isPC && actualVH <= 390
+      const questionFontSize = isUltraNarrowLandscape
+        ? baseFontSize * 0.9 * globalScaleFactor  // 90% for iPhone SE landscape
+        : baseFontSize * 1.1 * globalScaleFactor  // 110% for normal screens
+
+      // Question line height - tighter for ultra-narrow landscape
+      const questionLineHeight = isUltraNarrowLandscape ? 1.2 : 1.3
+
       // Responsive media sizing based on screen size and available space
       let imageAreaHeight
       if (isPC) {
@@ -207,6 +215,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       } else {
         imageAreaHeight = Math.max(200, finalQuestionAreaHeight * 0.6) // Large screens
       }
+
+      // Option F: Reduce media height on phone landscape when tolerance badge present
+      // This prevents overlap with timer while maintaining text readability
+      const isPhoneLandscape = isLandscape && !isPC && actualVH <= 450
+      if (isPhoneLandscape) {
+        // Apply 85% scaling to give more breathing room for tolerance badge
+        imageAreaHeight = Math.floor(imageAreaHeight * 0.85)
+      }
+
       const answerFontSize = baseFontSize * 1.1 * globalScaleFactor
 
       // Universal viewport-aware padding system to prevent overflow
@@ -287,6 +304,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         pointsFontSize,
         pointsPadding,
         questionFontSize,
+        questionLineHeight,
         imageAreaHeight,
         answerFontSize,
         scoringButtonWidth,
@@ -332,6 +350,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         pointsFontSize: 12,
         pointsPadding: 6,
         questionFontSize: 18,
+        questionLineHeight: 1.3,
         imageAreaHeight: 200,
         answerFontSize: 18,
         scoringButtonWidth: 100,
@@ -1162,7 +1181,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       {/* Header - Copy from GameBoard */}
       <div
         ref={headerRef}
-        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-hidden"
+        className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-hidden shadow-lg"
         style={{
           padding: `${styles.headerPadding}px`,
           height: `${styles.headerHeight}px`
@@ -1751,14 +1770,83 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show normal question content
                   return (
-                    <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
-                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black"
+                    <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
+                    <label className="flex justify-center items-center w-full question-content text-center pb-2 sm:pb-3 font-extrabold text-black"
                            style={{
                              direction: 'rtl',
-                             fontSize: `${styles.questionFontSize}px`
+                             fontSize: `${styles.questionFontSize}px`,
+                             lineHeight: styles.questionLineHeight
                            }}>
                       {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
                     </label>
+
+                    {/* Tolerance Hint - Modern Design with Arrows */}
+                    {currentQuestion?.question?.toleranceHint?.enabled || currentQuestion?.toleranceHint?.enabled ? (
+                      <div className="flex justify-center items-center w-full pb-4 landscape:pb-2">
+                        <div className="relative inline-flex items-center gap-1.5 sm:gap-2 md:gap-3
+                                        bg-gradient-to-br from-amber-50 to-amber-100/80
+                                        border-2 border-amber-400/60
+                                        shadow-lg shadow-amber-200/50
+                                        rounded-2xl
+                                        px-1.5 py-0.5 sm:px-2 sm:py-1
+                                        portrait:px-2 portrait:py-0.5
+                                        md:px-3 md:py-1.5
+                                        backdrop-blur-sm">
+
+                          {/* Right Arrow - Points RIGHT outward (visually on right in RTL) */}
+                          <svg
+                            className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6
+                                       text-amber-600 animate-pulse-subtle flex-shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M10 5L17 12L10 19"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+
+                          {/* Tolerance Value */}
+                          <div className="flex items-center gap-0.5 sm:gap-1">
+                            <span className="font-black text-amber-700
+                                           text-sm sm:text-lg
+                                           portrait:text-base
+                                           md:text-xl
+                                           lg:text-2xl
+                                           tracking-tight
+                                           drop-shadow-sm">
+                              {currentQuestion?.question?.toleranceHint?.value || currentQuestion?.toleranceHint?.value}
+                            </span>
+                          </div>
+
+                          {/* Left Arrow - Points LEFT outward (visually on left in RTL) */}
+                          <svg
+                            className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6
+                                       text-amber-600 animate-pulse-subtle flex-shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M14 19L7 12L14 5"
+                              stroke="currentColor"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+
+                          {/* Subtle glow effect */}
+                          <div className="absolute inset-0 rounded-2xl bg-amber-400/10 blur-sm -z-10"></div>
+                        </div>
+                      </div>
+                    ) : null}
 
                   {/* Media Player for Question */}
                   {(() => {

@@ -240,13 +240,34 @@ function ProfilePage() {
     return null
   }
 
+  // Calculate responsive header height
+  const getHeaderHeight = () => {
+    const height = window.innerHeight
+    const isPC = window.innerWidth >= 1024 && height >= 768
+
+    let baseFontSize = 16
+    if (height <= 390) baseFontSize = 14
+    else if (height <= 430) baseFontSize = 15
+    else if (height <= 568) baseFontSize = 16
+    else if (height <= 667) baseFontSize = 17
+    else if (height <= 812) baseFontSize = 18
+    else if (height <= 896) baseFontSize = 19
+    else if (height <= 1024) baseFontSize = 20
+    else baseFontSize = isPC ? 24 : 20
+
+    return Math.max(56, baseFontSize * 3)
+  }
+
   return (
     <div ref={containerRef} className="bg-amber-50 flex flex-col" style={{
       minHeight: '100vh',
       overflow: 'auto'
     }}>
       {/* Header */}
-      <div className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden h-16 md:h-20 lg:h-24">
+      <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden shadow-lg" style={{
+        padding: '8px',
+        height: getHeaderHeight() + 'px'
+      }}>
         <div className="flex items-center justify-between max-w-6xl mx-auto h-full px-4">
           <div className="flex items-center gap-3">
             <LogoDisplay />

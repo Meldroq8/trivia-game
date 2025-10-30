@@ -193,7 +193,7 @@ function Results({ gameState, setGameState }) {
     <div className="min-h-screen flex flex-col bg-[#f7f2e6] overflow-hidden">
       {/* Header - matching consistent sizing */}
       <div
-        className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden"
+        className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden shadow-lg"
         style={{
           padding: `${styles.headerPadding}px`,
           height: `${styles.headerHeight}px`
