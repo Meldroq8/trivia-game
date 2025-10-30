@@ -1440,16 +1440,23 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
         // Transform Firebase data format to admin format
         const transformedQuestions = gameData.questions || {}
-        setQuestions(transformedQuestions)
 
-        // Debug: Check if questions have Firebase IDs
+        // Debug: Check if questions have toleranceHint after loading
+        let questionsWithTolerance = 0
         Object.entries(transformedQuestions).forEach(([categoryId, categoryQuestions]) => {
           categoryQuestions.forEach((question, index) => {
             if (!question.id) {
               devWarn(`⚠️ Question at ${categoryId}[${index}] has no Firebase ID:`, question.text)
             }
+            if (question.toleranceHint) {
+              questionsWithTolerance++
+              console.log('📌 Question loaded WITH tolerance:', question.text?.substring(0, 50), question.toleranceHint)
+            }
           })
         })
+        console.log(`📊 Questions loaded with tolerance: ${questionsWithTolerance}`)
+
+        setQuestions(transformedQuestions)
 
         devLog('📊 Admin data loaded successfully')
       } else {
@@ -2193,13 +2200,17 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       firebaseUpdate.points = editingData.points
 
       // Handle tolerance hint
+      console.log('🔍 Checking tolerance hint before save:', editingData.toleranceHint)
       if (editingData.toleranceHint?.enabled) {
         updatedQuestion.toleranceHint = editingData.toleranceHint
         firebaseUpdate.toleranceHint = editingData.toleranceHint
+        console.log('✅ Tolerance hint WILL be saved:', editingData.toleranceHint)
       } else {
         delete updatedQuestion.toleranceHint
         firebaseUpdate.toleranceHint = deleteField()
+        console.log('❌ Tolerance hint WILL be deleted (not enabled)')
       }
+      console.log('📋 Final firebaseUpdate object:', firebaseUpdate)
 
       // Handle optional fields - use deleteField() for empty values
       if (editingData.audioUrl && editingData.audioUrl.trim()) {

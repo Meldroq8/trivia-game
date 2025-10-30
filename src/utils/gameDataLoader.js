@@ -94,6 +94,7 @@ export class GameDataLoader {
         answerAudioUrl: question.answerAudioUrl || null,
         videoUrl: question.videoUrl || null,
         answerVideoUrl: question.answerVideoUrl || null,
+        toleranceHint: question.toleranceHint || null,
         category: question.categoryName || question.categoryId || 'عام'
       })
     })
