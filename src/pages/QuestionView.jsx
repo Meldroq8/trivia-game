@@ -1560,7 +1560,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {!showAnswer && (() => {
                   const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
                   const category = gameData?.categories?.find(c => c.id === categoryId)
-                  const isQrMiniGame = category?.enableQrMiniGame === true
+
+                  // Check question's original category for QR setting (important for mystery/merged categories)
+                  const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                  const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+                  // Show QR if current category OR original category has QR enabled
+                  const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
 
                   // Show circular timer if QR mini-game and timer has started
                   if (isQrMiniGame && qrTimerStarted) {
@@ -1901,7 +1907,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   {(() => {
                     const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
                     const category = gameData?.categories?.find(c => c.id === categoryId)
-                    const isQrMiniGame = category?.enableQrMiniGame === true
+
+                    // Check question's original category for QR setting (important for mystery/merged categories)
+                    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+                    // Show QR if current category OR original category has QR enabled
+                    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
                     const questionId = currentQuestion?.question?.id || currentQuestion?.id
 
                     if (!isQrMiniGame || !questionId) return null
@@ -2061,7 +2073,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 {(() => {
                   const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
                   const category = gameData?.categories?.find(c => c.id === categoryId)
-                  const isQrMiniGame = category?.enableQrMiniGame === true
+
+                  // Check question's original category for QR setting (important for mystery/merged categories)
+                  const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                  const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+                  // Show QR if current category OR original category has QR enabled
+                  const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
 
                   if (isQrMiniGame) {
                     // QR Mini-Game Timer - Show Ready button only when timer not started
