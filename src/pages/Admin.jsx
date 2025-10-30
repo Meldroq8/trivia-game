@@ -2768,7 +2768,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       // Add tolerance hint if enabled
       if (singleQuestion.toleranceHint?.enabled) {
         newQuestion.toleranceHint = singleQuestion.toleranceHint
+        console.log('✅ Tolerance hint added to question:', singleQuestion.toleranceHint)
+      } else {
+        console.log('⚠️ Tolerance hint NOT enabled. Current state:', singleQuestion.toleranceHint)
       }
+
+      console.log('📋 Full question object being saved:', newQuestion)
 
       devLog('🚀 Submitting question with media:', {
         hasQuestionImage: !!newQuestion.imageUrl,
@@ -2779,6 +2784,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         hasAnswerVideo: !!newQuestion.answerVideoUrl,
         answerVideoUrl: newQuestion.answerVideoUrl,
         audioUrl: newQuestion.audioUrl,
+        hasTolerance: !!newQuestion.toleranceHint,
         fullQuestion: newQuestion
       })
 
