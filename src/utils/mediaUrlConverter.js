@@ -200,7 +200,6 @@ export const convertToCloudFrontUrl = (filepath, size = 'medium') => {
   const encodedPath = encodeURI(cleanPath)
   const cloudFrontUrl = `${CLOUDFRONT_CONFIG.baseUrl}/${encodedPath}`
 
-  devLog(`☁️ CloudFront URL: ${cloudFrontUrl}`)
   return cloudFrontUrl
 }
 
@@ -228,7 +227,6 @@ export const generateCloudFrontUrlAlternatives = (filepath) => {
     alternatives.push(`${CLOUDFRONT_CONFIG.baseUrl}/${utf8Encoded}`)
   }
 
-  devLog(`☁️ CloudFront URL alternatives:`, alternatives)
   return alternatives
 }
 
@@ -255,13 +253,10 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
       const normalizedPath = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`
       const cloudFrontUrl = convertToCloudFrontUrl(normalizedPath)
       if (cloudFrontUrl) {
-        devLog(`🚀 Local path to CloudFront: ${cloudFrontUrl}`)
-
         // Use direct S3 URL on localhost (has CORS configured)
         if (isLocalhost) {
           const s3Path = normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath
           const s3Url = `https://${CLOUDFRONT_CONFIG.s3Bucket}/${s3Path}`
-          devLog(`🔧 Using S3 direct URL for localhost: ${s3Url}`)
           return s3Url
         }
 
@@ -274,13 +269,10 @@ export const getOptimizedMediaUrl = (mediaUrl, size = 'medium', context = 'defau
     if (localPath) {
       const cloudFrontUrl = convertToCloudFrontUrl(localPath)
       if (cloudFrontUrl) {
-        devLog(`🚀 Using CloudFront: ${cloudFrontUrl}`)
-
         // Use direct S3 URL on localhost (has CORS configured)
         if (isLocalhost) {
           const s3Path = localPath.startsWith('/') ? localPath.substring(1) : localPath
           const s3Url = `https://${CLOUDFRONT_CONFIG.s3Bucket}/${s3Path}`
-          devLog(`🔧 Using S3 direct URL for localhost: ${s3Url}`)
           return s3Url
         }
 

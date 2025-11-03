@@ -181,6 +181,47 @@ service cloud.firestore {
                       resource.data.status == 'pending');
     }
 
+    // ===== PENDING CATEGORIES =====
+    // Pending categories submitted by loaders
+    match /pending_categories/{categoryId} {
+      // Allow list/query for:
+      // 1. Admins
+      // 2. Unauthenticated users (loaders need to query to check duplicates and see their own categories)
+      allow list: if (request.auth != null &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
+                     true; // Allow queries for loaders (they need to check duplicates and see their own pending categories)
+
+      // Allow read for:
+      // 1. Admins
+      // 2. Unauthenticated users (for loaders with invite codes)
+      allow get: if (request.auth != null &&
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
+                    true; // Allow all reads (loaders need to read their pending categories)
+
+      // Allow create for unauthenticated (loaders using invite codes)
+      // Validation: inviteCode must exist and must be provided
+      allow create: if request.resource.data.inviteCode != null &&
+                      exists(/databases/$(database)/documents/invite_codes/$(request.resource.data.inviteCode));
+
+      // Allow update only for admins (for approval/rejection)
+      allow update: if request.auth != null &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+
+      // Allow delete only for admins
+      allow delete: if request.auth != null &&
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ===== FILE UPLOADS TRACKING =====
+    // File uploads metadata - only accessible by Firebase Functions (admin SDK)
+    match /file_uploads/{fileId} {
+      // Only admins can read file metadata for debugging
+      allow read: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // No direct writes allowed - only Firebase Functions can write
+      allow write: if false;
+    }
+
     // ===== DEFAULT DENY =====
     // Deny access to any other documents
     match /{document=**} {

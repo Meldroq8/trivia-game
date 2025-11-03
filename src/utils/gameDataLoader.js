@@ -69,8 +69,6 @@ export class GameDataLoader {
    * @returns {Object} Game data in expected format
    */
   static transformFirebaseData(questions, categories) {
-    devLog(`🔄 transformFirebaseData called with ${questions.length} questions and ${categories.length} categories`)
-
     // Group questions by category
     const questionsByCategory = {}
 
@@ -78,7 +76,6 @@ export class GameDataLoader {
       const categoryId = question.categoryId || 'general'
       if (!questionsByCategory[categoryId]) {
         questionsByCategory[categoryId] = []
-        devLog(`📁 Creating new question array for category: ${categoryId}`)
       }
       questionsByCategory[categoryId].push({
         id: question.id,
@@ -120,11 +117,9 @@ export class GameDataLoader {
       const savedMystery = localStorage.getItem('mystery_category_settings')
       if (savedMystery) {
         mysteryCategoryCustomizations = JSON.parse(savedMystery)
-        devLog('🔍 Loaded mystery customizations from localStorage:', mysteryCategoryCustomizations)
 
         // Force clear empty imageUrl to allow fallback
         if (mysteryCategoryCustomizations.imageUrl === '') {
-          devLog('🔧 Clearing empty imageUrl from localStorage to allow fallback')
           delete mysteryCategoryCustomizations.imageUrl
         }
       }
@@ -144,25 +139,7 @@ export class GameDataLoader {
       isMystery: true // Special flag to identify this as the mystery category
     }
 
-    devLog('🔍 Mystery category created:', mysteryCategory)
-    devLog('🔍 Mystery imageUrl:', mysteryCategory.imageUrl)
     transformedCategories.push(mysteryCategory)
-
-    // Log questions per category for debugging
-    devLog('📊 Questions per category after grouping:')
-    Object.entries(questionsByCategory).forEach(([catId, qs]) => {
-      const category = transformedCategories.find(c => c.id === catId)
-      const catName = category?.name || catId
-      devLog(`  - ${catName} (categoryId: ${catId}): ${qs.length} questions`)
-    })
-
-    // Log categories from Firebase for debugging
-    devLog('📂 Categories from Firebase:')
-    transformedCategories.forEach(cat => {
-      if (!cat.isMystery) {
-        devLog(`  - ${cat.name} (Firebase doc ID: ${cat.id})`)
-      }
-    })
 
     // Add default category if it has questions but no category definition
     if (questionsByCategory.general && !transformedCategories.find(cat => cat.id === 'general')) {
@@ -179,11 +156,8 @@ export class GameDataLoader {
     }
 
     // Handle merged categories - dynamically pull questions from source categories
-    devLog('🔀 Processing merged categories...')
     transformedCategories.forEach(category => {
       if (category.isMergedCategory && category.sourceCategoryIds && category.sourceCategoryIds.length > 0) {
-        devLog(`🔀 Found merged category: ${category.name} with sources:`, category.sourceCategoryIds)
-
         // Collect questions from all source categories
         const mergedQuestions = []
         const validSources = []
@@ -194,17 +168,14 @@ export class GameDataLoader {
             const sourceQuestions = questionsByCategory[sourceId]
             mergedQuestions.push(...sourceQuestions)
             validSources.push(sourceId)
-            devLog(`  ✓ Pulled ${sourceQuestions.length} questions from ${sourceId}`)
           } else {
             missingSources.push(sourceId)
-            devWarn(`  ⚠️ Source category ${sourceId} has no questions or doesn't exist`)
+            devWarn(`⚠️ Source category ${sourceId} has no questions or doesn't exist`)
           }
         })
 
         // Store the dynamically merged questions
         questionsByCategory[category.id] = mergedQuestions
-
-        devLog(`🔀 Merged category ${category.name} now has ${mergedQuestions.length} questions from ${validSources.length} sources`)
 
         if (missingSources.length > 0) {
           devWarn(`⚠️ Missing source categories for ${category.name}:`, missingSources)

@@ -28,7 +28,8 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nFix Firebase deployment authentication error\n\n- Revert deploy step to use FirebaseExtended/action-hosting-deploy\n- Keep npm caching improvements for faster dependency installation\n- Action properly handles FIREBASE_SERVICE_ACCOUNT authentication\n- Fixes: \"Assertion failed: resolving hosting target\" error\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit -m \"$(cat <<''EOF''\nRemove ''الإجابة:'' heading from QR code answer page\n\n- Remove answer heading label from QR code scan results\n- Clean up answer display to show only the answer text\n- Users scanning QR codes now see answer directly without label\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(firebase deploy:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm run deploy:*)"
     ],
     "deny": [],
     "ask": []

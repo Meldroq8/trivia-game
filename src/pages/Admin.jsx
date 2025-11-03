@@ -5,7 +5,7 @@ import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebas
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import { deleteField, doc, deleteDoc, getDoc } from 'firebase/firestore'
+import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
@@ -1450,11 +1450,9 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             }
             if (question.toleranceHint) {
               questionsWithTolerance++
-              console.log('📌 Question loaded WITH tolerance:', question.text?.substring(0, 50), question.toleranceHint)
             }
           })
         })
-        console.log(`📊 Questions loaded with tolerance: ${questionsWithTolerance}`)
 
         setQuestions(transformedQuestions)
 
@@ -5387,6 +5385,7 @@ function UsersManager({ getAllUsers, updateUserRole, searchUsers }) {
 function PendingQuestionsManager() {
   const { user } = useAuth()
   const [pendingQuestions, setPendingQuestions] = useState([])
+  const [pendingCategories, setPendingCategories] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState(null)
@@ -5395,6 +5394,7 @@ function PendingQuestionsManager() {
   useEffect(() => {
     loadPendingQuestions()
     loadCategories()
+    loadPendingCategories()
   }, [])
 
   const loadPendingQuestions = async () => {
@@ -5419,17 +5419,107 @@ function PendingQuestionsManager() {
     }
   }
 
-  const handleApprove = async (questionId) => {
-    // Find the question to get its categoryId if not manually selected
-    const question = pendingQuestions.find(q => q.id === questionId)
-    const categoryId = selectedCategory[questionId] || question?.categoryId
+  const loadPendingCategories = async () => {
+    try {
+      const pending = await loaderService.getAllPendingCategories()
+      setPendingCategories(pending)
+    } catch (error) {
+      prodError('Error loading pending categories:', error)
+    }
+  }
 
-    if (!categoryId) {
-      alert('الرجاء اختيار فئة للسؤال')
+  const handleApprovePendingCategory = async (categoryId) => {
+    if (!window.confirm('هل أنت متأكد من الموافقة على هذه الفئة؟')) {
       return
     }
 
-    if (!window.confirm('هل أنت متأكد من الموافقة على هذا السؤال؟')) {
+    try {
+      setProcessingId(`cat-${categoryId}`)
+      await loaderService.approvePendingCategory(categoryId, user.uid)
+      await loadPendingCategories()
+      await loadCategories()
+      // Clear cache to show new category immediately
+      GameDataLoader.clearCache()
+      alert('تم الموافقة على الفئة بنجاح!')
+    } catch (error) {
+      prodError('Error approving category:', error)
+      alert('فشل في الموافقة على الفئة: ' + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleRejectPendingCategory = async (categoryId) => {
+    if (!window.confirm('هل أنت متأكد من رفض هذه الفئة؟')) {
+      return
+    }
+
+    try {
+      setProcessingId(`cat-${categoryId}`)
+      await loaderService.rejectPendingCategory(categoryId, user.uid)
+      await loadPendingCategories()
+      alert('تم رفض الفئة')
+    } catch (error) {
+      prodError('Error rejecting category:', error)
+      alert('فشل في رفض الفئة: ' + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleApprove = async (questionId) => {
+    // Find the question
+    const question = pendingQuestions.find(q => q.id === questionId)
+
+    // Determine which category to use
+    let categoryId = selectedCategory[questionId] // Admin manually selected a different category
+
+    // If no manual selection, use the suggested category
+    if (!categoryId) {
+      // Check if it's a new category that needs to be created
+      if (question.isNewCategory && question.category) {
+        // Check if category already exists first
+        try {
+          const existingCategory = categories.find(cat => cat.name === question.category)
+
+          if (existingCategory) {
+            // Category already exists, use it
+            categoryId = existingCategory.id
+          } else {
+            // Need to create the category
+            const categoryRef = doc(collection(db, 'categories'))
+            await setDoc(categoryRef, {
+              name: question.category,
+              createdAt: serverTimestamp(),
+              createdBy: user.uid,
+              questionsCount: 0
+            })
+            categoryId = categoryRef.id
+            // Reload categories to include the new one
+            await loadCategories()
+          }
+        } catch (error) {
+          prodError('Error creating new category:', error)
+          alert('فشل في إنشاء الفئة الجديدة: ' + error.message)
+          return
+        }
+      } else if (question.isPendingCategory && question.categoryId) {
+        // Approve the pending category first
+        try {
+          categoryId = await loaderService.approvePendingCategory(question.categoryId, user.uid)
+        } catch (error) {
+          prodError('Error approving pending category:', error)
+          alert('فشل في الموافقة على الفئة: ' + error.message)
+          return
+        }
+      } else {
+        // Use existing category
+        categoryId = question.categoryId
+      }
+    }
+
+    if (!categoryId) {
+      alert('الرجاء اختيار فئة للسؤال')
       return
     }
 
@@ -5437,9 +5527,10 @@ function PendingQuestionsManager() {
       setProcessingId(questionId)
       await loaderService.approveQuestion(questionId, user.uid, categoryId)
       await loadPendingQuestions()
+      await loadPendingCategories()
+      await loadCategories()
       // Clear cache to show new question immediately
       GameDataLoader.clearCache()
-      alert('تم الموافقة على السؤال بنجاح!')
     } catch (error) {
       prodError('Error approving question:', error)
       alert('فشل في الموافقة على السؤال: ' + error.message)
@@ -5522,12 +5613,56 @@ function PendingQuestionsManager() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">مراجعة الأسئلة المرسلة</h2>
         <button
-          onClick={loadPendingQuestions}
+          onClick={() => {
+            loadPendingQuestions()
+            loadPendingCategories()
+          }}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
         >
           🔄 تحديث
         </button>
       </div>
+
+      {/* Pending Categories Section */}
+      {pendingCategories.length > 0 && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-xl p-6">
+          <h3 className="text-xl font-bold text-purple-900 mb-4 flex items-center gap-2">
+            <span>🆕</span>
+            <span>فئات جديدة قيد المراجعة ({pendingCategories.length})</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pendingCategories.map((category) => (
+              <div
+                key={category.id}
+                className="bg-white border-2 border-purple-200 rounded-lg p-4 shadow-sm"
+              >
+                <div className="mb-3">
+                  <h4 className="text-lg font-bold text-gray-900 mb-1">{category.name}</h4>
+                  <p className="text-xs text-gray-600">
+                    📅 {category.createdAt?.toDate?.()?.toLocaleDateString('ar-EG') || 'غير متوفر'}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprovePendingCategory(category.id)}
+                    disabled={processingId === `cat-${category.id}`}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg disabled:opacity-50 text-sm"
+                  >
+                    {processingId === `cat-${category.id}` ? '⏳' : '✅ موافقة'}
+                  </button>
+                  <button
+                    onClick={() => handleRejectPendingCategory(category.id)}
+                    disabled={processingId === `cat-${category.id}`}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg disabled:opacity-50 text-sm"
+                  >
+                    ❌ رفض
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {pendingQuestions.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
@@ -5670,15 +5805,31 @@ function PendingQuestionsManager() {
 
               {/* Category Selection */}
               <div className="mb-4 pb-4 border-b">
-                <label className="block text-sm font-bold text-gray-900 mb-2">
-                  اختر الفئة لهذا السؤال:
+                <div className="mb-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    الفئة المقترحة:
+                  </label>
+                  <div className="mt-1 p-3 bg-blue-50 border-2 border-blue-300 rounded-lg">
+                    <span className="text-lg font-bold text-blue-900">
+                      {question.isNewCategory ? '🆕 ' : ''}{question.category || getCategoryName(question.categoryId)}
+                    </span>
+                    {question.isNewCategory && (
+                      <span className="ml-2 text-xs bg-purple-500 text-white px-2 py-1 rounded">فئة جديدة</span>
+                    )}
+                    {question.isPendingCategory && (
+                      <span className="ml-2 text-xs bg-orange-500 text-white px-2 py-1 rounded">قيد المراجعة</span>
+                    )}
+                  </div>
+                </div>
+                <label className="block text-sm font-bold text-gray-900 mb-2 mt-3">
+                  أو اختر فئة مختلفة (اختياري):
                 </label>
                 <select
-                  value={selectedCategory[question.id] || question.categoryId || ''}
+                  value={selectedCategory[question.id] || ''}
                   onChange={(e) => setSelectedCategory(prev => ({ ...prev, [question.id]: e.target.value }))}
                   className="w-full p-2 border-2 border-gray-300 rounded-lg text-gray-900 bg-white"
                 >
-                  <option value="">-- اختر فئة --</option>
+                  <option value="">-- استخدام الفئة المقترحة أعلاه --</option>
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}

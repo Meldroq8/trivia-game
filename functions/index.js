@@ -55,37 +55,74 @@ export const s3Upload = onRequest(
       console.log('S3 Upload request received:', {
         method: req.method,
         contentType: req.headers['content-type'],
-        hasAuth: !!req.headers.authorization
+        hasAuth: !!req.headers.authorization,
+        hasInviteCode: !!req.headers['x-invite-code']
       })
 
-      // Verify authentication
+      // Verify authentication - Support both admin users and invite code users
       const authHeader = req.headers.authorization
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Unauthorized: Missing token' })
-        return
-      }
+      const inviteCodeHeader = req.headers['x-invite-code']
 
-      const idToken = authHeader.split('Bearer ')[1]
-
-      // Verify the ID token and get user
-      let decodedToken
-      try {
-        decodedToken = await getAuth().verifyIdToken(idToken)
-      } catch (error) {
-        console.error('Token verification failed:', error)
-        res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        return
-      }
-
-      const userId = decodedToken.uid
-
-      // Check if user is admin
       const db = getFirestore()
-      const userDoc = await db.collection('users').doc(userId).get()
+      let userId = null // For tracking admin uploads
 
-      if (!userDoc.exists || !userDoc.data().isAdmin) {
-        res.status(403).json({ error: 'Forbidden: Admin access required' })
-        return
+      // Check if using invite code authentication (for loader users)
+      if (inviteCodeHeader) {
+        console.log('Authenticating with invite code:', inviteCodeHeader)
+
+        // Validate invite code
+        const inviteRef = db.collection('invite_codes').doc(inviteCodeHeader)
+        const inviteDoc = await inviteRef.get()
+
+        if (!inviteDoc.exists) {
+          res.status(401).json({ error: 'Invalid invite code' })
+          return
+        }
+
+        const inviteData = inviteDoc.data()
+
+        if (inviteData.revoked) {
+          res.status(401).json({ error: 'Invite code has been revoked' })
+          return
+        }
+
+        if (inviteData.expiresAt.toDate() < new Date()) {
+          res.status(401).json({ error: 'Invite code has expired' })
+          return
+        }
+
+        console.log('Invite code validated successfully')
+        // Invite code is valid, allow upload to proceed
+      } else {
+        // Use standard admin authentication
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          res.status(401).json({ error: 'Unauthorized: Missing token or invite code' })
+          return
+        }
+
+        const idToken = authHeader.split('Bearer ')[1]
+
+        // Verify the ID token and get user
+        let decodedToken
+        try {
+          decodedToken = await getAuth().verifyIdToken(idToken)
+        } catch (error) {
+          console.error('Token verification failed:', error)
+          res.status(401).json({ error: 'Unauthorized: Invalid token' })
+          return
+        }
+
+        userId = decodedToken.uid
+
+        // Check if user is admin
+        const userDoc = await db.collection('users').doc(userId).get()
+
+        if (!userDoc.exists || !userDoc.data().isAdmin) {
+          res.status(403).json({ error: 'Forbidden: Admin access required' })
+          return
+        }
+
+        console.log('Admin authentication successful')
       }
 
       // Log request details for debugging
@@ -275,6 +312,33 @@ export const s3Upload = onRequest(
         const cloudFrontDomain = process.env.CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net'
         const url = `https://${cloudFrontDomain}/${key}`
 
+        // Store file ownership metadata in Firestore
+        try {
+          const fileMetadata = {
+            url: url,
+            key: key,
+            uploadedAt: new Date(),
+            folder: folder,
+            mimeType: mimeType,
+            size: fileData.length
+          }
+
+          // Add ownership info
+          if (inviteCodeHeader) {
+            fileMetadata.uploadedByInviteCode = inviteCodeHeader
+            fileMetadata.uploaderType = 'loader'
+          } else {
+            fileMetadata.uploadedByUserId = userId
+            fileMetadata.uploaderType = 'admin'
+          }
+
+          await db.collection('file_uploads').add(fileMetadata)
+          console.log('📝 File metadata stored in Firestore')
+        } catch (metadataError) {
+          console.warn('Failed to store file metadata:', metadataError.message)
+          // Don't fail the upload if metadata storage fails
+        }
+
         // Clean up temp file if it exists
         if (tempFilePath) {
           try {
@@ -339,34 +403,69 @@ export const s3Delete = onRequest(
         return
       }
 
-      // Verify authentication
+      // Verify authentication - Support both admin users and invite code users
       const authHeader = req.headers.authorization
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        res.status(401).json({ error: 'Unauthorized: Missing token' })
-        return
-      }
+      const inviteCodeHeader = req.headers['x-invite-code']
 
-      const idToken = authHeader.split('Bearer ')[1]
-
-      // Verify the ID token and get user
-      let decodedToken
-      try {
-        decodedToken = await getAuth().verifyIdToken(idToken)
-      } catch (error) {
-        console.error('Token verification failed:', error)
-        res.status(401).json({ error: 'Unauthorized: Invalid token' })
-        return
-      }
-
-      const userId = decodedToken.uid
-
-      // Check if user is admin
       const db = getFirestore()
-      const userDoc = await db.collection('users').doc(userId).get()
 
-      if (!userDoc.exists || !userDoc.data().isAdmin) {
-        res.status(403).json({ error: 'Forbidden: Admin access required' })
-        return
+      // Check if using invite code authentication (for loader users)
+      if (inviteCodeHeader) {
+        console.log('Authenticating delete with invite code:', inviteCodeHeader)
+
+        // Validate invite code
+        const inviteRef = db.collection('invite_codes').doc(inviteCodeHeader)
+        const inviteDoc = await inviteRef.get()
+
+        if (!inviteDoc.exists) {
+          res.status(401).json({ error: 'Invalid invite code' })
+          return
+        }
+
+        const inviteData = inviteDoc.data()
+
+        if (inviteData.revoked) {
+          res.status(401).json({ error: 'Invite code has been revoked' })
+          return
+        }
+
+        if (inviteData.expiresAt.toDate() < new Date()) {
+          res.status(401).json({ error: 'Invite code has expired' })
+          return
+        }
+
+        console.log('Invite code validated successfully for delete')
+        // Invite code is valid, allow delete to proceed
+      } else {
+        // Use standard admin authentication
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          res.status(401).json({ error: 'Unauthorized: Missing token or invite code' })
+          return
+        }
+
+        const idToken = authHeader.split('Bearer ')[1]
+
+        // Verify the ID token and get user
+        let decodedToken
+        try {
+          decodedToken = await getAuth().verifyIdToken(idToken)
+        } catch (error) {
+          console.error('Token verification failed:', error)
+          res.status(401).json({ error: 'Unauthorized: Invalid token' })
+          return
+        }
+
+        const userId = decodedToken.uid
+
+        // Check if user is admin
+        const userDoc = await db.collection('users').doc(userId).get()
+
+        if (!userDoc.exists || !userDoc.data().isAdmin) {
+          res.status(403).json({ error: 'Forbidden: Admin access required' })
+          return
+        }
+
+        console.log('Admin authentication successful for delete')
       }
 
       // Get the file key from request body
@@ -384,6 +483,45 @@ export const s3Delete = onRequest(
         fileKey = url.replace(`https://${cloudFrontDomain}/`, '')
       }
 
+      // Verify ownership if using invite code (loaders can only delete their own files)
+      if (inviteCodeHeader) {
+        console.log('Checking file ownership for invite code:', inviteCodeHeader)
+
+        try {
+          // Find the file metadata by URL
+          const fileUrl = url || `https://${process.env.CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net'}/${fileKey}`
+          const fileQuery = await db.collection('file_uploads')
+            .where('url', '==', fileUrl)
+            .limit(1)
+            .get()
+
+          if (fileQuery.empty) {
+            console.warn('File metadata not found, allowing deletion (legacy file)')
+            // Allow deletion for files uploaded before metadata tracking was implemented
+          } else {
+            const fileDoc = fileQuery.docs[0]
+            const fileMetadata = fileDoc.data()
+
+            // Check if file was uploaded by this invite code
+            if (fileMetadata.uploadedByInviteCode !== inviteCodeHeader) {
+              console.error('Ownership verification failed:', {
+                requestedByInviteCode: inviteCodeHeader,
+                uploadedByInviteCode: fileMetadata.uploadedByInviteCode
+              })
+              res.status(403).json({ error: 'Forbidden: You can only delete files you uploaded' })
+              return
+            }
+
+            console.log('Ownership verified successfully')
+          }
+        } catch (ownershipError) {
+          console.error('Error verifying ownership:', ownershipError)
+          res.status(500).json({ error: 'Failed to verify file ownership' })
+          return
+        }
+      }
+      // Admin users can delete any file (no ownership check needed)
+
       // Delete from S3
       const s3Client = new S3Client({
         region: process.env.AWS_REGION || 'me-south-1',
@@ -400,7 +538,26 @@ export const s3Delete = onRequest(
         Key: fileKey,
       }))
 
-      console.log(`File deleted successfully: ${fileKey}`)
+      console.log(`File deleted successfully from S3: ${fileKey}`)
+
+      // Clean up file metadata from Firestore
+      try {
+        const fileUrl = url || `https://${process.env.CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net'}/${fileKey}`
+        const fileQuery = await db.collection('file_uploads')
+          .where('url', '==', fileUrl)
+          .limit(1)
+          .get()
+
+        if (!fileQuery.empty) {
+          const fileDoc = fileQuery.docs[0]
+          await fileDoc.ref.delete()
+          console.log('📝 File metadata deleted from Firestore')
+        }
+      } catch (metadataError) {
+        console.warn('Failed to delete file metadata:', metadataError.message)
+        // Don't fail the delete if metadata cleanup fails
+      }
+
       res.status(200).json({ success: true, key: fileKey })
 
     } catch (error) {
