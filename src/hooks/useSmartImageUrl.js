@@ -13,37 +13,30 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    devLog('🔍 useSmartImageUrl called with:', { categoryId, firebaseUrl, size, context });
-
     // Detect iOS devices
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     // Special handling for mystery category - try to find a mystery image
     if (categoryId === 'mystery' && (!firebaseUrl || firebaseUrl === '')) {
-      devLog('🔍 Mystery category detected without Firebase URL, searching for local mystery images...');
-
       // Try to find the latest mystery category image
       const testMysteryImage = new Image();
-      testMysteryImage.crossOrigin = 'anonymous'; // Better CORS handling
+      testMysteryImage.crossOrigin = 'anonymous';
 
       const mysteryUrl = '/images/categories/category_mystery_1758939021986.webp';
 
       // On iOS, skip testing and trust the URL
       if (isIOS) {
-        devLog('📱 iOS detected, using mystery image without testing');
         setCurrentUrl(mysteryUrl);
         setIsLoading(false);
         return;
       }
 
       testMysteryImage.onload = () => {
-        devLog('✅ Found mystery category image');
         setCurrentUrl(mysteryUrl);
         setIsLoading(false);
       };
       testMysteryImage.onerror = () => {
-        devLog('⚠️ No mystery category image found, using fallback');
         setCurrentUrl(null);
         setIsLoading(false);
       };
@@ -70,11 +63,9 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
 
     // Use the optimized media URL function with CloudFront priority
     const optimizedUrl = getOptimizedMediaUrl(firebaseUrl, size, context);
-    devLog(`🚀 Testing optimized URL: ${optimizedUrl}`);
 
     // On iOS, skip image testing and trust the URL (iOS Safari has issues with Image() constructor testing)
     if (isIOS) {
-      devLog('📱 iOS detected, using URL without testing:', optimizedUrl);
       setCurrentUrl(optimizedUrl);
       setIsLoading(false);
       return;
@@ -82,32 +73,25 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
 
     // Test the optimized URL (CloudFront first, Firebase as fallback)
     const testImage = new Image();
-    testImage.crossOrigin = 'anonymous'; // Better CORS handling
+    testImage.crossOrigin = 'anonymous';
 
     testImage.onload = () => {
-      devLog(`✅ Optimized URL loaded successfully: ${optimizedUrl}`);
       setCurrentUrl(optimizedUrl);
       setIsLoading(false);
     };
 
     testImage.onerror = () => {
-      devLog(`⚠️ Optimized URL failed: ${optimizedUrl}`);
-
       // Fallback to local URL testing if CloudFront/Firebase fails
       const localUrl = convertToLocalMediaUrl(firebaseUrl, size, context);
-      devLog(`🔄 Trying local fallback: ${localUrl}`);
 
       const localTestImage = new Image();
-      localTestImage.crossOrigin = 'anonymous'; // Better CORS handling
+      localTestImage.crossOrigin = 'anonymous';
       localTestImage.onload = () => {
-        devLog(`✅ Local fallback loaded: ${localUrl}`);
         setCurrentUrl(localUrl);
         setIsLoading(false);
       };
 
       localTestImage.onerror = () => {
-        devLog(`⚠️ Local fallback also failed: ${localUrl}`);
-
         // Try additional fallback options for Arabic filenames
         const url = new URL(firebaseUrl);
         const pathPart = url.pathname.split('/o/')[1];
@@ -117,29 +101,22 @@ export const useSmartImageUrl = (firebaseUrl, size = 'medium', context = 'defaul
         const encodedFilename = encodeURIComponent(originalFilename).replace(/%/g, '_');
         const encodedLocalUrl = `/images/categories/${encodedFilename}`;
 
-        devLog(`🔄 Trying original filename fallback: ${fallbackLocalUrl}`);
-
         const fallbackImage = new Image();
-        fallbackImage.crossOrigin = 'anonymous'; // Better CORS handling
+        fallbackImage.crossOrigin = 'anonymous';
         fallbackImage.onload = () => {
-          devLog(`✅ Original filename found: ${fallbackLocalUrl}`);
           setCurrentUrl(fallbackLocalUrl);
           setIsLoading(false);
         };
 
         fallbackImage.onerror = () => {
-          devLog(`⚠️ Original filename not found, trying encoded: ${encodedLocalUrl}`);
-
           const encodedImage = new Image();
-          encodedImage.crossOrigin = 'anonymous'; // Better CORS handling
+          encodedImage.crossOrigin = 'anonymous';
           encodedImage.onload = () => {
-            devLog(`✅ URL-encoded filename found: ${encodedLocalUrl}`);
             setCurrentUrl(encodedLocalUrl);
             setIsLoading(false);
           };
 
           encodedImage.onerror = () => {
-            devLog(`❌ All fallbacks failed, using Firebase URL: ${firebaseUrl}`);
             setCurrentUrl(firebaseUrl); // Ultimate fallback to Firebase URL
             setIsLoading(false);
           };

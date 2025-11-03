@@ -12,6 +12,7 @@ function Loader() {
   const [error, setError] = useState(null)
   const [myQuestions, setMyQuestions] = useState([])
   const [categories, setCategories] = useState([])
+  const [pendingCategories, setPendingCategories] = useState([])
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 })
   const [editingQuestion, setEditingQuestion] = useState(null)
   const [inviteCodeValid, setInviteCodeValid] = useState(false)
@@ -38,16 +39,16 @@ function Loader() {
 
   const loadData = async () => {
     try {
-      // Load categories
-      console.log('📂 Loading categories...')
+      // Load approved categories
       const gameData = await GameDataLoader.loadGameData()
-      console.log('✅ Categories loaded:', gameData.categories?.length)
       setCategories(gameData.categories || [])
 
+      // Load pending categories for this invite code
+      const pendingCats = await loaderService.getPendingCategoriesByCode(inviteCode)
+      setPendingCategories(pendingCats)
+
       // Load questions for this invite code
-      console.log('📝 Loading questions for invite code:', inviteCode)
       const questions = await loaderService.getQuestionsByInviteCode(inviteCode)
-      console.log('✅ Questions loaded:', questions.length)
       setMyQuestions(questions)
 
       // Calculate stats
@@ -55,12 +56,11 @@ function Loader() {
       const approved = questions.filter(q => q.status === 'approved').length
       const rejected = questions.filter(q => q.status === 'rejected').length
       setStats({ pending, approved, rejected })
-      console.log('✅ Stats calculated:', { pending, approved, rejected })
     } catch (err) {
-      console.error('❌ Error loading data:', err)
-      console.error('Error details:', err.message, err.code)
+      console.error('Error loading loader data:', err)
       // Don't throw - just log the error and continue with empty data
       setCategories([])
+      setPendingCategories([])
       setMyQuestions([])
     }
   }
@@ -163,10 +163,12 @@ function Loader() {
         {/* Add Question Section */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">➕ إضافة سؤال جديد</h2>
-          {categories.length > 0 ? (
+          {categories.length > 0 || pendingCategories.length > 0 ? (
             <SingleQuestionAdder
               categories={categories}
+              pendingCategories={pendingCategories}
               onQuestionAdded={handleQuestionAdded}
+              inviteCode={inviteCode}
             />
           ) : (
             <p className="text-gray-500 text-center py-8">جاري تحميل الفئات...</p>
@@ -234,11 +236,13 @@ function Loader() {
             <h3 className="text-xl font-bold mb-4">تعديل السؤال</h3>
             <SingleQuestionAdder
               categories={categories}
+              pendingCategories={pendingCategories}
               initialQuestion={editingQuestion}
               onQuestionAdded={async (updates) => {
                 await handleSaveEdit(editingQuestion.id, updates)
                 return true
               }}
+              inviteCode={inviteCode}
             />
             <button
               onClick={() => setEditingQuestion(null)}

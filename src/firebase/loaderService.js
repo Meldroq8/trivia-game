@@ -111,9 +111,76 @@ class LoaderService {
     return roleDoc.data().role
   }
 
+  // Loader: Add pending category BY INVITE CODE (no auth required)
+  async addPendingCategoryByCode(categoryName, inviteCode) {
+    try {
+      // Check if category already exists (approved or pending)
+      const categoriesQuery = query(
+        collection(db, 'categories'),
+        where('name', '==', categoryName)
+      )
+      const categoriesSnapshot = await getDocs(categoriesQuery)
+      if (!categoriesSnapshot.empty) {
+        return { exists: true, approved: true, id: categoriesSnapshot.docs[0].id }
+      }
+
+      // Check if pending category already exists for this invite code
+      const pendingQuery = query(
+        collection(db, 'pending_categories'),
+        where('name', '==', categoryName),
+        where('inviteCode', '==', inviteCode)
+      )
+      const pendingSnapshot = await getDocs(pendingQuery)
+      if (!pendingSnapshot.empty) {
+        return { exists: true, approved: false, id: pendingSnapshot.docs[0].id }
+      }
+
+      // Create new pending category
+      const pendingCategoryRef = doc(collection(db, 'pending_categories'))
+      await setDoc(pendingCategoryRef, {
+        name: categoryName,
+        status: 'pending',
+        createdBy: inviteCode,
+        inviteCode: inviteCode,
+        createdAt: serverTimestamp(),
+        reviewedBy: null,
+        reviewedAt: null
+      })
+
+      return { exists: false, approved: false, id: pendingCategoryRef.id }
+    } catch (error) {
+      throw new Error(`Failed to create pending category: ${error.message}`)
+    }
+  }
+
+  // Loader: Get pending categories BY INVITE CODE (no auth required)
+  async getPendingCategoriesByCode(inviteCode) {
+    try {
+      const q = query(
+        collection(db, 'pending_categories'),
+        where('inviteCode', '==', inviteCode),
+        where('status', '==', 'pending')
+      )
+
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    } catch (error) {
+      devWarn('Error fetching pending categories:', error.message)
+      return []
+    }
+  }
+
   // Loader: Add pending question BY INVITE CODE (no auth required)
   async addPendingQuestionByCode(questionData, inviteCode) {
     const pendingRef = doc(collection(db, 'pending_questions'))
+
+    // If it's a new category, create it as pending
+    if (questionData.isNewCategory && questionData.category) {
+      await this.addPendingCategoryByCode(questionData.category, inviteCode)
+    }
 
     await setDoc(pendingRef, {
       ...questionData,
@@ -328,8 +395,8 @@ class LoaderService {
     const newQuestion = {
       categoryId: categoryId, // Store category ID as a field
       type: questionData.type || 'text',
-      question: questionData.question || questionData.text,
-      answer: questionData.answer,
+      text: questionData.question || questionData.text || '', // Use 'text' field to match gameDataLoader expectations
+      answer: questionData.answer || '',
       difficulty: questionData.difficulty || 'easy',
       createdAt: serverTimestamp()
     }
@@ -337,6 +404,11 @@ class LoaderService {
     // Add options if they exist
     if (questionData.options && questionData.options.length > 0) {
       newQuestion.options = questionData.options
+    }
+
+    // Add explanation if it exists
+    if (questionData.explanation) {
+      newQuestion.explanation = questionData.explanation
     }
 
     // Add media URLs if they exist
@@ -385,6 +457,80 @@ class LoaderService {
     await updateDoc(inviteRef, {
       revoked: true,
       revokedAt: serverTimestamp()
+    })
+  }
+
+  // Admin: Get all pending categories
+  async getAllPendingCategories() {
+    const q = query(
+      collection(db, 'pending_categories'),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    )
+
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+  }
+
+  // Admin: Approve pending category
+  async approvePendingCategory(categoryId, adminId) {
+    const pendingRef = doc(db, 'pending_categories', categoryId)
+    const pendingDoc = await getDoc(pendingRef)
+
+    if (!pendingDoc.exists()) {
+      throw new Error('Pending category not found')
+    }
+
+    const categoryData = pendingDoc.data()
+
+    // Check if category already exists in main collection
+    const existingQuery = query(
+      collection(db, 'categories'),
+      where('name', '==', categoryData.name)
+    )
+    const existingSnapshot = await getDocs(existingQuery)
+
+    if (!existingSnapshot.empty) {
+      // Category already exists, just mark pending as approved
+      await updateDoc(pendingRef, {
+        status: 'approved',
+        reviewedBy: adminId,
+        reviewedAt: serverTimestamp()
+      })
+      return existingSnapshot.docs[0].id
+    }
+
+    // Create new category in main collection
+    const categoryRef = doc(collection(db, 'categories'))
+    await setDoc(categoryRef, {
+      name: categoryData.name,
+      createdAt: serverTimestamp(),
+      createdBy: adminId,
+      questionsCount: 0
+    })
+
+    // Mark pending category as approved
+    await updateDoc(pendingRef, {
+      status: 'approved',
+      reviewedBy: adminId,
+      reviewedAt: serverTimestamp(),
+      approvedCategoryId: categoryRef.id
+    })
+
+    return categoryRef.id
+  }
+
+  // Admin: Reject pending category
+  async rejectPendingCategory(categoryId, adminId) {
+    const pendingRef = doc(db, 'pending_categories', categoryId)
+
+    await updateDoc(pendingRef, {
+      status: 'rejected',
+      reviewedBy: adminId,
+      reviewedAt: serverTimestamp()
     })
   }
 }

@@ -4,6 +4,7 @@ import { S3UploadServiceSecure as S3UploadService } from '../utils/s3UploadSecur
 import SmartImage from './SmartImage'
 import MediaPlayer from './MediaPlayer'
 import AIEnhancementModal from './AIEnhancementModal'
+import { processQuestionImage } from '../utils/imageProcessor'
 
 // Reusable component for adding questions
 
@@ -12,11 +13,13 @@ import AIEnhancementModal from './AIEnhancementModal'
  * Used in both Admin and Loader pages
  *
  * @param {Array} categories - List of available categories
+ * @param {Array} pendingCategories - List of pending categories for this loader (default: [])
  * @param {Function} onQuestionAdded - Callback when question is submitted (receives questionData)
  * @param {Object} initialQuestion - Optional initial question data for editing
  * @param {Boolean} showAI - Whether to show AI enhancement button (default: false)
+ * @param {String} inviteCode - Optional invite code for loader authentication
  */
-function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = null, showAI = false }) {
+function SingleQuestionAdder({ categories, pendingCategories = [], onQuestionAdded, initialQuestion = null, showAI = false, inviteCode = null }) {
   const [questionData, setQuestionData] = useState(initialQuestion ? {
     categoryId: initialQuestion.categoryId || '',
     difficulty: initialQuestion.difficulty || 'easy',
@@ -60,9 +63,31 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
       setUploading(true)
       setUploadingField(field)
 
+      let uploadFile = file
+
+      // Compress images before uploading
+      if (file.type.startsWith('image/')) {
+        try {
+          devLog(`📸 Compressing image: ${file.name}`)
+          const { blob, info } = await processQuestionImage(file)
+
+          // Convert blob to file
+          uploadFile = new File([blob], file.name.replace(/\.\w+$/, '.webp'), {
+            type: 'image/webp',
+            lastModified: Date.now(),
+          })
+
+          devLog(`✅ Image compressed: ${info.originalSize} → ${info.newSize} (${info.compression})`)
+        } catch (compressionError) {
+          devWarn('Image compression failed, uploading original:', compressionError.message)
+          uploadFile = file
+        }
+      }
+
       // Upload to S3 using the unified uploadQuestionMedia method
       // This handles images, audio, and video automatically
-      const downloadURL = await S3UploadService.uploadQuestionMedia(file)
+      // Pass invite code if available (for loader users)
+      const downloadURL = await S3UploadService.uploadQuestionMedia(uploadFile, null, inviteCode)
 
       setQuestionData(prev => ({ ...prev, [field]: downloadURL }))
       devLog(`✅ ${field} uploaded:`, downloadURL)
@@ -81,8 +106,8 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
     try {
       const mediaUrl = questionData[field]
       if (mediaUrl) {
-        // Delete from S3
-        await S3UploadService.deleteFile(mediaUrl)
+        // Delete from S3 (pass invite code if available for loader users)
+        await S3UploadService.deleteFile(mediaUrl, inviteCode)
       }
       setQuestionData(prev => ({ ...prev, [field]: null }))
     } catch (error) {
@@ -99,6 +124,15 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
     if (showNewCategoryInput) {
       return newCategoryName || 'فئة جديدة'
     }
+
+    // Check if it's a pending category
+    if (questionData.categoryId?.startsWith('pending-')) {
+      const pendingId = questionData.categoryId.replace('pending-', '')
+      const pendingCategory = pendingCategories.find(cat => cat.id === pendingId)
+      return pendingCategory?.name || ''
+    }
+
+    // Check approved categories
     const selectedCategory = categories.find(cat => cat.id === questionData.categoryId)
     return selectedCategory?.name || ''
   }
@@ -125,15 +159,26 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
     try {
       let categoryId = questionData.categoryId
       let categoryName = ''
+      let isNewCategory = false
+      let isPendingCategory = false
 
       // Handle new category creation
       if (showNewCategoryInput) {
         // Use a temporary ID for new categories (will be marked as pending)
         categoryId = `new_${Date.now()}`
         categoryName = newCategoryName.trim()
+        isNewCategory = true
+      } else if (questionData.categoryId?.startsWith('pending-')) {
+        // Using an existing pending category
+        const pendingId = questionData.categoryId.replace('pending-', '')
+        const pendingCategory = pendingCategories.find(cat => cat.id === pendingId)
+        categoryId = pendingCategory.id
+        categoryName = pendingCategory.name
+        isPendingCategory = true
       } else {
-        // Find existing category name
+        // Using an approved category
         const selectedCategory = categories.find(cat => cat.id === questionData.categoryId)
+        categoryId = selectedCategory.id
         categoryName = selectedCategory?.name || questionData.categoryId
       }
 
@@ -147,7 +192,8 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
       const preparedData = {
         categoryId: categoryId,
         category: categoryName, // Category name
-        isNewCategory: showNewCategoryInput, // Flag to indicate if this is a new category
+        isNewCategory: isNewCategory, // Flag to indicate if this is a new category
+        isPendingCategory: isPendingCategory, // Flag to indicate if using a pending category
         difficulty: questionData.difficulty,
         question: questionData.text, // Use 'question' field instead of 'text'
         answer: questionData.answer,
@@ -209,11 +255,32 @@ function SingleQuestionAdder({ categories, onQuestionAdded, initialQuestion = nu
                 required={!showNewCategoryInput}
               >
                 <option value="">اختر الفئة</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
+
+                {/* Approved categories */}
+                {categories.length > 0 && (
+                  <optgroup label="✅ فئات معتمدة">
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+
+                {/* Pending categories (only for loaders) */}
+                {pendingCategories.length > 0 && (
+                  <optgroup label="⏳ فئاتي قيد المراجعة">
+                    {pendingCategories.map(category => (
+                      <option
+                        key={`pending-${category.id}`}
+                        value={`pending-${category.id}`}
+                        className="text-orange-600"
+                      >
+                        {category.name} (قيد المراجعة)
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
               <button
                 type="button"

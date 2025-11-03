@@ -24,11 +24,15 @@ const FUNCTION_URLS = isDevelopment ? {
 export class S3UploadServiceSecure {
   /**
    * Get the current user's ID token for authentication
+   * @param {boolean} required - Whether authentication is required
    */
-  static async getIdToken() {
+  static async getIdToken(required = true) {
     const user = auth.currentUser
     if (!user) {
-      throw new Error('User not authenticated')
+      if (required) {
+        throw new Error('User not authenticated')
+      }
+      return null
     }
     return await user.getIdToken()
   }
@@ -38,9 +42,10 @@ export class S3UploadServiceSecure {
    * @param {File} file - The media file to upload
    * @param {string} folder - The folder path (e.g., 'categories', 'questions', 'audio', 'video')
    * @param {string} fileName - Optional custom filename
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<string>} - The CloudFront URL of the uploaded file
    */
-  static async uploadMedia(file, folder, fileName = null) {
+  static async uploadMedia(file, folder, fileName = null, inviteCode = null) {
     if (!file) {
       throw new Error('No file provided')
     }
@@ -100,8 +105,8 @@ export class S3UploadServiceSecure {
         }
       }
 
-      // Get authentication token
-      const idToken = await this.getIdToken()
+      // Get authentication token or use invite code
+      const idToken = await this.getIdToken(!inviteCode) // Only require token if no invite code
 
       // Prepare form data
       const formData = new FormData()
@@ -113,12 +118,19 @@ export class S3UploadServiceSecure {
 
       devLog(`Uploading file to S3 via Firebase Function: ${folder}/${fileName || uploadFile.name}`)
 
+      // Prepare headers
+      const headers = {}
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`
+      } else if (inviteCode) {
+        headers['X-Invite-Code'] = inviteCode
+        devLog('Using invite code for authentication')
+      }
+
       // Upload via direct Firebase Function URL (Cloud Run v2)
       const response = await fetch(FUNCTION_URLS.s3Upload, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-        },
+        headers: headers,
         body: formData,
       })
 
@@ -142,9 +154,10 @@ export class S3UploadServiceSecure {
    * @param {File} file - The image file to upload
    * @param {string} folder - The folder path (e.g., 'categories', 'questions')
    * @param {string} fileName - Optional custom filename
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<string>} - The CloudFront URL of the uploaded image
    */
-  static async uploadImage(file, folder, fileName = null) {
+  static async uploadImage(file, folder, fileName = null, inviteCode = null) {
     if (!file) {
       throw new Error('No file provided')
     }
@@ -160,39 +173,42 @@ export class S3UploadServiceSecure {
       throw new Error('Image size must be less than 5MB')
     }
 
-    return this.uploadMedia(file, folder, fileName)
+    return this.uploadMedia(file, folder, fileName, inviteCode)
   }
 
   /**
    * Upload a category image
    * @param {File} file - The image file
    * @param {string} categoryId - The category ID
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<string>} - The CloudFront URL
    */
-  static async uploadCategoryImage(file, categoryId) {
+  static async uploadCategoryImage(file, categoryId, inviteCode = null) {
     const fileName = `category_${categoryId}_${Date.now()}.${file.name.split('.').pop()}`
-    return this.uploadImage(file, 'images/categories', fileName)
+    return this.uploadImage(file, 'images/categories', fileName, inviteCode)
   }
 
   /**
    * Upload a question image
    * @param {File} file - The image file
    * @param {string} questionId - Optional question ID for naming
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<string>} - The CloudFront URL
    */
-  static async uploadQuestionImage(file, questionId = null) {
+  static async uploadQuestionImage(file, questionId = null, inviteCode = null) {
     const prefix = questionId ? `question_${questionId}` : 'question'
     const fileName = `${prefix}_${Date.now()}.${file.name.split('.').pop()}`
-    return this.uploadImage(file, 'images/questions', fileName)
+    return this.uploadImage(file, 'images/questions', fileName, inviteCode)
   }
 
   /**
    * Upload question media (image, audio, video)
    * @param {File} file - The media file
    * @param {string} questionId - Optional question ID for naming
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<string>} - The CloudFront URL
    */
-  static async uploadQuestionMedia(file, questionId = null) {
+  static async uploadQuestionMedia(file, questionId = null, inviteCode = null) {
     const prefix = questionId ? `question_${questionId}` : 'question'
     const fileName = `${prefix}_${Date.now()}.${file.name.split('.').pop()}`
 
@@ -204,32 +220,41 @@ export class S3UploadServiceSecure {
       folder = 'video'
     }
 
-    return this.uploadMedia(file, folder, fileName)
+    return this.uploadMedia(file, folder, fileName, inviteCode)
   }
 
   /**
    * Delete a file from S3
    * @param {string} fileUrl - The CloudFront URL of the file to delete
+   * @param {string} inviteCode - Optional invite code for loader authentication
    * @returns {Promise<boolean>} - True if deleted successfully
    */
-  static async deleteFile(fileUrl) {
+  static async deleteFile(fileUrl, inviteCode = null) {
     if (!fileUrl) {
       throw new Error('No file URL provided')
     }
 
     try {
-      // Get authentication token
-      const idToken = await this.getIdToken()
+      // Get authentication token or use invite code
+      const idToken = await this.getIdToken(!inviteCode) // Only require token if no invite code
 
       devLog(`Deleting file from S3: ${fileUrl}`)
+
+      // Prepare headers
+      const headers = {
+        'Content-Type': 'application/json',
+      }
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`
+      } else if (inviteCode) {
+        headers['X-Invite-Code'] = inviteCode
+        devLog('Using invite code for delete authentication')
+      }
 
       // Delete via direct Firebase Function URL (Cloud Run v2)
       const response = await fetch(FUNCTION_URLS.s3Delete, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify({ url: fileUrl }),
       })
 
