@@ -546,9 +546,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       cat.sourceCategoryIds.includes(categoryId)
     )
 
-    let confirmMessage = questionCount > 0
-      ? `هل أنت متأكد من حذف فئة "${category?.name}" مع جميع أسئلتها (${questionCount} سؤال)؟\n\nلا يمكن التراجع عن هذا الإجراء!`
-      : `هل أنت متأكد من حذف فئة "${category?.name}"؟`
+    // Check if this is a merged category (should not delete source questions)
+    const isMergedCategory = category?.isMergedCategory || false
+
+    let confirmMessage
+    if (isMergedCategory) {
+      // Merged category - only deletes the category, not the questions
+      confirmMessage = `هل أنت متأكد من حذف الفئة المدمجة "${category?.name}"؟\n\n✅ الفئات المصدر وأسئلتها لن تتأثر\n(${questionCount} سؤال من الفئات المصدر)`
+    } else {
+      // Regular category - deletes category and questions
+      confirmMessage = questionCount > 0
+        ? `هل أنت متأكد من حذف فئة "${category?.name}" مع جميع أسئلتها (${questionCount} سؤال)؟\n\nلا يمكن التراجع عن هذا الإجراء!`
+        : `هل أنت متأكد من حذف فئة "${category?.name}"؟`
+    }
 
     // Add warning if category is used in merged categories
     if (mergedCategoriesUsingThis.length > 0) {
@@ -560,31 +570,39 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       try {
         devLog(`🗑️ Starting deletion of category: ${categoryId}`)
         devLog(`📊 Category name: ${category?.name}`)
-        devLog(`📊 Questions to delete: ${questionCount}`)
+        devLog(`📊 Is merged category: ${isMergedCategory}`)
+        devLog(`📊 Questions to delete: ${isMergedCategory ? 0 : questionCount}`)
 
-        // First, delete all questions with this categoryId
-        // This handles both regular categories and "orphaned" categories
-        devLog(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
-        const categoryQuestions = questions[categoryId] || []
         let deletedQuestionsCount = 0
         const errors = []
 
-        for (const question of categoryQuestions) {
-          if (question.id) {
-            try {
-              await FirebaseQuestionsService.deleteQuestion(question.id)
-              deletedQuestionsCount++
-              devLog(`  ✅ Deleted question ${deletedQuestionsCount}/${categoryQuestions.length}: ${question.id}`)
-            } catch (error) {
-              prodError(`  ❌ Failed to delete question ${question.id}:`, error)
-              errors.push({ questionId: question.id, error: error.message })
+        // Only delete questions if this is NOT a merged category
+        // Merged categories reference questions from source categories, so we don't delete them
+        if (!isMergedCategory) {
+          // First, delete all questions with this categoryId
+          // This handles both regular categories and "orphaned" categories
+          devLog(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
+          const categoryQuestions = questions[categoryId] || []
+
+          for (const question of categoryQuestions) {
+            if (question.id) {
+              try {
+                await FirebaseQuestionsService.deleteQuestion(question.id)
+                deletedQuestionsCount++
+                devLog(`  ✅ Deleted question ${deletedQuestionsCount}/${categoryQuestions.length}: ${question.id}`)
+              } catch (error) {
+                prodError(`  ❌ Failed to delete question ${question.id}:`, error)
+                errors.push({ questionId: question.id, error: error.message })
+              }
             }
           }
-        }
 
-        devLog(`✅ Deleted ${deletedQuestionsCount} out of ${categoryQuestions.length} questions`)
-        if (errors.length > 0) {
-          prodError(`❌ Failed to delete ${errors.length} questions:`, errors)
+          devLog(`✅ Deleted ${deletedQuestionsCount} out of ${categoryQuestions.length} questions`)
+          if (errors.length > 0) {
+            prodError(`❌ Failed to delete ${errors.length} questions:`, errors)
+          }
+        } else {
+          devLog(`ℹ️ Skipping question deletion for merged category (questions belong to source categories)`)
         }
 
         // Now try to delete the category document itself (if it exists)
@@ -637,7 +655,12 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
           devLog('✅ Data reloaded from Firebase')
         }
 
-        alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
+        // Show appropriate success message based on category type
+        if (isMergedCategory) {
+          alert(`✅ تم حذف الفئة المدمجة "${category?.name}" بنجاح!\n\n✅ الفئات المصدر وأسئلتها لم تتأثر (${questionCount} سؤال محفوظ)`)
+        } else {
+          alert(`✅ تم حذف فئة "${category?.name}" بنجاح!\n\nتم حذف ${result.deletedQuestionsCount} سؤال من Firebase.`)
+        }
 
       } catch (error) {
         prodError('❌ Error deleting category:', error)
