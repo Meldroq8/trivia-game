@@ -111,35 +111,46 @@ export class GameDataLoader {
     }))
 
     // Add Mystery Category at the end
-    // Check localStorage for any saved mystery category customizations
-    let mysteryCategoryCustomizations = {}
-    try {
-      const savedMystery = localStorage.getItem('mystery_category_settings')
-      if (savedMystery) {
-        mysteryCategoryCustomizations = JSON.parse(savedMystery)
+    // First check if mystery category exists in Firebase, otherwise fall back to localStorage
+    let mysteryCategory = transformedCategories.find(cat => cat.id === 'mystery')
 
-        // Force clear empty imageUrl to allow fallback
-        if (mysteryCategoryCustomizations.imageUrl === '') {
-          delete mysteryCategoryCustomizations.imageUrl
+    if (!mysteryCategory) {
+      // Mystery category not in Firebase, check localStorage for backward compatibility
+      let mysteryCategoryCustomizations = {}
+      try {
+        const savedMystery = localStorage.getItem('mystery_category_settings')
+        if (savedMystery) {
+          devLog('📦 Loading mystery category from localStorage (backward compatibility)')
+          mysteryCategoryCustomizations = JSON.parse(savedMystery)
+
+          // Force clear empty imageUrl to allow fallback
+          if (mysteryCategoryCustomizations.imageUrl === '') {
+            delete mysteryCategoryCustomizations.imageUrl
+          }
         }
+      } catch (error) {
+        devWarn('Could not load mystery category customizations:', error)
       }
-    } catch (error) {
-      devWarn('Could not load mystery category customizations:', error)
-    }
 
-    const mysteryCategory = {
-      id: 'mystery',
-      name: mysteryCategoryCustomizations.name || 'الفئة الغامضة',
-      color: mysteryCategoryCustomizations.color || 'bg-purple-600',
-      image: mysteryCategoryCustomizations.image || '❓',
-      imageUrl: (mysteryCategoryCustomizations.imageUrl && mysteryCategoryCustomizations.imageUrl.trim()) || '/images/categories/category_mystery_1758939021986.webp',
-      showImageInQuestion: mysteryCategoryCustomizations.showImageInQuestion !== false,
-      showImageInAnswer: mysteryCategoryCustomizations.showImageInAnswer !== false,
-      enableQrMiniGame: mysteryCategoryCustomizations.enableQrMiniGame || false,
-      isMystery: true // Special flag to identify this as the mystery category
-    }
+      // Create mystery category with localStorage data or defaults
+      mysteryCategory = {
+        id: 'mystery',
+        name: mysteryCategoryCustomizations.name || 'الفئة الغامضة',
+        color: mysteryCategoryCustomizations.color || 'bg-purple-600',
+        image: mysteryCategoryCustomizations.image || '❓',
+        imageUrl: (mysteryCategoryCustomizations.imageUrl && mysteryCategoryCustomizations.imageUrl.trim()) || '/images/categories/category_mystery_1758939021986.webp',
+        showImageInQuestion: mysteryCategoryCustomizations.showImageInQuestion !== false,
+        showImageInAnswer: mysteryCategoryCustomizations.showImageInAnswer !== false,
+        enableQrMiniGame: mysteryCategoryCustomizations.enableQrMiniGame || false,
+        isMystery: true // Special flag to identify this as the mystery category
+      }
 
-    transformedCategories.push(mysteryCategory)
+      transformedCategories.push(mysteryCategory)
+    } else {
+      // Mystery category exists in Firebase, ensure it has the isMystery flag
+      mysteryCategory.isMystery = true
+      devLog('🔥 Loaded mystery category from Firebase:', mysteryCategory.name)
+    }
 
     // Add default category if it has questions but no category definition
     if (questionsByCategory.general && !transformedCategories.find(cat => cat.id === 'general')) {

@@ -289,23 +289,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     // Save directly to Firebase - no localStorage
     try {
       devLog('🔥 Saving categories to Firebase...')
-      // Update each category in Firebase (skip mystery category)
+      // Update each category in Firebase (including mystery category)
       for (const category of newCategories) {
-        // Handle mystery category separately - save to localStorage
-        if (category.id === 'mystery') {
-          devLog('💾 Saving mystery category to localStorage')
-          localStorage.setItem('mystery_category_settings', JSON.stringify({
-            name: category.name,
-            color: category.color,
-            image: category.image,
-            imageUrl: category.imageUrl,
-            showImageInQuestion: category.showImageInQuestion,
-            showImageInAnswer: category.showImageInAnswer,
-            enableQrMiniGame: category.enableQrMiniGame || false
-          }))
-          continue
-        }
-
         try {
           // Try to update existing category
           await FirebaseQuestionsService.updateCategory(category.id, {
@@ -315,22 +300,38 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             imageUrl: category.imageUrl,
             showImageInQuestion: category.showImageInQuestion,
             showImageInAnswer: category.showImageInAnswer,
-            enableQrMiniGame: category.enableQrMiniGame || false // Default to false
+            enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
+            isMystery: category.isMystery || false, // Save mystery flag
+            isMergedCategory: category.isMergedCategory || false, // Save merged flag
+            sourceCategoryIds: category.sourceCategoryIds || [] // Save source references
           })
         } catch (updateError) {
-          // If category doesn't exist in Firebase, create it
+          // If category doesn't exist in Firebase, create it with specific ID
           if (updateError.message.includes('No document to update')) {
             devLog(`📝 Category ${category.id} doesn't exist in Firebase, creating it...`)
-            await FirebaseQuestionsService.createCategory({
-              id: category.id,
-              name: category.name,
-              color: category.color,
-              image: category.image,
-              imageUrl: category.imageUrl,
-              showImageInQuestion: category.showImageInQuestion,
-              showImageInAnswer: category.showImageInAnswer,
-              enableQrMiniGame: category.enableQrMiniGame || false
-            })
+            try {
+              const categoryRef = doc(db, 'categories', category.id)
+              const categoryData = {
+                name: category.name,
+                color: category.color,
+                image: category.image,
+                imageUrl: category.imageUrl,
+                showImageInQuestion: category.showImageInQuestion,
+                showImageInAnswer: category.showImageInAnswer,
+                enableQrMiniGame: category.enableQrMiniGame || false,
+                isMystery: category.isMystery || false,
+                isMergedCategory: category.isMergedCategory || false,
+                sourceCategoryIds: category.sourceCategoryIds || [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              }
+              devLog(`📤 Creating category document:`, categoryData)
+              await setDoc(categoryRef, categoryData)
+              devLog(`✅ Category ${category.id} created in Firebase successfully`)
+            } catch (createError) {
+              prodError(`❌ Failed to create category ${category.id}:`, createError)
+              throw createError
+            }
           } else {
             throw updateError
           }
@@ -536,6 +537,12 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   }
 
   const deleteCategory = async (categoryId) => {
+    // Prevent deletion of mystery category
+    if (categoryId === 'mystery') {
+      alert('❌ لا يمكن حذف الفئة الغامضة\n\nالفئة الغامضة هي فئة خاصة في اللعبة.')
+      return
+    }
+
     const category = categories.find(cat => cat.id === categoryId)
     const questionCount = (questions[categoryId] || []).length
 
@@ -1716,23 +1723,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     // Save directly to Firebase - no localStorage
     try {
       devLog('🔥 Saving categories to Firebase...')
-      // Update each category in Firebase (skip mystery category)
+      // Update each category in Firebase (including mystery category)
       for (const category of newCategories) {
-        // Handle mystery category separately - save to localStorage
-        if (category.id === 'mystery') {
-          devLog('💾 Saving mystery category to localStorage')
-          localStorage.setItem('mystery_category_settings', JSON.stringify({
-            name: category.name,
-            color: category.color,
-            image: category.image,
-            imageUrl: category.imageUrl,
-            showImageInQuestion: category.showImageInQuestion,
-            showImageInAnswer: category.showImageInAnswer,
-            enableQrMiniGame: category.enableQrMiniGame || false
-          }))
-          continue
-        }
-
         try {
           // Try to update existing category
           await FirebaseQuestionsService.updateCategory(category.id, {
@@ -1742,22 +1734,38 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             imageUrl: category.imageUrl,
             showImageInQuestion: category.showImageInQuestion,
             showImageInAnswer: category.showImageInAnswer,
-            enableQrMiniGame: category.enableQrMiniGame || false // Default to false
+            enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
+            isMystery: category.isMystery || false, // Save mystery flag
+            isMergedCategory: category.isMergedCategory || false, // Save merged flag
+            sourceCategoryIds: category.sourceCategoryIds || [] // Save source references
           })
         } catch (updateError) {
-          // If category doesn't exist in Firebase, create it
+          // If category doesn't exist in Firebase, create it with specific ID
           if (updateError.message.includes('No document to update')) {
             devLog(`📝 Category ${category.id} doesn't exist in Firebase, creating it...`)
-            await FirebaseQuestionsService.createCategory({
-              id: category.id,
-              name: category.name,
-              color: category.color,
-              image: category.image,
-              imageUrl: category.imageUrl,
-              showImageInQuestion: category.showImageInQuestion,
-              showImageInAnswer: category.showImageInAnswer,
-              enableQrMiniGame: category.enableQrMiniGame || false
-            })
+            try {
+              const categoryRef = doc(db, 'categories', category.id)
+              const categoryData = {
+                name: category.name,
+                color: category.color,
+                image: category.image,
+                imageUrl: category.imageUrl,
+                showImageInQuestion: category.showImageInQuestion,
+                showImageInAnswer: category.showImageInAnswer,
+                enableQrMiniGame: category.enableQrMiniGame || false,
+                isMystery: category.isMystery || false,
+                isMergedCategory: category.isMergedCategory || false,
+                sourceCategoryIds: category.sourceCategoryIds || [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              }
+              devLog(`📤 Creating category document:`, categoryData)
+              await setDoc(categoryRef, categoryData)
+              devLog(`✅ Category ${category.id} created in Firebase successfully`)
+            } catch (createError) {
+              prodError(`❌ Failed to create category ${category.id}:`, createError)
+              throw createError
+            }
           } else {
             throw updateError
           }
