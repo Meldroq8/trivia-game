@@ -924,14 +924,73 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     navigate('/question')
   }
 
+  // Helper function to get perk icon SVG (matching CategorySelection style)
+  const getPerkIcon = (perkType, isUsed, isCurrentTurn) => {
+    const fillColor = isUsed || !isCurrentTurn ? '#6b7280' : '#dc2626'
+
+    switch (perkType) {
+      case 'double':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={fillColor} stroke="none"/>
+            <text x="12" y="15" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="bold" stroke="#dc2626" strokeWidth="0.5">2</text>
+          </svg>
+        )
+      case 'phone':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+            <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill={fillColor} stroke="none"/>
+          </svg>
+        )
+      case 'search':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+            <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill={fillColor} stroke="none"/>
+          </svg>
+        )
+      case 'risk':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+            <rect x="3" y="3" width="18" height="18" rx="3" fill={fillColor} stroke="none"/>
+            <circle cx="7" cy="7" r="1.5" fill="#fff" stroke="#dc2626" strokeWidth="0.5"/>
+            <circle cx="17" cy="7" r="1.5" fill="#fff" stroke="#dc2626" strokeWidth="0.5"/>
+            <circle cx="7" cy="17" r="1.5" fill="#fff" stroke="#dc2626" strokeWidth="0.5"/>
+            <circle cx="17" cy="17" r="1.5" fill="#fff" stroke="#dc2626" strokeWidth="0.5"/>
+            <circle cx="12" cy="12" r="1.5" fill="#fff" stroke="#dc2626" strokeWidth="0.5"/>
+          </svg>
+        )
+      case 'twoAnswers':
+        return (
+          <svg viewBox="0 0 72 72" fill="none" style={{ width: '100%', height: '100%' }}>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m52.62 31.13 1.8-22.18c-0.3427-4.964-6.779-5.02-7.227-0.026l-2.42 17.36c-0.3 2.179-1.278 3.962-2.166 3.962s-1.845-1.785-2.126-3.967l-2.231-17.34c-0.8196-5.278-7.439-4.322-7.037 0.0011l2.527 21.03"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m53.63 50.08c0 9.872-8.02 16.88-17.89 16.88"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m43.74 47.29v-2.333c0-1.1-1.789-2.2-3.976-2.441l-1.049-0.117c-2.187-0.242-3.976-1.851-3.976-3.774s1.8-3.334 4-3.334h10c2.201-0.0448 4.057 1.632 4.235 3.826l0.657 11.21"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m37.96 50.36c1.63-1.48 3.624-2.5 5.777-2.958"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeMiterlimit="10" strokeWidth="4" d="m18.53 52.1c1.142 8.6 8.539 14.98 17.21 14.86 9.667 0 17.89-6.833 17.89-16.88"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m31.75 49.72c0 1.258-0.6709 2.42-1.76 3.048s-2.431 0.6288-3.52 0-1.76-1.791-1.76-3.048v-15.96c0-1.258 0.6709-2.42 1.76-3.048s2.431-0.6288 3.52 0c1.089 0.6288 1.76 1.791 1.76 3.049z"/>
+            <path fill="none" stroke={fillColor} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m24.71 44.94c0 1.262-0.6709 2.427-1.76 3.058s-2.431 0.6308-3.52 0c-1.089-0.6308-1.76-1.796-1.76-3.058v-7.937c0-1.262 0.6709-2.427 1.76-3.058 1.089-0.6308 2.431-0.6308 3.52 0s1.76 1.796 1.76 3.058z"/>
+          </svg>
+        )
+      case 'prison':
+        return (
+          <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+            <path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z" fill={fillColor} stroke="none"/>
+          </svg>
+        )
+      default:
+        return null
+    }
+  }
+
   // Perk handling functions
   const handlePerkClick = (perkType, team) => {
     // Check if perk is already used (max 1 use per perk per team)
     const currentUsage = gameState.perkUsage?.[team]?.[perkType] || 0
     if (currentUsage >= 1) return
 
-    // Only allow the current team to use perks
-    if (gameState.currentTurn !== team) return
+    // Prison perk can be used on opponent's turn, all others require current turn
+    const isPrisonPerk = perkType === 'prison'
+    if (!isPrisonPerk && gameState.currentTurn !== team) return
 
     setActivePerk({ type: perkType, team })
     setPerkModalOpen(true)
@@ -967,6 +1026,22 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         newState.activatedPerks = {
           ...prev.activatedPerks,
           doublePoints: { active: true, team }
+        }
+      }
+
+      // Add perk activation for risk points (3x on success, -2x on failure)
+      if (type === 'risk') {
+        newState.activatedPerks = {
+          ...prev.activatedPerks,
+          riskPoints: { active: true, team }
+        }
+      }
+
+      // Add perk activation for prison (visual only)
+      if (type === 'prison') {
+        newState.activatedPerks = {
+          ...prev.activatedPerks,
+          prison: { active: true, team, targetTeam: team === 'team1' ? 'team2' : 'team1' }
         }
       }
 
@@ -1906,74 +1981,56 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   </button>
                 </div>
 
-                {/* Team 1 Perks */}
-                <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
-                    (gameState.perkUsage?.team1?.double || 0) >= 1
-                      ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                      : gameState.currentTurn !== 'team1'
-                      ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                      : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                  }`}
-                  onClick={() => handlePerkClick('double', 'team1')}
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
-                    <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
+                {/* Team 1 Perks - Dynamic based on selection */}
+                {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
+                  const isUsed = (gameState.perkUsage?.team1?.[perkId] || 0) >= 1
+                  const isCurrentTurn = gameState.currentTurn === 'team1'
+                  const isPrisonPerk = perkId === 'prison'
+                  const canActivate = isPrisonPerk || isCurrentTurn
+
+                  return (
+                    <div
+                      key={`team1-${perkId}`}
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
+                        isUsed
+                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          : !canActivate
+                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                      }`}
+                      onClick={() => handlePerkClick(perkId, 'team1')}
+                    >
+                      {getPerkIcon(perkId, isUsed, canActivate)}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Team 2 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
-                {/* Team 2 Perks */}
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
-                <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
-                    (gameState.perkUsage?.team2?.double || 0) >= 1
-                      ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                      : gameState.currentTurn !== 'team2'
-                      ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                      : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                  }`}
-                  onClick={() => handlePerkClick('double', 'team2')}
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
-                    <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                  </svg>
-                </div>
+                {/* Team 2 Perks - Dynamic based on selection */}
+                {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
+                  const isUsed = (gameState.perkUsage?.team2?.[perkId] || 0) >= 1
+                  const isCurrentTurn = gameState.currentTurn === 'team2'
+                  const isPrisonPerk = perkId === 'prison'
+                  const canActivate = isPrisonPerk || isCurrentTurn
+
+                  return (
+                    <div
+                      key={`team2-${perkId}`}
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
+                        isUsed
+                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          : !canActivate
+                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                      }`}
+                      onClick={() => handlePerkClick(perkId, 'team2')}
+                    >
+                      {getPerkIcon(perkId, isUsed, canActivate)}
+                    </div>
+                  )
+                })}
 
                 {/* Score with integrated +/- buttons */}
                 <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
@@ -2109,77 +2166,59 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     </svg>
                   </button>
                 </div>
-              {/* Team 1 Perks */}
+              {/* Team 1 Perks - Dynamic based on selection */}
               <div className="flex items-center gap-2 md:gap-4">
-                <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
-                    (gameState.perkUsage?.team1?.double || 0) >= 1
-                      ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                      : gameState.currentTurn !== 'team1'
-                      ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                      : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                  }`}
-                  onClick={() => handlePerkClick('double', 'team1')}
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team1?.double || 0) >= 1 || gameState.currentTurn !== 'team1' ? '#6b7280' : '#dc2626'} stroke="none"/>
-                    <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
+                {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
+                  const isUsed = (gameState.perkUsage?.team1?.[perkId] || 0) >= 1
+                  const isCurrentTurn = gameState.currentTurn === 'team1'
+                  const isPrisonPerk = perkId === 'prison'
+                  const canActivate = isPrisonPerk || isCurrentTurn
+
+                  return (
+                    <div
+                      key={`team1-pc-${perkId}`}
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
+                        isUsed
+                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          : !canActivate
+                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                      }`}
+                      onClick={() => handlePerkClick(perkId, 'team1')}
+                    >
+                      {getPerkIcon(perkId, isUsed, canActivate)}
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
             {/* Team 2 Controls (Right) */}
             <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
-              {/* Team 2 Perks */}
+              {/* Team 2 Perks - Dynamic based on selection */}
               <div className="flex items-center gap-2 md:gap-4">
-                <div
-                  className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
-                    (gameState.perkUsage?.team2?.double || 0) >= 1
-                      ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
-                      : gameState.currentTurn !== 'team2'
-                      ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                      : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
-                  }`}
-                  onClick={() => handlePerkClick('double', 'team2')}
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill={(gameState.perkUsage?.team2?.double || 0) >= 1 || gameState.currentTurn !== 'team2' ? '#6b7280' : '#dc2626'} stroke="none"/>
-                    <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
-                <div
-                  className="border-2 border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10"
-                  title="متاح فقط أثناء السؤال"
-                >
-                  <svg className="w-full h-full" viewBox="0 0 24 24" fill="none">
-                    <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" fill="#6b7280" stroke="none"/>
-                  </svg>
-                </div>
+                {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
+                  const isUsed = (gameState.perkUsage?.team2?.[perkId] || 0) >= 1
+                  const isCurrentTurn = gameState.currentTurn === 'team2'
+                  const isPrisonPerk = perkId === 'prison'
+                  const canActivate = isPrisonPerk || isCurrentTurn
+
+                  return (
+                    <div
+                      key={`team2-pc-${perkId}`}
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
+                        isUsed
+                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          : !canActivate
+                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                      }`}
+                      onClick={() => handlePerkClick(perkId, 'team2')}
+                    >
+                      {getPerkIcon(perkId, isUsed, canActivate)}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Score with integrated +/- buttons */}
