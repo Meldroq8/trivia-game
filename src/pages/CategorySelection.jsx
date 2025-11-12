@@ -30,6 +30,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [expandedPerk, setExpandedPerk] = useState(null)
   const [showPerkSelection, setShowPerkSelection] = useState(false)
   const [showTeamSetup, setShowTeamSetup] = useState(false)
+  const [hasAutoTransitioned, setHasAutoTransitioned] = useState(false)
 
   const navigate = useNavigate()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
@@ -46,16 +47,21 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  // Auto-show perk selection when 6 categories are selected
+  // Auto-show perk selection when 6 categories are selected (only once, on first selection)
   useEffect(() => {
-    if (selectedCategories.length === 6 && !showPerkSelection && !showTeamSetup) {
+    if (selectedCategories.length === 6 && showCategoriesGrid && !showPerkSelection && !showTeamSetup && !hasAutoTransitioned) {
       // Add a small delay for smooth transition
       setTimeout(() => {
         setShowCategoriesGrid(false)
         setShowPerkSelection(true)
+        setHasAutoTransitioned(true)
       }, 300)
     }
-  }, [selectedCategories.length, showPerkSelection, showTeamSetup])
+    // Reset flag when categories go below 6 (user is editing)
+    if (selectedCategories.length < 6 && hasAutoTransitioned) {
+      setHasAutoTransitioned(false)
+    }
+  }, [selectedCategories.length, showCategoriesGrid, showPerkSelection, showTeamSetup, hasAutoTransitioned])
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
