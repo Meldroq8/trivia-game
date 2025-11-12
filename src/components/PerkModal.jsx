@@ -272,6 +272,54 @@ function getPerkInfo(perkType) {
         duration: 15,
         buttonText: 'بدء البحث'
       }
+    case 'risk':
+      return {
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" className="drop-shadow-md">
+            <rect x="3" y="3" width="18" height="18" rx="3" fill="white" stroke="none"/>
+            <circle cx="7" cy="7" r="1.5" fill="#dc2626"/>
+            <circle cx="17" cy="7" r="1.5" fill="#dc2626"/>
+            <circle cx="7" cy="17" r="1.5" fill="#dc2626"/>
+            <circle cx="17" cy="17" r="1.5" fill="#dc2626"/>
+            <circle cx="12" cy="12" r="1.5" fill="#dc2626"/>
+          </svg>
+        ),
+        title: 'يا تصيب يا تخيب',
+        description: '3 أضعاف النقاط في حال الإجابة الصحيحة، وخصم ضعف النقاط في حال الإجابة الخاطئة',
+        duration: null,
+        buttonText: 'تفعيل المخاطرة'
+      }
+    case 'twoAnswers':
+      return {
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 72 72" fill="none" className="drop-shadow-md">
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m52.62 31.13 1.8-22.18c-0.3427-4.964-6.779-5.02-7.227-0.026l-2.42 17.36c-0.3 2.179-1.278 3.962-2.166 3.962s-1.845-1.785-2.126-3.967l-2.231-17.34c-0.8196-5.278-7.439-4.322-7.037 0.0011l2.527 21.03"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m53.63 50.08c0 9.872-8.02 16.88-17.89 16.88"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m43.74 47.29v-2.333c0-1.1-1.789-2.2-3.976-2.441l-1.049-0.117c-2.187-0.242-3.976-1.851-3.976-3.774s1.8-3.334 4-3.334h10c2.201-0.0448 4.057 1.632 4.235 3.826l0.657 11.21"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m37.96 50.36c1.63-1.48 3.624-2.5 5.777-2.958"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeMiterlimit="10" strokeWidth="4" d="m18.53 52.1c1.142 8.6 8.539 14.98 17.21 14.86 9.667 0 17.89-6.833 17.89-16.88"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m31.75 49.72c0 1.258-0.6709 2.42-1.76 3.048s-2.431 0.6288-3.52 0-1.76-1.791-1.76-3.048v-15.96c0-1.258 0.6709-2.42 1.76-3.048s2.431-0.6288 3.52 0c1.089 0.6288 1.76 1.791 1.76 3.049z"/>
+            <path fill="none" stroke="white" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m24.71 44.94c0 1.262-0.6709 2.427-1.76 3.058s-2.431 0.6308-3.52 0c-1.089-0.6308-1.76-1.796-1.76-3.058v-7.937c0-1.262 0.6709-2.427 1.76-3.058 1.089-0.6308 2.431-0.6308 3.52 0s1.76 1.796 1.76 3.058z"/>
+          </svg>
+        ),
+        title: 'جوابين',
+        description: 'يمكن للفريق إعطاء إجابتين بدلاً من واحدة. إذا كانت أي من الإجابتين صحيحة، يحصل الفريق على النقاط',
+        duration: null,
+        buttonText: 'تفعيل الجوابين'
+      }
+    case 'prison':
+      return {
+        icon: (
+          <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" className="drop-shadow-md">
+            <path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z" fill="white" stroke="none"/>
+          </svg>
+        ),
+        title: 'السجن',
+        description: 'سجن لاعب من الفريق الآخر لهذا السؤال',
+        duration: null,
+        buttonText: 'تفعيل السجن',
+        canActivateOnOpponentTurn: true
+      }
     default:
       return {}
   }
