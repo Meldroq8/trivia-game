@@ -235,9 +235,11 @@ service cloud.firestore {
     // ===== QUESTION REPORTS =====
     // User reports for questions
     match /questionReports/{reportId} {
-      // Only admins can read all reports
-      allow read: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // Admins can read all reports
+      // Authenticated users can query/list their own reports (for checking if already reported)
+      allow read: if (request.auth != null &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
+                     (request.auth != null && resource.data.userId == request.auth.uid);
       // Allow both authenticated and unauthenticated users to create reports
       // Authenticated users: userId must match their auth.uid
       // Unauthenticated users: userId must be 'anonymous'
