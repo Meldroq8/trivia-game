@@ -5,7 +5,7 @@ import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebas
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp } from 'firebase/firestore'
+import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { ImageUploadService } from '../utils/imageUpload'
@@ -21,6 +21,9 @@ import MediaUploadManager from '../components/MediaUploadManager'
 import loaderService from '../firebase/loaderService'
 import AIEnhancementModal from '../components/AIEnhancementModal'
 import aiService from '../services/aiServiceSecure'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
@@ -144,6 +147,18 @@ function Admin() {
           </button>
           {isAdmin && (
             <button
+              onClick={() => changeTab('masterCategories')}
+              className={`flex-1 py-4 px-6 font-bold ${
+                activeTab === 'masterCategories'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              🗂️ إدارة المجموعات
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => changeTab('users')}
               className={`flex-1 py-4 px-6 font-bold ${
                 activeTab === 'users'
@@ -213,6 +228,7 @@ function Admin() {
         <div className="p-8">
           {activeTab === 'categories' && <CategoriesManager isAdmin={isAdmin} isModerator={isModerator} showAIModal={showAIModal} setShowAIModal={setShowAIModal} setAiEditingCategory={setAiEditingCategory} />}
           {activeTab === 'questions' && <QuestionsManager isAdmin={isAdmin} isModerator={isModerator} user={user} showAIModal={showAIModal} setShowAIModal={setShowAIModal} setAiEditingCategory={setAiEditingCategory} />}
+          {activeTab === 'masterCategories' && isAdmin && <MasterCategoriesManager isAdmin={isAdmin} isModerator={isModerator} />}
           {activeTab === 'users' && isAdmin && <UsersManager getAllUsers={getAllUsers} updateUserRole={updateUserRole} searchUsers={searchUsers} />}
           {activeTab === 'pending' && isAdmin && <PendingQuestionsManager />}
           {activeTab === 'invites' && isAdmin && <InviteCodesManager user={user} />}
@@ -255,6 +271,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   const [mergedCategoryName, setMergedCategoryName] = useState('')
   const [mergedCategoryImage, setMergedCategoryImage] = useState('🔀')
   const [mergedCategoryImageUrl, setMergedCategoryImageUrl] = useState('')
+  const [masterCategories, setMasterCategories] = useState([])
 
   useEffect(() => {
     // Load directly from Firebase - no localStorage dependency
@@ -271,6 +288,11 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
         setQuestions(gameData.questions || {})
         devLog('✅ Categories manager data loaded from Firebase')
       }
+
+      // Load master categories
+      const masterCats = await FirebaseQuestionsService.getAllMasterCategories()
+      setMasterCategories(masterCats || [])
+      devLog('✅ Master categories loaded:', masterCats)
     } catch (error) {
       prodError('❌ Error loading categories manager data:', error)
       // Only fallback to sample data if Firebase completely fails
@@ -303,7 +325,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
-            sourceCategoryIds: category.sourceCategoryIds || [] // Save source references
+            sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
+            masterCategoryId: category.masterCategoryId || 'general' // Save master category
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -322,6 +345,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                 isMystery: category.isMystery || false,
                 isMergedCategory: category.isMergedCategory || false,
                 sourceCategoryIds: category.sourceCategoryIds || [],
+                masterCategoryId: category.masterCategoryId || 'general',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
@@ -439,6 +463,13 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       ? 'تم تفعيل وضع اللعبة المصغرة بالكود لهذه الفئة'
       : 'تم إلغاء وضع اللعبة المصغرة بالكود لهذه الفئة'
     )
+  }
+
+  const handleMasterCategoryChange = (categoryId, masterCategoryId) => {
+    const updatedCategories = categories.map(cat =>
+      cat.id === categoryId ? { ...cat, masterCategoryId } : cat
+    )
+    saveCategories(updatedCategories)
   }
 
   const startEditingCategoryName = (categoryId, currentName) => {
@@ -984,6 +1015,20 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Master Category Selector */}
+            <div className="mb-4">
+              <label className="block text-sm font-bold mb-2 text-black">المجموعة الرئيسية</label>
+              <select
+                value={category.masterCategoryId || 'general'}
+                onChange={(e) => handleMasterCategoryChange(category.id, e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900"
+              >
+                {masterCategories.map(master => (
+                  <option key={master.id} value={master.id}>{master.name}</option>
+                ))}
+              </select>
             </div>
 
             {/* Image Display Settings */}
@@ -1737,7 +1782,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
-            sourceCategoryIds: category.sourceCategoryIds || [] // Save source references
+            sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
+            masterCategoryId: category.masterCategoryId || 'general' // Save master category
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -1756,6 +1802,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                 isMystery: category.isMystery || false,
                 isMergedCategory: category.isMergedCategory || false,
                 sourceCategoryIds: category.sourceCategoryIds || [],
+                masterCategoryId: category.masterCategoryId || 'general',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
@@ -6053,6 +6100,503 @@ function InviteCodesManager({ user }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Sortable Master Category Row Component
+function SortableMasterRow({ master, editingId, editingName, setEditingName, handleEdit, cancelEdit, startEdit, handleDelete, toggleExpanded, isExpanded, categoriesByMaster, handleCategoryDragEnd }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: master.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  const categories = categoriesByMaster[master.id] || []
+
+  return (
+    <div ref={setNodeRef} style={style} className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="flex items-center gap-3 p-4">
+        {/* Drag Handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 transition-colors"
+          title="اسحب لإعادة الترتيب"
+        >
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 3C9 2.44772 8.55228 2 8 2C7.44772 2 7 2.44772 7 3V21C7 21.5523 7.44772 22 8 22C8.55228 22 9 21.5523 9 21V3Z"/>
+            <path d="M17 3C17 2.44772 16.5523 2 16 2C15.4477 2 15 2.44772 15 3V21C15 21.5523 15.4477 22 16 22C16.5523 22 17 21.5523 17 21V3Z"/>
+          </svg>
+        </button>
+
+        {editingId === master.id ? (
+          <div className="flex-1 flex gap-3">
+            <input
+              type="text"
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleEdit(master.id)}
+              className="flex-1 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+              autoFocus
+            />
+            <button
+              onClick={() => handleEdit(master.id)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded-lg transition-colors"
+            >
+              حفظ
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-1 rounded-lg transition-colors"
+            >
+              إلغاء
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1">
+              <h4 className="font-bold text-gray-900">
+                {master.name}
+                {master.id === 'general' && (
+                  <span className="mr-2 text-sm text-gray-900 font-normal">(افتراضي)</span>
+                )}
+                {categories.length > 0 && (
+                  <span className="mr-2 text-sm text-gray-500 font-normal">
+                    ({categories.length} فئة)
+                  </span>
+                )}
+              </h4>
+            </div>
+
+            <div className="flex gap-2">
+              {categories.length > 0 && (
+                <button
+                  onClick={() => toggleExpanded(master.id)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-1 rounded-lg transition-colors text-sm flex items-center gap-1"
+                  title={isExpanded ? 'إخفاء الفئات' : 'عرض الفئات'}
+                >
+                  {isExpanded ? '−' : '+'}
+                </button>
+              )}
+              <button
+                onClick={() => startEdit(master)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-lg transition-colors text-sm"
+              >
+                تعديل
+              </button>
+              {master.id !== 'general' && (
+                <button
+                  onClick={() => handleDelete(master.id, master.name)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-1 rounded-lg transition-colors text-sm"
+                >
+                  حذف
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Expanded Categories View */}
+      {isExpanded && categories.length > 0 && (
+        <div className="px-4 pb-4">
+          <ExpandedCategoriesGrid categories={categories} masterId={master.id} onDragEnd={handleCategoryDragEnd} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Sortable Category Card Component
+function SortableCategoryCard({ category }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="bg-gradient-to-br from-white to-gray-50 rounded-lg shadow-md hover:shadow-lg transition-all cursor-grab active:cursor-grabbing border border-gray-200 overflow-hidden"
+    >
+      <div className="aspect-video relative bg-gray-100">
+        {category.imageUrl ? (
+          <SmartImage
+            src={category.imageUrl}
+            alt={category.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-4xl">
+            {category.image || '📝'}
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <h5 className="font-bold text-gray-900 text-sm text-center truncate">{category.name}</h5>
+      </div>
+    </div>
+  )
+}
+
+// Expanded Categories Grid with DnD
+function ExpandedCategoriesGrid({ categories, masterId, onDragEnd }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+      <h5 className="text-sm font-semibold text-gray-700 mb-3">الفئات في هذه المجموعة:</h5>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={(event) => onDragEnd(event, masterId)}
+      >
+        <SortableContext
+          items={categories.map(c => c.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {categories.map(category => (
+              <SortableCategoryCard key={category.id} category={category} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+function MasterCategoriesManager({ isAdmin, isModerator }) {
+  const [masterCategories, setMasterCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [newMasterName, setNewMasterName] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editingName, setEditingName] = useState('')
+  const [expandedMasters, setExpandedMasters] = useState({})
+  const [categoriesByMaster, setCategoriesByMaster] = useState({})
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
+
+  useEffect(() => {
+    loadMasterCategories()
+    loadAllCategories()
+  }, [])
+
+  const loadAllCategories = async () => {
+    try {
+      const allCategories = await FirebaseQuestionsService.getAllCategories()
+
+      // Group categories by master
+      const grouped = {}
+      allCategories.forEach(cat => {
+        const masterId = cat.masterCategoryId || 'general'
+        if (!grouped[masterId]) {
+          grouped[masterId] = []
+        }
+        grouped[masterId].push(cat)
+      })
+
+      // Sort categories within each master by displayOrder
+      Object.keys(grouped).forEach(masterId => {
+        grouped[masterId].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      })
+
+      setCategoriesByMaster(grouped)
+    } catch (error) {
+      prodError('Error loading categories:', error)
+    }
+  }
+
+  const loadMasterCategories = async () => {
+    try {
+      setLoading(true)
+      let masters = await FirebaseQuestionsService.getAllMasterCategories()
+
+      // Auto-create "فئات عامة" if it doesn't exist
+      const hasGeneral = masters.some(m => m.id === 'general')
+      if (!hasGeneral) {
+        devLog('🔧 Creating default "فئات عامة" master category...')
+        const generalRef = doc(db, 'masterCategories', 'general')
+        await setDoc(generalRef, {
+          name: 'فئات عامة',
+          order: 0,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+        // Reload to include the new general category
+        masters = await FirebaseQuestionsService.getAllMasterCategories()
+        devLog('✅ Default master category created')
+      }
+
+      setMasterCategories(masters)
+    } catch (error) {
+      prodError('Error loading master categories:', error)
+      alert('خطأ في تحميل المجموعات الرئيسية')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreate = async () => {
+    if (!newMasterName.trim()) {
+      alert('يرجى إدخال اسم المجموعة')
+      return
+    }
+
+    try {
+      const maxOrder = masterCategories.length > 0
+        ? Math.max(...masterCategories.map(m => m.order || 0))
+        : 0
+
+      await FirebaseQuestionsService.createMasterCategory({
+        name: newMasterName.trim(),
+        order: maxOrder + 1
+      })
+
+      setNewMasterName('')
+      await loadMasterCategories()
+      alert('تم إنشاء المجموعة بنجاح')
+    } catch (error) {
+      prodError('Error creating master category:', error)
+      alert('حدث خطأ في إنشاء المجموعة')
+    }
+  }
+
+  const handleEdit = async (masterId) => {
+    if (!editingName.trim()) {
+      alert('يرجى إدخال اسم المجموعة')
+      return
+    }
+
+    try {
+      await FirebaseQuestionsService.updateMasterCategory(masterId, {
+        name: editingName.trim()
+      })
+
+      setEditingId(null)
+      setEditingName('')
+      await loadMasterCategories()
+      alert('تم تحديث المجموعة بنجاح')
+    } catch (error) {
+      prodError('Error updating master category:', error)
+      alert('حدث خطأ في تحديث المجموعة')
+    }
+  }
+
+  const handleDelete = async (masterId, masterName) => {
+    if (masterId === 'general') {
+      alert('لا يمكن حذف المجموعة الافتراضية')
+      return
+    }
+
+    if (!window.confirm(`هل أنت متأكد من حذف المجموعة "${masterName}"؟`)) {
+      return
+    }
+
+    try {
+      await FirebaseQuestionsService.deleteMasterCategory(masterId)
+      await loadMasterCategories()
+      alert('تم حذف المجموعة بنجاح')
+    } catch (error) {
+      prodError('Error deleting master category:', error)
+      alert('حدث خطأ في حذف المجموعة')
+    }
+  }
+
+  const startEdit = (master) => {
+    setEditingId(master.id)
+    setEditingName(master.name)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditingName('')
+  }
+
+  const toggleExpanded = (masterId) => {
+    setExpandedMasters(prev => ({
+      ...prev,
+      [masterId]: !prev[masterId]
+    }))
+  }
+
+  const handleMasterDragEnd = async (event) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const oldIndex = masterCategories.findIndex(m => m.id === active.id)
+    const newIndex = masterCategories.findIndex(m => m.id === over.id)
+
+    const reorderedMasters = arrayMove(masterCategories, oldIndex, newIndex)
+
+    // Update local state immediately for smooth UX
+    setMasterCategories(reorderedMasters)
+
+    // Update order in Firebase
+    try {
+      const updatePromises = reorderedMasters.map((master, index) => {
+        const masterRef = doc(db, 'masterCategories', master.id)
+        return updateDoc(masterRef, { order: index })
+      })
+
+      await Promise.all(updatePromises)
+      devLog('Master categories reordered successfully')
+    } catch (error) {
+      prodError('Error reordering master categories:', error)
+      // Reload to restore correct order
+      await loadMasterCategories()
+    }
+  }
+
+  const handleCategoryDragEnd = async (event, masterId) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const categories = categoriesByMaster[masterId] || []
+    const oldIndex = categories.findIndex(c => c.id === active.id)
+    const newIndex = categories.findIndex(c => c.id === over.id)
+
+    const reorderedCategories = arrayMove(categories, oldIndex, newIndex)
+
+    // Update local state immediately
+    setCategoriesByMaster(prev => ({
+      ...prev,
+      [masterId]: reorderedCategories
+    }))
+
+    // Update displayOrder in Firebase
+    try {
+      const updatePromises = reorderedCategories.map((category, index) => {
+        const categoryRef = doc(db, 'categories', category.id)
+        return updateDoc(categoryRef, { displayOrder: index })
+      })
+
+      await Promise.all(updatePromises)
+      devLog('Categories reordered successfully')
+    } catch (error) {
+      prodError('Error reordering categories:', error)
+      // Reload to restore correct order
+      await loadAllCategories()
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-900">جاري تحميل المجموعات الرئيسية...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">إدارة المجموعات الرئيسية</h2>
+      </div>
+
+      {/* Create New Master Category */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4">إنشاء مجموعة جديدة</h3>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            placeholder="اسم المجموعة الرئيسية..."
+            value={newMasterName}
+            onChange={(e) => setNewMasterName(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleCreate()}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+          />
+          <button
+            onClick={handleCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-bold"
+          >
+            إنشاء
+          </button>
+        </div>
+      </div>
+
+      {/* Master Categories List with Drag & Drop */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden">
+        <div className="p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">المجموعات الموجودة</h3>
+          {masterCategories.length === 0 ? (
+            <p className="text-gray-900 text-center py-8">لا توجد مجموعات رئيسية</p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleMasterDragEnd}
+            >
+              <SortableContext
+                items={masterCategories.map(m => m.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-3">
+                  {masterCategories.map((master) => (
+                    <SortableMasterRow
+                      key={master.id}
+                      master={master}
+                      editingId={editingId}
+                      editingName={editingName}
+                      setEditingName={setEditingName}
+                      handleEdit={handleEdit}
+                      cancelEdit={cancelEdit}
+                      startEdit={startEdit}
+                      handleDelete={handleDelete}
+                      toggleExpanded={toggleExpanded}
+                      isExpanded={expandedMasters[master.id]}
+                      categoriesByMaster={categoriesByMaster}
+                      handleCategoryDragEnd={handleCategoryDragEnd}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
