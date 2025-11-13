@@ -232,6 +232,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // ===== QUESTION REPORTS =====
+    // User reports for questions
+    match /questionReports/{reportId} {
+      // Only admins can read all reports
+      allow read: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // Allow both authenticated and unauthenticated users to create reports
+      // Authenticated users: userId must match their auth.uid
+      // Unauthenticated users: userId must be 'anonymous'
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
+                       (request.auth == null && request.resource.data.userId == 'anonymous');
+      // Only admins can update or delete reports
+      allow update, delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ===== DEFAULT DENY =====
     // Deny access to any other documents
     match /{document=**} {
