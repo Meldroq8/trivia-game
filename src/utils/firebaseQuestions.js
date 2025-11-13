@@ -22,7 +22,8 @@ export class FirebaseQuestionsService {
   static COLLECTIONS = {
     QUESTIONS: 'questions',
     CATEGORIES: 'categories',
-    PENDING_QUESTIONS: 'pending-questions'
+    PENDING_QUESTIONS: 'pending-questions',
+    MASTER_CATEGORIES: 'masterCategories'
   }
 
   /**
@@ -1056,6 +1057,92 @@ export class FirebaseQuestionsService {
       devLog('✅ Pending question deleted')
     } catch (error) {
       prodError('❌ Error deleting pending question:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get all master categories from Firebase
+   * @returns {Promise<Array>} Array of master categories
+   */
+  static async getAllMasterCategories() {
+    try {
+      const masterCategoriesRef = collection(db, this.COLLECTIONS.MASTER_CATEGORIES)
+      const q = query(masterCategoriesRef, orderBy('order', 'asc'))
+      const snapshot = await getDocs(q)
+
+      const masterCategories = []
+      snapshot.forEach(doc => {
+        masterCategories.push({
+          id: doc.id,
+          ...doc.data()
+        })
+      })
+
+      devLog('✅ Loaded master categories:', masterCategories.length)
+      return masterCategories
+    } catch (error) {
+      prodError('Error getting master categories:', error)
+      return []
+    }
+  }
+
+  /**
+   * Create a new master category
+   * @param {Object} masterData - {name, order}
+   * @returns {Promise<string>} Document ID
+   */
+  static async createMasterCategory(masterData) {
+    try {
+      devLog('Creating master category:', masterData)
+
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.MASTER_CATEGORIES), {
+        name: masterData.name,
+        order: masterData.order || 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+
+      devLog(`✅ Master category created with ID: ${docRef.id}`)
+      return docRef.id
+    } catch (error) {
+      prodError('Error creating master category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Update a master category
+   * @param {string} masterId - Master category ID
+   * @param {Object} updateData - Data to update
+   * @returns {Promise<void>}
+   */
+  static async updateMasterCategory(masterId, updateData) {
+    try {
+      const masterRef = doc(db, this.COLLECTIONS.MASTER_CATEGORIES, masterId)
+      await updateDoc(masterRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      })
+      devLog(`✅ Master category ${masterId} updated`)
+    } catch (error) {
+      prodError('Error updating master category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a master category
+   * @param {string} masterId - Master category ID
+   * @returns {Promise<void>}
+   */
+  static async deleteMasterCategory(masterId) {
+    try {
+      // Note: Categories with this masterCategoryId will remain but show under "فئات عامة"
+      await deleteDoc(doc(db, this.COLLECTIONS.MASTER_CATEGORIES, masterId))
+      devLog(`✅ Master category ${masterId} deleted`)
+    } catch (error) {
+      prodError('Error deleting master category:', error)
       throw error
     }
   }
