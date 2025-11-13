@@ -13,6 +13,9 @@ import LogoDisplay from '../components/LogoDisplay'
 import QRCodeWithLogo from '../components/QRCodeWithLogo'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import SmartImage from '../components/SmartImage'
+import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { db } from '../firebase/config'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -385,6 +388,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [headerHeight, setHeaderHeight] = useState(0)
 
+  // Report modal state
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [hasReported, setHasReported] = useState(false)
+  const [checkingReport, setCheckingReport] = useState(false)
+
   // Memoized responsive styles
   const styles = useMemo(() => getResponsiveStyles(), [])
 
@@ -533,6 +541,36 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Use preview question if in preview mode, otherwise use gameState question
   const currentQuestion = previewMode ? previewQuestion : gameState.currentQuestion
+
+  // Check if user has already reported this question
+  useEffect(() => {
+    const checkIfReported = async () => {
+      if (!currentQuestion || !user?.uid) {
+        setHasReported(false)
+        return
+      }
+
+      setCheckingReport(true)
+      try {
+        const questionId = currentQuestion.id || currentQuestion.question?.id || 'unknown'
+        const reportsRef = collection(db, 'questionReports')
+        const q = query(
+          reportsRef,
+          where('questionId', '==', questionId),
+          where('userId', '==', user.uid)
+        )
+        const snapshot = await getDocs(q)
+        setHasReported(!snapshot.empty)
+      } catch (error) {
+        prodError('Error checking if question is reported:', error)
+        setHasReported(false)
+      } finally {
+        setCheckingReport(false)
+      }
+    }
+
+    checkIfReported()
+  }, [currentQuestion?.id, user?.uid])
 
   // Override gameState with preview data if in preview mode
   useEffect(() => {
@@ -2300,7 +2338,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   )
                 })()}
 
-                <div className="w-11 text-center"></div>
+                {/* Report Button */}
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowReportModal(true)}
+                    disabled={hasReported || checkingReport}
+                    className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
+                      hasReported
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
+                    }`}
+                    style={{
+                      fontSize: `${styles.pointsFontSize}px`,
+                      padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
+                    }}
+                    title={hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال'}
+                  >
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
+                    </svg>
+                    <span>إبلاغ</span>
+                  </button>
+                </div>
               </div>
               )}
 
@@ -2327,6 +2387,34 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                        border: '5px solid transparent',
                        borderRadius: 'inherit'
                      }}>
+
+                  {/* Report Button - Top Center */}
+                  <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 flex justify-between items-center w-full max-w-[90%]">
+                    <div></div>
+                    <div></div>
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowReportModal(true)}
+                        disabled={hasReported || checkingReport}
+                        className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
+                          hasReported
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
+                        }`}
+                        style={{
+                          fontSize: `${styles.pointsFontSize}px`,
+                          padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
+                        }}
+                        title={hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال'}
+                      >
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
+                        </svg>
+                        <span>إبلاغ</span>
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Answer Content - Same as question content */}
                   <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
@@ -2565,6 +2653,206 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         maxUses={1}
         readOnly={false}
       />
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        question={currentQuestion}
+        category={currentQuestion?.category || currentQuestion?.categoryName || 'غير محدد'}
+        user={user}
+        onSuccess={() => {
+          setHasReported(true)
+          setShowReportModal(false)
+        }}
+      />
+    </div>
+  )
+}
+
+// Report Modal Component
+function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
+  const [reportTypes, setReportTypes] = useState([])
+  const [customMessage, setCustomMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const reportOptions = [
+    { id: 'wrong_question', label: 'السؤال خاطئ' },
+    { id: 'wrong_answer', label: 'الجواب خاطئ' },
+    { id: 'unclear_image', label: 'صورة غير واضحة' },
+    { id: 'broken_audio', label: 'صوت لا يعمل' },
+    { id: 'other', label: 'أخرى' }
+  ]
+
+  // Reset form when modal opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setReportTypes([])
+      setCustomMessage('')
+      setSubmitting(false)
+    }
+  }, [isOpen])
+
+  // Escape key handler
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose()
+      }
+    }
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey)
+      document.body.style.overflow = 'hidden'
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey)
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen, onClose])
+
+  const handleCheckboxChange = (id) => {
+    setReportTypes(prev =>
+      prev.includes(id)
+        ? prev.filter(t => t !== id)
+        : [...prev, id]
+    )
+  }
+
+  const handleSubmit = async () => {
+    if (reportTypes.length === 0 && !customMessage.trim()) {
+      alert('الرجاء اختيار سبب الإبلاغ أو كتابة رسالة')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const questionId = question?.id || question?.question?.id || 'unknown'
+      const questionText = question?.text || question?.question?.text || 'غير محدد'
+      const answerText = question?.answer || question?.question?.answer || 'غير محدد'
+
+      await FirebaseQuestionsService.submitQuestionReport({
+        questionId,
+        questionText,
+        answerText,
+        category,
+        userMessage: customMessage.trim(),
+        reportTypes,
+        userId: user?.uid || 'anonymous',
+        userName: user?.displayName || user?.email || 'مجهول'
+      })
+
+      devLog('Question report submitted successfully')
+      onSuccess()
+    } catch (error) {
+      prodError('Error submitting question report:', error)
+      alert('حدث خطأ أثناء إرسال الإبلاغ. الرجاء المحاولة مرة أخرى.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  const isMobile = window.innerWidth < 640
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/75 z-[99999] flex items-center justify-center p-4 transition-opacity duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-3 sm:p-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-2xl sm:text-3xl">🚩</span>
+            <h2 className="font-bold text-lg sm:text-xl lg:text-2xl">إبلاغ عن السؤال</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-red-700 hover:bg-red-800 rounded-full w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center text-white font-bold text-xl sm:text-2xl transition-colors flex-shrink-0"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+          <div className="space-y-4">
+            {/* Question Info */}
+            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 space-y-2">
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">السؤال:</p>
+                <p className="text-sm sm:text-base font-bold text-gray-800" dir="rtl">
+                  {question?.text || question?.question?.text || 'غير محدد'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500 mb-1">الفئة:</p>
+                <p className="text-sm sm:text-base font-bold text-amber-600" dir="rtl">{category}</p>
+              </div>
+            </div>
+
+            {/* Report Types */}
+            <div>
+              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900" dir="rtl">سبب الإبلاغ</p>
+              <div className="space-y-2">
+                {reportOptions.map(option => (
+                  <label
+                    key={option.id}
+                    className="flex items-center gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={reportTypes.includes(option.id)}
+                      onChange={() => handleCheckboxChange(option.id)}
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 rounded focus:ring-red-500"
+                    />
+                    <span className="text-sm sm:text-base font-medium text-gray-700" dir="rtl">
+                      {option.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Message */}
+            <div>
+              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900" dir="rtl">رسالة إضافية (اختياري)</p>
+              <textarea
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                placeholder="اكتب أي تفاصيل إضافية..."
+                className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm sm:text-base resize-none text-gray-900"
+                rows="4"
+                dir="rtl"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200 flex gap-3 justify-center">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-bold px-5 py-2.5 sm:px-6 sm:py-3 min-w-[100px] transition-colors text-sm sm:text-base lg:text-lg disabled:opacity-50"
+          >
+            إلغاء
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold px-5 py-2.5 sm:px-6 sm:py-3 min-w-[100px] transition-colors text-sm sm:text-base lg:text-lg shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'جاري الإرسال...' : 'إرسال'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
