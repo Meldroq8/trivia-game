@@ -31,6 +31,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [showPerkSelection, setShowPerkSelection] = useState(false)
   const [showTeamSetup, setShowTeamSetup] = useState(false)
   const [hasAutoTransitioned, setHasAutoTransitioned] = useState(false)
+  const [showSidebar, setShowSidebar] = useState(false)
 
   const navigate = useNavigate()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
@@ -46,6 +47,21 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
+
+  // Show sidebar on scroll when categories are selected and grid is visible
+  useEffect(() => {
+    const handleScroll = (e) => {
+      const scrollTop = e.target.scrollTop || 0
+      const shouldShow = scrollTop > 50 && selectedCategories.length > 0 && showCategoriesGrid
+      setShowSidebar(shouldShow)
+    }
+
+    const mainContent = document.querySelector('.category-selection-main-content')
+    if (mainContent) {
+      mainContent.addEventListener('scroll', handleScroll)
+      return () => mainContent.removeEventListener('scroll', handleScroll)
+    }
+  }, [selectedCategories.length, showCategoriesGrid])
 
   // Auto-show perk selection when 6 categories are selected (only once, on first selection)
   useEffect(() => {
@@ -160,6 +176,18 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       }
       return prev
     })
+  }
+
+  const scrollToCategory = (categoryId) => {
+    const element = document.getElementById(`category-${categoryId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // Add a highlight effect
+      element.classList.add('ring-4', 'ring-blue-400')
+      setTimeout(() => {
+        element.classList.remove('ring-4', 'ring-blue-400')
+      }, 1500)
+    }
   }
 
   // Helper function to get perk information (matching PerkModal.jsx structure)
@@ -440,11 +468,56 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       <Header showBackButton={true} backPath="/" />
 
       {/* Main Content */}
-      <div className="flex-1 bg-[#f7f2e6] flex flex-col items-center justify-start p-3 md:p-6 overflow-y-auto">
+      <div className="flex-1 bg-[#f7f2e6] flex flex-col items-center justify-start p-3 md:p-6 overflow-y-auto category-selection-main-content relative">
+
+        {/* Selected Categories Sidebar - Shows on scroll */}
+        {showSidebar && showCategoriesGrid && selectedCategories.length > 0 && (
+          <div className="fixed portrait:bottom-4 portrait:left-1/2 portrait:-translate-x-1/2 max-lg:landscape:left-2 max-lg:landscape:top-16 md:max-lg:left-4 md:max-lg:top-20 lg:left-8 lg:top-1/2 lg:-translate-y-1/2 z-50 portrait:animate-slideInFromBottom landscape:animate-slideInFromLeft">
+            <div className="bg-white rounded-lg md:rounded-xl lg:rounded-2xl shadow-2xl p-1.5 md:p-2 lg:p-4 portrait:w-auto max-lg:landscape:w-[70px] md:max-lg:w-[120px] lg:w-[150px] border-2 border-gray-200">
+              <div className="flex portrait:flex-row landscape:flex-col gap-1 max-lg:landscape:gap-0.5 md:gap-2 lg:gap-3 portrait:gap-1.5">
+                {selectedCategories.map((categoryId) => {
+                  const category = availableCategories.find(cat => cat.id === categoryId)
+                  if (!category) return null
+
+                  return (
+                    <div key={categoryId} className="relative group portrait:w-12 portrait:flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleCategory(categoryId)
+                        }}
+                        className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 lg:-top-2 lg:-right-2 z-10 bg-red-600 hover:bg-red-700 text-white rounded-full w-4 h-4 max-lg:landscape:w-3.5 max-lg:landscape:h-3.5 md:w-5 md:h-5 lg:w-7 lg:h-7 flex items-center justify-center text-[10px] md:text-xs lg:text-base font-bold shadow-lg transition-all hover:scale-110"
+                      >
+                        ×
+                      </button>
+                      <div
+                        onClick={() => scrollToCategory(categoryId)}
+                        className="bg-gradient-to-b from-gray-50 to-white rounded-lg lg:rounded-xl border-2 border-red-300 overflow-hidden cursor-pointer hover:border-red-400 transition-all">
+                        <div className="aspect-[3/4] max-lg:landscape:aspect-[6/5] portrait:aspect-[3/4] lg:aspect-[5/4] relative">
+                          <BackgroundImage
+                            src={category.imageUrl}
+                            alt={category.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
+                        </div>
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 px-0.5 portrait:px-1 md:px-1.5 lg:px-2 py-0.5 max-lg:landscape:py-px portrait:py-0.5 lg:py-1">
+                          <div className="text-white text-[8px] portrait:text-[7px] max-lg:landscape:text-[7px] md:text-[10px] lg:text-xs font-bold text-center leading-tight line-clamp-2 portrait:line-clamp-1 max-lg:landscape:line-clamp-1 lg:line-clamp-2">
+                            {category.name}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Show Categories Grid OR Selected Categories + Game Setup */}
         {showCategoriesGrid || selectedCategories.length < 6 ? (
-          <div className="w-full animate-slideInFromTop">
+          <div className="w-full animate-slideInFromTop max-lg:landscape:px-20">
             {/* Selection Counter */}
             <div className="text-center mb-4 md:mb-8 flex-shrink-0">
               <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-2 md:p-4 inline-block">
@@ -455,7 +528,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Categories Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-4 w-full max-w-7xl mx-auto flex-1 content-start">
+            <div className="grid grid-cols-2 max-lg:landscape:grid-cols-4 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 gap-3 max-lg:landscape:gap-2 lg:gap-4 w-full max-w-7xl mx-auto flex-1 content-start">
               {isLoading ? (
                 // Show skeleton loading cards without blocking UI
                 Array.from({ length: 12 }).map((_, index) => (
@@ -479,10 +552,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 return (
                   <button
                     key={category.id}
+                    id={`category-${category.id}`}
                     onClick={() => canSelect && toggleCategory(category.id)}
                     disabled={!canSelect}
                     className={`
-                      relative p-0 rounded-lg font-bold text-sm md:text-xl transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4]
+                      relative p-0 rounded-lg font-bold transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
+                      text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
                       ${selected
                         ? 'text-white shadow-lg scale-105 border-red-600'
                         : canSelect
