@@ -2732,7 +2732,7 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
       const questionText = question?.text || question?.question?.text || 'غير محدد'
       const answerText = question?.answer || question?.question?.answer || 'غير محدد'
 
-      await FirebaseQuestionsService.submitQuestionReport({
+      const reportData = {
         questionId,
         questionText,
         answerText,
@@ -2741,13 +2741,20 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
         reportTypes,
         userId: user?.uid || 'anonymous',
         userName: user?.displayName || user?.email || 'مجهول'
-      })
+      }
+
+      console.log('Submitting report with data:', reportData)
+
+      await FirebaseQuestionsService.submitQuestionReport(reportData)
 
       devLog('Question report submitted successfully')
       onSuccess()
     } catch (error) {
       prodError('Error submitting question report:', error)
-      alert('حدث خطأ أثناء إرسال الإبلاغ. الرجاء المحاولة مرة أخرى.')
+      console.error('Full error object:', error)
+      console.error('Error code:', error.code)
+      console.error('Error message:', error.message)
+      alert(`حدث خطأ أثناء إرسال الإبلاغ:\n\nالخطأ: ${error.code || 'unknown'}\nالرسالة: ${error.message}\n\nالرجاء المحاولة مرة أخرى.`)
     } finally {
       setSubmitting(false)
     }
