@@ -2343,9 +2343,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   <button
                     type="button"
                     onClick={() => setShowReportModal(true)}
-                    disabled={hasReported || checkingReport}
+                    disabled={!user || hasReported || checkingReport}
                     className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
-                      hasReported
+                      !user || hasReported
                         ? 'bg-gray-400 text-white cursor-not-allowed'
                         : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
                     }`}
@@ -2353,7 +2353,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       fontSize: `${styles.pointsFontSize}px`,
                       padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
                     }}
-                    title={hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال'}
+                    title={!user ? 'يجب تسجيل الدخول للإبلاغ' : (hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال')}
                   >
                     <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
@@ -2396,9 +2396,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       <button
                         type="button"
                         onClick={() => setShowReportModal(true)}
-                        disabled={hasReported || checkingReport}
+                        disabled={!user || hasReported || checkingReport}
                         className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
-                          hasReported
+                          !user || hasReported
                             ? 'bg-gray-400 text-white cursor-not-allowed'
                             : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
                         }`}
@@ -2406,7 +2406,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           fontSize: `${styles.pointsFontSize}px`,
                           padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
                         }}
-                        title={hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال'}
+                        title={!user ? 'يجب تسجيل الدخول للإبلاغ' : (hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال')}
                       >
                         <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
@@ -2732,6 +2732,12 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
       const questionText = question?.text || question?.question?.text || 'غير محدد'
       const answerText = question?.answer || question?.question?.answer || 'غير محدد'
 
+      // Ensure user is authenticated before submitting
+      if (!user?.uid) {
+        alert('يجب تسجيل الدخول للإبلاغ عن الأسئلة')
+        return
+      }
+
       const reportData = {
         questionId,
         questionText,
@@ -2739,8 +2745,8 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
         category,
         userMessage: customMessage.trim(),
         reportTypes,
-        userId: user?.uid || 'anonymous',
-        userName: user?.displayName || user?.email || 'مجهول'
+        userId: user.uid,
+        userName: user.displayName || user.email || 'مستخدم'
       }
 
       console.log('Submitting report with data:', reportData)
