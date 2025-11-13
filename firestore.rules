@@ -243,8 +243,11 @@ service cloud.firestore {
       // Allow both authenticated and unauthenticated users to create reports
       // Authenticated users: userId must match their auth.uid
       // Unauthenticated users: userId must be 'anonymous'
-      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) ||
-                       (request.auth == null && request.resource.data.userId == 'anonymous');
+      // Validation: ensure required fields exist
+      allow create: if ((request.auth != null && request.resource.data.userId == request.auth.uid) ||
+                       (request.auth == null && request.resource.data.userId == 'anonymous')) &&
+                       request.resource.data.questionId != null &&
+                       request.resource.data.status == 'pending';
       // Only admins can update or delete reports
       allow update, delete: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
