@@ -8,7 +8,6 @@ import BackgroundImage from '../components/BackgroundImage'
 import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 import Header from '../components/Header'
 
-
 function CategorySelection({ gameState, setGameState, stateLoaded }) {
   // Check if this is a new game or continuing
   const isNewGame = !gameState.selectedCategories || gameState.selectedCategories.length === 0
@@ -18,6 +17,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [loadingError, setLoadingError] = useState(null)
   const [gameData, setGameData] = useState(null)
   const [questionCounts, setQuestionCounts] = useState({})
+  const [masterCategories, setMasterCategories] = useState([])
+  const [expandedMasters, setExpandedMasters] = useState({})
+  const [searchText, setSearchText] = useState('')
+  const [showSearchResults, setShowSearchResults] = useState(false)
 
   // Game setup state - only pre-fill if continuing a game
   const [gameName, setGameName] = useState(isNewGame ? '' : (gameState.gameName || ''))
@@ -32,6 +35,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [showTeamSetup, setShowTeamSetup] = useState(false)
   const [hasAutoTransitioned, setHasAutoTransitioned] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
+  const [isRandomizing, setIsRandomizing] = useState(false)
 
   const navigate = useNavigate()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
@@ -121,6 +125,18 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           setGameData(gameData)
           devLog('✅ CategorySelection: Loaded', gameData.categories.length, 'categories')
 
+          // Load master categories and initialize all as expanded
+          if (gameData.masterCategories) {
+            setMasterCategories(gameData.masterCategories)
+            const initialExpanded = {}
+            gameData.masterCategories.forEach(master => {
+              initialExpanded[master.id] = true // All expanded by default
+            })
+            initialExpanded['general'] = true // Always expand general
+            setExpandedMasters(initialExpanded)
+            devLog('✅ CategorySelection: Loaded', gameData.masterCategories.length, 'master categories')
+          }
+
           // Update question pool for global usage tracking (only if user is set)
           if (user?.uid) {
             questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
@@ -188,6 +204,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         element.classList.remove('ring-4', 'ring-blue-400')
       }, 1500)
     }
+  }
+
+  const toggleMasterExpand = (masterId) => {
+    setExpandedMasters(prev => ({
+      ...prev,
+      [masterId]: !prev[masterId]
+    }))
   }
 
   // Helper function to get perk information (matching PerkModal.jsx structure)
@@ -302,6 +325,36 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     } else {
       setExpandedPerk(perkId)
     }
+  }
+
+  const handleRandomPerks = async () => {
+    setIsRandomizing(true)
+    setSelectedPerks([]) // Clear current selection
+    setExpandedPerk(null)
+
+    const allPerks = ['double', 'phone', 'search', 'risk', 'twoAnswers', 'prison']
+
+    // Shuffle and animate
+    let flashCount = 0
+    const flashInterval = setInterval(() => {
+      // Randomly select 3 perks to flash
+      const randomFlash = allPerks
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+
+      setSelectedPerks(randomFlash)
+      flashCount++
+
+      // After 10 flashes, select final 3
+      if (flashCount >= 10) {
+        clearInterval(flashInterval)
+        const finalSelection = allPerks
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+        setSelectedPerks(finalSelection)
+        setIsRandomizing(false)
+      }
+    }, 150) // Flash every 150ms
   }
 
   const handleProceedToTeamSetup = () => {
@@ -472,8 +525,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
         {/* Selected Categories Sidebar - Shows on scroll */}
         {showSidebar && showCategoriesGrid && selectedCategories.length > 0 && (
-          <div className="fixed portrait:bottom-4 portrait:left-1/2 portrait:-translate-x-1/2 max-lg:landscape:left-2 max-lg:landscape:top-16 md:max-lg:left-4 md:max-lg:top-20 lg:left-8 lg:top-1/2 lg:-translate-y-1/2 z-50 portrait:animate-slideInFromBottom landscape:animate-slideInFromLeft">
-            <div className="bg-white rounded-lg md:rounded-xl lg:rounded-2xl shadow-2xl p-1.5 md:p-2 lg:p-4 portrait:w-auto max-lg:landscape:w-[70px] md:max-lg:w-[120px] lg:w-[150px] border-2 border-gray-200">
+          <div className="fixed portrait:bottom-4 portrait:left-1/2 portrait:-translate-x-1/2 landscape:left-2 landscape:top-1/2 landscape:-translate-y-1/2 lg:landscape:left-8 z-50 portrait:animate-slideInFromBottom landscape:animate-slideInFromLeft">
+            <div className="bg-white rounded-lg md:rounded-xl lg:rounded-2xl shadow-2xl p-1.5 md:p-2 lg:p-4 portrait:w-auto max-lg:landscape:w-[65px] md:max-lg:w-[82px] lg:w-[102px] border-2 border-gray-200">
               <div className="flex portrait:flex-row landscape:flex-col gap-1 max-lg:landscape:gap-0.5 md:gap-2 lg:gap-3 portrait:gap-1.5">
                 {selectedCategories.map((categoryId) => {
                   const category = availableCategories.find(cat => cat.id === categoryId)
@@ -501,9 +554,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                           />
                           <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
                         </div>
-                        <div className="bg-gradient-to-r from-red-600 to-red-700 px-0.5 portrait:px-1 md:px-1.5 lg:px-2 py-0.5 max-lg:landscape:py-px portrait:py-0.5 lg:py-1">
-                          <div className="text-white text-[8px] portrait:text-[7px] max-lg:landscape:text-[7px] md:text-[10px] lg:text-xs font-bold text-center leading-tight line-clamp-2 portrait:line-clamp-1 max-lg:landscape:line-clamp-1 lg:line-clamp-2">
-                            {category.name}
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 px-0.5 portrait:px-1 md:px-1.5 lg:px-2 py-0.5 max-lg:landscape:py-px portrait:py-0.5 lg:py-1 overflow-hidden">
+                          <div className="text-white font-bold text-center leading-tight whitespace-nowrap overflow-hidden w-full">
+                            <div
+                              className="inline-block max-w-full text-[8px] portrait:text-[7px] md:text-[10px] lg:text-xs"
+                              style={{
+                                transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 10))})`,
+                                transformOrigin: 'center'
+                              }}
+                            >
+                              {category.name}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -517,9 +578,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
         {/* Show Categories Grid OR Selected Categories + Game Setup */}
         {showCategoriesGrid || selectedCategories.length < 6 ? (
-          <div className="w-full animate-slideInFromTop max-lg:landscape:px-20">
+          <div className="w-full animate-slideInFromTop max-lg:landscape:px-[75px] md:max-lg:landscape:px-[90px] lg:px-[110px]">
             {/* Selection Counter */}
-            <div className="text-center mb-4 md:mb-8 flex-shrink-0">
+            <div className="text-center mb-4 md:mb-6 flex-shrink-0">
               <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-2 md:p-4 inline-block">
                 <span className="text-lg md:text-2xl font-bold text-red-600">
                   {selectedCategories.length} / 6 فئات محددة
@@ -527,104 +588,273 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
               </div>
             </div>
 
-            {/* Categories Grid */}
-            <div className="grid grid-cols-2 max-lg:landscape:grid-cols-4 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-6 gap-3 max-lg:landscape:gap-2 lg:gap-4 w-full max-w-7xl mx-auto flex-1 content-start">
-              {isLoading ? (
-                // Show skeleton loading cards without blocking UI
-                Array.from({ length: 12 }).map((_, index) => (
-                  <div
-                    key={`skeleton-${index}`}
-                    className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
-                  >
-                    <div className="flex-1 relative flex items-center justify-center">
-                      <div className="w-8 h-8 bg-gray-300 rounded"></div>
-                    </div>
-                    <div className="p-2 md:p-3 border-t-2 border-gray-200 bg-gray-100">
-                      <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto"></div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                availableCategories.map((category) => {
-                const selected = isSelected(category.id)
-                const canSelect = selectedCategories.length < 6 || selected
+            {/* Search Bar */}
+            <div className="w-full max-w-2xl mx-auto mb-8 md:mb-12 relative">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => {
+                    setSearchText(e.target.value)
+                    setShowSearchResults(e.target.value.length > 0)
+                  }}
+                  onFocus={() => searchText.length > 0 && setShowSearchResults(true)}
+                  onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                  placeholder="ابحث عن فئة..."
+                  className="w-full px-4 py-3 pr-12 text-gray-900 bg-white border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg"
+                />
+                <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
 
-                return (
-                  <button
-                    key={category.id}
-                    id={`category-${category.id}`}
-                    onClick={() => canSelect && toggleCategory(category.id)}
-                    disabled={!canSelect}
-                    className={`
-                      relative p-0 rounded-lg font-bold transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
-                      text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
-                      ${selected
-                        ? 'text-white shadow-lg scale-105 border-red-600'
-                        : canSelect
-                        ? 'text-red-600 border-gray-300 hover:border-red-300 hover:shadow-lg'
-                        : 'text-gray-500 cursor-not-allowed border-gray-400 opacity-50'
-                      }
-                    `}
-                  >
-                    {/* Main content area with background image */}
-                    <BackgroundImage
-                      src={category.imageUrl}
-                      size="medium"
-                      context="category"
-                      categoryId={category.id}
-                      className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
-                        selected
-                          ? 'bg-red-600'
-                          : canSelect
-                          ? 'bg-white hover:bg-gray-50'
-                          : 'bg-gray-300'
-                      }`}
-                      fallbackGradient={
-                        selected
-                          ? 'from-red-600 to-red-700'
-                          : canSelect
-                          ? 'from-white to-gray-50'
-                          : 'from-gray-300 to-gray-400'
-                      }
-                    >
-                      {/* Overlay for better text readability when image is present */}
-                      {category.imageUrl && (
-                        <div className="absolute inset-0 bg-black/30 rounded-t-lg"></div>
-                      )}
-                      {selected && (
-                        <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
-                          ✓
-                        </div>
-                      )}
-                      {/* Question count - top left corner, opposite of checkmark */}
-                      <div className="absolute top-2 left-2 bg-blue-600 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
-                        {getRemainingQuestions(category.id)}
-                      </div>
-                      {/* Show emoji/icon only when no background image */}
-                      {!category.imageUrl && (
-                        <div className="relative z-10 text-center p-3 md:p-6">
-                          <div className="text-lg md:text-2xl">
+              {/* Autocomplete Results */}
+              {showSearchResults && searchText.length > 0 && (() => {
+                const filteredCategories = availableCategories.filter(cat =>
+                  cat.name.toLowerCase().includes(searchText.toLowerCase())
+                )
+
+                return filteredCategories.length > 0 ? (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-96 overflow-y-auto z-50">
+                    {filteredCategories.map(category => (
+                      <div
+                        key={category.id}
+                        onClick={() => {
+                          if (selectedCategories.length < 6 || selectedCategories.includes(category.id)) {
+                            toggleCategory(category.id)
+                            setShowSidebar(true) // Show sidebar after selection
+                          }
+                          setSearchText('')
+                          setShowSearchResults(false)
+                        }}
+                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-200 last:border-b-0 flex items-center gap-3 ${
+                          selectedCategories.includes(category.id) ? 'bg-green-50' : ''
+                        }`}
+                      >
+                        {category.imageUrl ? (
+                          <img src={category.imageUrl} alt={category.name} className="w-12 h-12 rounded object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center text-2xl">
                             {category.image}
                           </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="font-bold text-gray-900">{category.name}</div>
+                          <div className="text-sm text-gray-600">
+                            {masterCategories.find(m => m.id === category.masterCategoryId)?.name || 'فئات عامة'}
+                          </div>
                         </div>
-                      )}
-                    </BackgroundImage>
+                        {selectedCategories.includes(category.id) && (
+                          <div className="text-green-600 font-bold">✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-xl p-4 z-50">
+                    <div className="text-gray-500 text-center">لا توجد نتائج</div>
+                  </div>
+                )
+              })()}
+            </div>
 
-                    {/* Bottom bar with category name */}
-                    <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
-                      selected
-                        ? 'bg-red-700 border-red-800'
-                        : canSelect
-                        ? 'bg-gray-100 border-gray-200'
-                        : 'bg-gray-400 border-gray-500'
-                    }`}>
-                      <div className="text-xs md:text-sm leading-tight font-bold text-center">
-                        {category.name}
+            {/* Categories Grid - Grouped by Master Categories */}
+            <div className="w-full max-w-7xl mx-auto flex-1">
+              {isLoading ? (
+                // Show skeleton loading cards without blocking UI
+                <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <div
+                      key={`skeleton-${index}`}
+                      className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
+                    >
+                      <div className="flex-1 relative flex items-center justify-center">
+                        <div className="w-8 h-8 bg-gray-300 rounded"></div>
+                      </div>
+                      <div className="p-2 md:p-3 border-t-2 border-gray-200 bg-gray-100">
+                        <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto"></div>
                       </div>
                     </div>
-                  </button>
-                )
-              })
+                  ))}
+                </div>
+              ) : (
+                (() => {
+                  // Group categories by masterCategoryId and sort by displayOrder
+                  const groupedCategories = {}
+
+                  availableCategories.forEach(category => {
+                    const masterId = category.masterCategoryId || 'general'
+                    if (!groupedCategories[masterId]) {
+                      groupedCategories[masterId] = []
+                    }
+                    groupedCategories[masterId].push(category)
+                  })
+
+                  // Sort categories within each group by displayOrder
+                  Object.keys(groupedCategories).forEach(masterId => {
+                    groupedCategories[masterId].sort((a, b) =>
+                      (a.displayOrder || 0) - (b.displayOrder || 0)
+                    )
+                  })
+
+                  // Create sorted array of master categories
+                  const sortedMasters = []
+
+                  // Add general category first if it exists
+                  if (groupedCategories['general']) {
+                    sortedMasters.push({
+                      id: 'general',
+                      name: 'فئات عامة',
+                      order: 0,
+                      categories: groupedCategories['general']
+                    })
+                  }
+
+                  // Add other master categories sorted by order (exclude 'general' since we added it above)
+                  masterCategories
+                    .filter(master => master.id !== 'general' && groupedCategories[master.id])
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .forEach(master => {
+                      sortedMasters.push({
+                        id: master.id,
+                        name: master.name,
+                        order: master.order,
+                        categories: groupedCategories[master.id]
+                      })
+                    })
+
+                  // Render grouped categories
+                  return sortedMasters.map(master => (
+                    <div key={master.id} className="mb-10 relative">
+                      {/* Categories Container with header badge */}
+                      <div className={`bg-gradient-to-b from-white to-gray-50 rounded-2xl md:rounded-3xl px-3 sm:px-6 md:px-8 lg:px-10 relative transition-all duration-300 shadow-xl ${
+                        expandedMasters[master.id] ? 'py-16 sm:py-20 md:py-24' : 'py-8'
+                      }`}>
+                        {/* Master Header Badge - centered at top */}
+                        <div className="rounded-full bg-red-600 -top-4 sm:-top-5 md:-top-6 -translate-x-1/2 left-1/2 absolute flex items-center justify-center py-1.5 px-4 sm:py-2 sm:px-6 md:py-2.5 md:px-8 overflow-hidden transition-all shadow-lg">
+                          <span className="text-base sm:text-lg md:text-xl text-white font-bold whitespace-nowrap">
+                            {master.name}
+                          </span>
+                        </div>
+
+                        {/* Plus/Minus toggle button */}
+                        <button
+                          onClick={() => toggleMasterExpand(master.id)}
+                          className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full absolute cursor-pointer flex justify-center items-center shadow-md right-2 sm:right-3 md:right-4 ${
+                            expandedMasters[master.id]
+                              ? 'bg-gray-400 hover:bg-gray-500 top-2 sm:top-3 md:top-4'
+                              : 'bg-red-600 hover:bg-red-700 top-1/2 -translate-y-1/2'
+                          }`}
+                        >
+                          {expandedMasters[master.id] ? (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
+                              <rect x="5" y="10.5" width="14" height="3" rx="1.5" fill="currentColor"/>
+                            </svg>
+                          ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
+                              <rect x="5" y="10.5" width="14" height="3" rx="1.5" fill="currentColor"/>
+                              <rect x="10.5" y="5" width="3" height="14" rx="1.5" fill="currentColor"/>
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Categories Grid (only if expanded) */}
+                        {expandedMasters[master.id] && (
+                          <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
+                          {master.categories.map((category) => {
+                            const selected = isSelected(category.id)
+                            const canSelect = selectedCategories.length < 6 || selected
+
+                            return (
+                              <button
+                                key={category.id}
+                                id={`category-${category.id}`}
+                                onClick={() => canSelect && toggleCategory(category.id)}
+                                disabled={!canSelect}
+                                className={`
+                                  relative p-0 rounded-lg font-bold transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
+                                  text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
+                                  ${selected
+                                    ? 'text-white shadow-lg scale-105 border-red-600'
+                                    : canSelect
+                                    ? 'text-red-600 border-gray-300 hover:border-red-300 hover:shadow-lg'
+                                    : 'text-gray-500 cursor-not-allowed border-gray-400 opacity-50'
+                                  }
+                                `}
+                              >
+                                {/* Main content area with background image */}
+                                <BackgroundImage
+                                  src={category.imageUrl}
+                                  size="medium"
+                                  context="category"
+                                  categoryId={category.id}
+                                  className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
+                                    selected
+                                      ? 'bg-red-600'
+                                      : canSelect
+                                      ? 'bg-white hover:bg-gray-50'
+                                      : 'bg-gray-300'
+                                  }`}
+                                  fallbackGradient={
+                                    selected
+                                      ? 'from-red-600 to-red-700'
+                                      : canSelect
+                                      ? 'from-white to-gray-50'
+                                      : 'from-gray-300 to-gray-400'
+                                  }
+                                >
+                                  {/* Overlay for better text readability when image is present */}
+                                  {category.imageUrl && (
+                                    <div className="absolute inset-0 bg-black/30 rounded-t-lg"></div>
+                                  )}
+                                  {selected && (
+                                    <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
+                                      ✓
+                                    </div>
+                                  )}
+                                  {/* Question count - top left corner, opposite of checkmark */}
+                                  <div className="absolute top-2 left-2 bg-blue-600 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
+                                    {getRemainingQuestions(category.id)}
+                                  </div>
+                                  {/* Show emoji/icon only when no background image */}
+                                  {!category.imageUrl && (
+                                    <div className="relative z-10 text-center p-3 md:p-6">
+                                      <div className="text-lg md:text-2xl">
+                                        {category.image}
+                                      </div>
+                                    </div>
+                                  )}
+                                </BackgroundImage>
+
+                                {/* Bottom bar with category name */}
+                                <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
+                                  selected
+                                    ? 'bg-red-700 border-red-800'
+                                    : canSelect
+                                    ? 'bg-gray-100 border-gray-200'
+                                    : 'bg-gray-400 border-gray-500'
+                                }`}>
+                                  <div className="leading-tight font-bold text-center whitespace-nowrap overflow-hidden w-full">
+                                    <div
+                                      className="inline-block max-w-full text-sm sm:text-base md:text-lg lg:text-xl"
+                                      style={{
+                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 14))})`,
+                                        transformOrigin: 'center'
+                                      }}
+                                    >
+                                      {category.name}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      </div>
+                    </div>
+                  ))
+                })()
               )}
             </div>
           </div>
@@ -679,8 +909,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   </h2>
                 </div>
 
-                {/* Selection Counter */}
-                <div className="text-center mb-4 md:mb-6">
+                {/* Selection Counter with Random Button */}
+                <div className="text-center mb-4 md:mb-6 flex flex-col sm:flex-row items-center justify-center gap-3">
                   <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-2 md:p-3 inline-block">
                     <span className="text-base md:text-xl font-bold text-red-600">
                       {selectedPerks.length === 0 && 'اختر 3 وسائل مساعدة'}
@@ -689,6 +919,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       {selectedPerks.length === 3 && '✓ تم اختيار جميع الوسائل'}
                     </span>
                   </div>
+                  <button
+                    onClick={handleRandomPerks}
+                    disabled={isRandomizing}
+                    className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 disabled:opacity-50 text-white font-bold px-4 md:px-6 py-2 md:py-3 rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:hover:scale-100 text-sm md:text-base flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 18c-.83 0-1.5-.67-1.5-1.5S6.67 15 7.5 15s1.5.67 1.5 1.5S8.33 18 7.5 18zm0-9C6.67 9 6 8.33 6 7.5S6.67 6 7.5 6 9 6.67 9 7.5 8.33 9 7.5 9zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4.5 4.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm0-9c-.83 0-1.5-.67-1.5-1.5S15.67 6 16.5 6s1.5.67 1.5 1.5S17.33 9 16.5 9z" fill="currentColor"/>
+                    </svg>
+                    {isRandomizing ? 'جاري الاختيار...' : 'عشوائي'}
+                  </button>
                 </div>
 
                 {/* Perks Row - 6 circles */}
@@ -701,11 +941,15 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     return (
                       <button
                         key={perkId}
-                        onClick={() => !isDisabled && handlePerkClick(perkId)}
-                        disabled={isDisabled}
+                        onClick={() => !isDisabled && !isRandomizing && handlePerkClick(perkId)}
+                        disabled={isDisabled || isRandomizing}
                         className={`
-                          rounded-full flex items-center justify-center transition-all duration-200 transform
+                          rounded-full flex items-center justify-center transform
                           w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 lg:w-20 lg:h-20
+                          ${isRandomizing
+                            ? 'animate-pulse transition-all duration-150'
+                            : 'transition-all duration-200'
+                          }
                           ${isSelected
                             ? 'bg-red-600 text-white scale-110 shadow-lg'
                             : isDisabled

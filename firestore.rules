@@ -222,6 +222,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ===== MASTER CATEGORIES =====
+    // Master categories for organizing categories into groups
+    match /masterCategories/{masterId} {
+      // Public read access for category selection UI
+      allow read: if true;
+      // Only admins can create, update, or delete master categories
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ===== DEFAULT DENY =====
     // Deny access to any other documents
     match /{document=**} {

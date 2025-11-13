@@ -27,14 +27,15 @@ export class GameDataLoader {
 
       // BACKGROUND LOADING: Load from Firebase
       devLog('🔥 Loading fresh data from Firebase...')
-      const [questions, categories] = await Promise.all([
+      const [questions, categories, masterCategories] = await Promise.all([
         FirebaseQuestionsService.getAllQuestions(),
-        FirebaseQuestionsService.getAllCategories()
+        FirebaseQuestionsService.getAllCategories(),
+        FirebaseQuestionsService.getAllMasterCategories()
       ])
 
 
       // Transform Firebase data to expected format
-      const gameData = this.transformFirebaseData(questions, categories)
+      const gameData = this.transformFirebaseData(questions, categories, masterCategories)
 
       // Note: localStorage caching disabled for large datasets
       // All data is stored in Firebase Firestore, media files in CloudFront
@@ -66,9 +67,10 @@ export class GameDataLoader {
    * Transform Firebase data to the format expected by the game
    * @param {Array} questions - Array of questions from Firebase
    * @param {Array} categories - Array of categories from Firebase
+   * @param {Array} masterCategories - Array of master categories from Firebase
    * @returns {Object} Game data in expected format
    */
-  static transformFirebaseData(questions, categories) {
+  static transformFirebaseData(questions, categories, masterCategories = []) {
     // Group questions by category
     const questionsByCategory = {}
 
@@ -107,7 +109,9 @@ export class GameDataLoader {
       showImageInAnswer: cat.showImageInAnswer !== false,     // Default to true
       enableQrMiniGame: cat.enableQrMiniGame || false,        // QR mini-game setting
       isMergedCategory: cat.isMergedCategory || false,        // Merged category flag
-      sourceCategoryIds: cat.sourceCategoryIds || []          // Source category references
+      sourceCategoryIds: cat.sourceCategoryIds || [],         // Source category references
+      masterCategoryId: cat.masterCategoryId || 'general',    // Master category for grouping
+      displayOrder: cat.displayOrder || 0                     // Display order within master
     }))
 
     // Add Mystery Category at the end
@@ -196,7 +200,8 @@ export class GameDataLoader {
 
     return {
       categories: transformedCategories,
-      questions: questionsByCategory
+      questions: questionsByCategory,
+      masterCategories: masterCategories || []
     }
   }
 
