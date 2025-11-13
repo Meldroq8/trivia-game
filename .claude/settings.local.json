@@ -29,7 +29,11 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nRemove ''الإجابة:'' heading from QR code answer page\n\n- Remove answer heading label from QR code scan results\n- Clean up answer display to show only the answer text\n- Users scanning QR codes now see answer directly without label\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(firebase deploy:*)",
       "Bash(git commit:*)",
-      "Bash(npm run deploy:*)"
+      "Bash(npm run deploy:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:seenjeemkw.com)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

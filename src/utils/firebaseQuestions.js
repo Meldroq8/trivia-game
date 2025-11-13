@@ -23,7 +23,8 @@ export class FirebaseQuestionsService {
     QUESTIONS: 'questions',
     CATEGORIES: 'categories',
     PENDING_QUESTIONS: 'pending-questions',
-    MASTER_CATEGORIES: 'masterCategories'
+    MASTER_CATEGORIES: 'masterCategories',
+    QUESTION_REPORTS: 'questionReports'
   }
 
   /**
@@ -1143,6 +1144,94 @@ export class FirebaseQuestionsService {
       devLog(`✅ Master category ${masterId} deleted`)
     } catch (error) {
       prodError('Error deleting master category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Submit a question report
+   * @param {Object} reportData - Report data
+   * @returns {Promise<string>} Report ID
+   */
+  static async submitQuestionReport(reportData) {
+    try {
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.QUESTION_REPORTS), {
+        questionId: reportData.questionId,
+        questionText: reportData.questionText,
+        answerText: reportData.answerText,
+        category: reportData.category,
+        userMessage: reportData.userMessage,
+        reportTypes: reportData.reportTypes || [],
+        userId: reportData.userId,
+        userName: reportData.userName,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      })
+      devLog(`✅ Question report submitted: ${docRef.id}`)
+      return docRef.id
+    } catch (error) {
+      prodError('Error submitting question report:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get all question reports
+   * @returns {Promise<Array>} Array of reports
+   */
+  static async getAllQuestionReports() {
+    try {
+      const reportsRef = collection(db, this.COLLECTIONS.QUESTION_REPORTS)
+      const q = query(reportsRef, orderBy('createdAt', 'desc'))
+      const snapshot = await getDocs(q)
+
+      const reports = []
+      snapshot.forEach(doc => {
+        reports.push({
+          id: doc.id,
+          ...doc.data()
+        })
+      })
+
+      devLog('✅ Loaded question reports:', reports.length)
+      return reports
+    } catch (error) {
+      prodError('Error getting question reports:', error)
+      return []
+    }
+  }
+
+  /**
+   * Update question report status
+   * @param {string} reportId - Report ID
+   * @param {string} status - 'pending' or 'resolved'
+   * @returns {Promise<void>}
+   */
+  static async updateReportStatus(reportId, status) {
+    try {
+      const reportRef = doc(db, this.COLLECTIONS.QUESTION_REPORTS, reportId)
+      await updateDoc(reportRef, {
+        status,
+        updatedAt: serverTimestamp()
+      })
+      devLog(`✅ Report ${reportId} marked as ${status}`)
+    } catch (error) {
+      prodError('Error updating report status:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a question report
+   * @param {string} reportId - Report ID
+   * @returns {Promise<void>}
+   */
+  static async deleteQuestionReport(reportId) {
+    try {
+      await deleteDoc(doc(db, this.COLLECTIONS.QUESTION_REPORTS, reportId))
+      devLog(`✅ Report ${reportId} deleted`)
+    } catch (error) {
+      prodError('Error deleting report:', error)
       throw error
     }
   }

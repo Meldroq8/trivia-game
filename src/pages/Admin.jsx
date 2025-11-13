@@ -31,6 +31,7 @@ function Admin() {
     return localStorage.getItem('adminActiveTab') || 'categories'
   })
   const [pendingCount, setPendingCount] = useState(0)
+  const [userMessagesCount, setUserMessagesCount] = useState(0)
   const [showAIModal, setShowAIModal] = useState(false)
   const [aiEditingCategory, setAiEditingCategory] = useState(null)
   const navigate = useNavigate()
@@ -49,9 +50,25 @@ function Admin() {
       }
     }
 
+    const loadUserMessagesCount = async () => {
+      if (isAdmin) {
+        try {
+          const reports = await FirebaseQuestionsService.getAllQuestionReports()
+          const pendingReports = reports.filter(r => r.status === 'pending')
+          setUserMessagesCount(pendingReports.length)
+        } catch (error) {
+          prodError('Error loading user messages count:', error)
+        }
+      }
+    }
+
     loadPendingCount()
+    loadUserMessagesCount()
     // Refresh count every 30 seconds
-    const interval = setInterval(loadPendingCount, 30000)
+    const interval = setInterval(() => {
+      loadPendingCount()
+      loadUserMessagesCount()
+    }, 30000)
     return () => clearInterval(interval)
   }, [isAdmin])
 
@@ -188,6 +205,23 @@ function Admin() {
           )}
           {isAdmin && (
             <button
+              onClick={() => changeTab('userMessages')}
+              className={`flex-1 py-4 px-6 font-bold relative ${
+                activeTab === 'userMessages'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              📧 رسائل المستخدمين
+              {userMessagesCount > 0 && (
+                <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {userMessagesCount > 9 ? '9+' : userMessagesCount}
+                </span>
+              )}
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => changeTab('invites')}
               className={`flex-1 py-4 px-6 font-bold ${
                 activeTab === 'invites'
@@ -231,6 +265,7 @@ function Admin() {
           {activeTab === 'masterCategories' && isAdmin && <MasterCategoriesManager isAdmin={isAdmin} isModerator={isModerator} />}
           {activeTab === 'users' && isAdmin && <UsersManager getAllUsers={getAllUsers} updateUserRole={updateUserRole} searchUsers={searchUsers} />}
           {activeTab === 'pending' && isAdmin && <PendingQuestionsManager />}
+          {activeTab === 'userMessages' && isAdmin && <UserMessagesManager isAdmin={isAdmin} />}
           {activeTab === 'invites' && isAdmin && <InviteCodesManager user={user} />}
           {activeTab === 'media' && isAdminOrModerator && <MediaUploadManager />}
           {activeTab === 'settings' && isAdmin && <SettingsManager isAdmin={isAdmin} isModerator={isModerator} />}
@@ -5946,6 +5981,235 @@ function PendingQuestionsManager() {
 }
 
 // Invite Codes Manager Component
+function UserMessagesManager({ isAdmin }) {
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('pending')
+  const [processingId, setProcessingId] = useState(null)
+
+  useEffect(() => {
+    loadReports()
+  }, [])
+
+  const loadReports = async () => {
+    try {
+      setLoading(true)
+      const allReports = await FirebaseQuestionsService.getAllQuestionReports()
+      setReports(allReports)
+    } catch (error) {
+      prodError('Error loading reports:', error)
+      alert('فشل في تحميل التقارير')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleMarkResolved = async (reportId) => {
+    if (!window.confirm('هل أنت متأكد من وضع علامة "تم الحل" على هذا التقرير؟')) {
+      return
+    }
+
+    try {
+      setProcessingId(reportId)
+      await FirebaseQuestionsService.updateReportStatus(reportId, 'resolved')
+      await loadReports()
+      alert('تم وضع علامة "تم الحل" على التقرير')
+    } catch (error) {
+      prodError('Error marking report as resolved:', error)
+      alert('فشل في تحديث حالة التقرير: ' + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleDelete = async (reportId) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا التقرير؟\n\nهذا الإجراء لا يمكن التراجع عنه.')) {
+      return
+    }
+
+    try {
+      setProcessingId(reportId)
+      await FirebaseQuestionsService.deleteQuestionReport(reportId)
+      await loadReports()
+      alert('تم حذف التقرير بنجاح')
+    } catch (error) {
+      prodError('Error deleting report:', error)
+      alert('فشل في حذف التقرير: ' + error.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const filteredReports = filter === 'pending'
+    ? reports.filter(r => r.status === 'pending')
+    : reports
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'غير معروف'
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
+    return date.toLocaleDateString('ar-EG', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getReportTypesDisplay = (reportTypes) => {
+    if (!reportTypes || reportTypes.length === 0) return 'لا توجد أنواع محددة'
+
+    const typeLabels = {
+      wrongAnswer: 'إجابة خاطئة',
+      wrongQuestion: 'سؤال خاطئ',
+      inappropriate: 'محتوى غير مناسب',
+      duplicate: 'سؤال مكرر',
+      other: 'أخرى'
+    }
+
+    return reportTypes.map(type => typeLabels[type] || type).join('، ')
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">رسائل المستخدمين</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-4 py-2 rounded-lg font-bold ${
+              filter === 'pending'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            قيد الانتظار ({reports.filter(r => r.status === 'pending').length})
+          </button>
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg font-bold ${
+              filter === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            الكل ({reports.length})
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-900">جاري التحميل...</p>
+        </div>
+      ) : filteredReports.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-900 text-lg">
+            {filter === 'pending' ? 'لا توجد رسائل قيد الانتظار' : 'لا توجد رسائل'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredReports.map((report) => (
+            <div
+              key={report.id}
+              className={`border-2 rounded-lg p-6 ${
+                report.status === 'resolved'
+                  ? 'border-green-300 bg-green-50'
+                  : 'border-yellow-300 bg-yellow-50'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                      report.status === 'resolved'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-yellow-600 text-white'
+                    }`}>
+                      {report.status === 'resolved' ? 'تم الحل' : 'قيد الانتظار'}
+                    </span>
+                    <span className="text-sm text-gray-900">
+                      {formatDate(report.createdAt)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-900">
+                    <span className="font-bold">المستخدم:</span> {report.userName || 'غير معروف'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href={`/question?preview=${report.questionId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg inline-block"
+                  >
+                    👁️ معاينة
+                  </a>
+                  {report.status === 'pending' && (
+                    <button
+                      onClick={() => handleMarkResolved(report.id)}
+                      disabled={processingId === report.id}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
+                    >
+                      {processingId === report.id ? 'جاري المعالجة...' : 'تم الحل'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(report.id)}
+                    disabled={processingId === report.id}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
+                  >
+                    {processingId === report.id ? 'جاري الحذف...' : 'حذف'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Question Info */}
+              <div className="bg-white rounded-lg p-4 mb-4">
+                <h3 className="font-bold text-gray-800 mb-2">معلومات السؤال</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-bold text-gray-700">السؤال:</span>
+                    <p className="text-gray-900 mt-1">{report.questionText || 'غير متوفر'}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-700">الإجابة:</span>
+                    <p className="text-gray-900 mt-1">{report.answerText || 'غير متوفر'}</p>
+                  </div>
+                  <div>
+                    <span className="font-bold text-gray-700">الفئة:</span>
+                    <span className="text-gray-900 mr-2">{report.category || 'غير محدد'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Report Details */}
+              <div className="bg-white rounded-lg p-4">
+                <h3 className="font-bold text-gray-800 mb-2">تفاصيل التقرير</h3>
+                <div className="space-y-2">
+                  <div>
+                    <span className="font-bold text-gray-700">نوع المشكلة:</span>
+                    <p className="text-gray-900 mt-1">{getReportTypesDisplay(report.reportTypes)}</p>
+                  </div>
+                  {report.userMessage && (
+                    <div>
+                      <span className="font-bold text-gray-700">رسالة المستخدم:</span>
+                      <p className="text-gray-900 mt-1 whitespace-pre-wrap">{report.userMessage}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+    </div>
+  )
+}
+
 function InviteCodesManager({ user }) {
   const [inviteCodes, setInviteCodes] = useState([])
   const [loading, setLoading] = useState(false)
