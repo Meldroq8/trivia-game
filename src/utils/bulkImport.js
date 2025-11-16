@@ -226,13 +226,19 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
 
     // Question Video
     const qVideoFilename = row.Question_Video || row.question_video || row.فيديو_السؤال
-    if (qVideoFilename && mediaFiles[qVideoFilename]) {
-      try {
-        devLog(`📤 Uploading question video: ${qVideoFilename}`)
-        question.videoUrl = await uploadMediaFile(mediaFiles[qVideoFilename], 'video')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload question video ${qVideoFilename}:`, error.message)
-        failedUploads.push(`فيديو السؤال: ${qVideoFilename} (${error.message})`)
+    if (qVideoFilename) {
+      if (mediaFiles[qVideoFilename]) {
+        try {
+          devLog(`📤 Uploading question video: ${qVideoFilename}`)
+          question.videoUrl = await uploadMediaFile(mediaFiles[qVideoFilename], 'video')
+          devLog(`✅ Question video uploaded successfully: ${question.videoUrl}`)
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload question video ${qVideoFilename}:`, error.message)
+          failedUploads.push(`فيديو السؤال: ${qVideoFilename} (${error.message})`)
+        }
+      } else {
+        devWarn(`⚠️ Question video not found in ZIP: ${qVideoFilename}`)
+        devLog(`Available media files:`, Object.keys(mediaFiles))
       }
     }
 
@@ -262,13 +268,19 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
 
     // Answer Video
     const aVideoFilename = row.Answer_Video || row.answer_video || row.فيديو_الإجابة
-    if (aVideoFilename && mediaFiles[aVideoFilename]) {
-      try {
-        devLog(`📤 Uploading answer video: ${aVideoFilename}`)
-        question.answerVideoUrl = await uploadMediaFile(mediaFiles[aVideoFilename], 'video')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload answer video ${aVideoFilename}:`, error.message)
-        failedUploads.push(`فيديو الإجابة: ${aVideoFilename} (${error.message})`)
+    if (aVideoFilename) {
+      if (mediaFiles[aVideoFilename]) {
+        try {
+          devLog(`📤 Uploading answer video: ${aVideoFilename}`)
+          question.answerVideoUrl = await uploadMediaFile(mediaFiles[aVideoFilename], 'video')
+          devLog(`✅ Answer video uploaded successfully: ${question.answerVideoUrl}`)
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload answer video ${aVideoFilename}:`, error.message)
+          failedUploads.push(`فيديو الإجابة: ${aVideoFilename} (${error.message})`)
+        }
+      } else {
+        devWarn(`⚠️ Answer video not found in ZIP: ${aVideoFilename}`)
+        devLog(`Available media files:`, Object.keys(mediaFiles))
       }
     }
 
