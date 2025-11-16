@@ -69,13 +69,24 @@ export class S3UploadServiceSecure {
     if (file.type.startsWith('audio/')) {
       maxSize = 100 * 1024 * 1024 // 100MB for audio
     } else if (file.type.startsWith('video/')) {
-      maxSize = 500 * 1024 * 1024 // 500MB for video
+      maxSize = 2 * 1024 * 1024 * 1024 // 2GB for video
     }
 
     if (file.size > maxSize) {
-      const maxSizeMB = Math.round(maxSize / (1024 * 1024))
-      devWarn(`File ${file.name} exceeds ${maxSizeMB}MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)`)
-      throw new Error(`حجم الملف كبير جداً: ${(file.size / (1024 * 1024)).toFixed(1)}MB. الحد الأقصى: ${maxSizeMB}MB`)
+      // Format size display (MB or GB)
+      const formatSize = (bytes) => {
+        const sizeInMB = bytes / (1024 * 1024)
+        if (sizeInMB >= 1024) {
+          return `${(sizeInMB / 1024).toFixed(2)}GB`
+        }
+        return `${sizeInMB.toFixed(1)}MB`
+      }
+
+      const maxSizeFormatted = formatSize(maxSize)
+      const fileSizeFormatted = formatSize(file.size)
+
+      devWarn(`File ${file.name} exceeds ${maxSizeFormatted} limit (${fileSizeFormatted})`)
+      throw new Error(`حجم الملف كبير جداً: ${fileSizeFormatted}. الحد الأقصى: ${maxSizeFormatted}`)
     }
 
     try {
