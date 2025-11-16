@@ -25,9 +25,11 @@ export const s3Upload = onRequest(
   {
     cors: true,
     maxInstances: 10,
-    timeoutSeconds: 300, // 5 minutes for large files
-    memory: '1GiB',
+    timeoutSeconds: 540, // 9 minutes for very large files (max allowed)
+    memory: '2GiB', // Increased memory for large file processing
     secrets: [awsAccessKeyId, awsSecretAccessKey],
+    // Cloud Run settings for larger requests
+    cpu: 2, // More CPU for faster processing
   },
   async (req, res) => {
     // Set CORS headers FIRST - before any other processing
@@ -184,7 +186,7 @@ export const s3Upload = onRequest(
           const busboy = Busboy({
             headers: req.headers,
             limits: {
-              fileSize: 500 * 1024 * 1024, // 500MB
+              fileSize: 2 * 1024 * 1024 * 1024, // 2GB to match frontend and S3 limits
               files: 1
             }
           })
