@@ -15,10 +15,12 @@ const EMULATOR_BASE_URL = 'http://127.0.0.1:5001/lamah-357f3/us-central1'
 
 const FUNCTION_URLS = isDevelopment ? {
   s3Upload: `${EMULATOR_BASE_URL}/s3Upload`,
-  s3Delete: `${EMULATOR_BASE_URL}/s3Delete`
+  s3Delete: `${EMULATOR_BASE_URL}/s3Delete`,
+  getUploadUrl: `${EMULATOR_BASE_URL}/getUploadUrl`
 } : {
   s3Upload: 'https://s3upload-swxv7kjpya-uc.a.run.app',
-  s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app'
+  s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app',
+  getUploadUrl: 'https://getuploadurl-swxv7kjpya-uc.a.run.app'
 }
 
 export class S3UploadServiceSecure {
@@ -116,6 +118,13 @@ export class S3UploadServiceSecure {
         }
       }
 
+      // For large files (>30MB), use direct S3 upload with pre-signed URL
+      const LARGE_FILE_THRESHOLD = 30 * 1024 * 1024 // 30MB
+      if (uploadFile.size > LARGE_FILE_THRESHOLD) {
+        devLog(`📤 Large file detected (${(uploadFile.size / (1024 * 1024)).toFixed(2)}MB), using direct S3 upload`)
+        return await this.uploadLargeFile(uploadFile, folder, fileName, inviteCode)
+      }
+
       // Get authentication token or use invite code
       const idToken = await this.getIdToken(!inviteCode) // Only require token if no invite code
 
@@ -157,6 +166,68 @@ export class S3UploadServiceSecure {
     } catch (error) {
       prodError('Error uploading file via Firebase Function:', error)
       throw new Error(`Failed to upload file: ${error.message}`)
+    }
+  }
+
+  /**
+   * Upload large files directly to S3 using pre-signed URLs
+   * @param {File} file - The file to upload
+   * @param {string} folder - The S3 folder
+   * @param {string} fileName - Custom filename
+   * @param {string} inviteCode - Optional invite code
+   * @returns {Promise<string>} - CloudFront URL
+   */
+  static async uploadLargeFile(file, folder, fileName = null, inviteCode = null) {
+    try {
+      const uploadFileName = fileName || `${file.name.split('.')[0]}_${Date.now()}.${file.name.split('.').pop()}`
+
+      // Get authentication token
+      const idToken = await this.getIdToken(!inviteCode)
+
+      // Request pre-signed URL from Cloud Function
+      const headers = { 'Content-Type': 'application/json' }
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`
+      } else if (inviteCode) {
+        headers['X-Invite-Code'] = inviteCode
+      }
+
+      const urlResponse = await fetch(FUNCTION_URLS.getUploadUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          fileName: uploadFileName,
+          folder,
+          mimeType: file.type
+        })
+      })
+
+      if (!urlResponse.ok) {
+        throw new Error(`Failed to get upload URL: ${urlResponse.status}`)
+      }
+
+      const { uploadUrl, finalUrl } = await urlResponse.json()
+
+      devLog(`📤 Uploading directly to S3... (${(file.size / (1024 * 1024)).toFixed(2)}MB)`)
+
+      // Upload directly to S3 using pre-signed URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream'
+        }
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error(`S3 upload failed: ${uploadResponse.status}`)
+      }
+
+      devLog('✅ Large file uploaded successfully:', finalUrl)
+      return finalUrl
+    } catch (error) {
+      prodError('Error uploading large file:', error)
+      throw new Error(`Failed to upload large file: ${error.message}`)
     }
   }
 

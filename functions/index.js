@@ -1,6 +1,7 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { initializeApp } from 'firebase-admin/app'
@@ -370,6 +371,117 @@ export const s3Upload = onRequest(
       }
     } catch (error) {
       console.error('Request handling error:', error)
+      res.status(500).json({ error: `Failed: ${error.message}` })
+    }
+  }
+)
+
+// Generate Pre-signed URL for Direct S3 Upload - For large files (>32MB)
+export const getUploadUrl = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+    timeoutSeconds: 60,
+    secrets: [awsAccessKeyId, awsSecretAccessKey],
+  },
+  async (req, res) => {
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    res.set('Access-Control-Max-Age', '86400')
+    res.set('Access-Control-Allow-Credentials', 'false')
+
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('')
+      return
+    }
+
+    try {
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Verify authentication
+      const authHeader = req.headers.authorization
+      const inviteCodeHeader = req.headers['x-invite-code']
+      const db = getFirestore()
+
+      // Check authentication (admin or invite code)
+      if (inviteCodeHeader) {
+        const inviteRef = db.collection('invite_codes').doc(inviteCodeHeader)
+        const inviteDoc = await inviteRef.get()
+
+        if (!inviteDoc.exists) {
+          res.status(401).json({ error: 'Invalid invite code' })
+          return
+        }
+
+        const inviteData = inviteDoc.data()
+        if (inviteData.revoked || inviteData.expiresAt.toDate() < new Date()) {
+          res.status(401).json({ error: 'Invite code expired or revoked' })
+          return
+        }
+      } else {
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          res.status(401).json({ error: 'Unauthorized' })
+          return
+        }
+
+        const token = authHeader.split('Bearer ')[1]
+        try {
+          await getAuth().verifyIdToken(token)
+        } catch (error) {
+          res.status(401).json({ error: 'Invalid token' })
+          return
+        }
+      }
+
+      // Get parameters from request body
+      const { fileName, folder, mimeType } = req.body
+
+      if (!fileName) {
+        res.status(400).json({ error: 'fileName is required' })
+        return
+      }
+
+      const uploadFolder = folder || 'images/questions'
+      const key = `${uploadFolder}/${fileName}`
+      const bucket = process.env.AWS_S3_BUCKET || 'trivia-game-media-cdn'
+
+      // Initialize S3 client
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+          accessKeyId: awsAccessKeyId.value(),
+          secretAccessKey: awsSecretAccessKey.value(),
+        },
+      })
+
+      // Generate pre-signed URL for PUT operation (15 minutes expiry)
+      const command = new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        ContentType: mimeType || 'application/octet-stream',
+        CacheControl: 'max-age=31536000',
+      })
+
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }) // 15 minutes
+
+      // Return pre-signed URL and final CloudFront URL
+      const cloudFrontDomain = process.env.CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net'
+      const finalUrl = `https://${cloudFrontDomain}/${key}`
+
+      res.status(200).json({
+        uploadUrl,
+        finalUrl,
+        key,
+      })
+    } catch (error) {
+      console.error('Error generating pre-signed URL:', error)
       res.status(500).json({ error: `Failed: ${error.message}` })
     }
   }
