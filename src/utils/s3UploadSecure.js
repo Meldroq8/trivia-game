@@ -20,7 +20,7 @@ const FUNCTION_URLS = isDevelopment ? {
 } : {
   s3Upload: 'https://s3upload-swxv7kjpya-uc.a.run.app',
   s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app',
-  getUploadUrl: 'https://getuploadurl-swxv7kjpya-uc.a.run.app'
+  getUploadUrl: 'https://us-central1-lamah-357f3.cloudfunctions.net/getUploadUrl'
 }
 
 export class S3UploadServiceSecure {
