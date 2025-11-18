@@ -10,42 +10,10 @@
     <meta name="version" content="BUILD_TIMESTAMP_PLACEHOLDER" />
     <title>اللعبة - نسخة مُحسّنة</title>
   
-    <!-- Arabic fonts and Tailwind CDN -->
+    <!-- Arabic fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      // Tailwind config for Arabic font + container screens + responsive utilities
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              arabic: ['Tajawal','Cairo','Tahoma','Arial','sans-serif'],
-            },
-            colors: {
-              primary: { DEFAULT: '#7C3AED' },
-              accent: { DEFAULT: '#22D3EE' },
-              dark: { DEFAULT: '#0B1020' },
-            },
-            boxShadow: {
-              soft: '0 10px 25px rgba(0,0,0,0.25)',
-            },
-            screens: {
-              'xs': '475px',
-              '3xl': '1920px',
-              '4xl': '2560px',
-              '5xl': '3840px',
-            },
-            spacing: {
-              '128': '32rem',
-              '144': '36rem',
-            }
-          }
-        },
-        corePlugins: { preflight: true }
-      }
-    </script>
     <style>
       /* Locked footer element widths - change once, applies to both team names and scores */
       :root {
