@@ -2,6 +2,7 @@ import { onRequest } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { initializeApp } from 'firebase-admin/app'
@@ -451,29 +452,74 @@ export const getUploadUrl = onRequest(
       const uploadFolder = folder || 'images/questions'
       const key = `${uploadFolder}/${fileName}`
       const bucket = process.env.AWS_S3_BUCKET || 'trivia-game-media-cdn'
+      const region = process.env.AWS_REGION || 'me-south-1'
 
-      // Initialize S3 client
-      const s3Client = new S3Client({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-          accessKeyId: awsAccessKeyId.value(),
-          secretAccessKey: awsSecretAccessKey.value(),
-        },
+      // Trim and validate credentials
+      const accessKey = awsAccessKeyId.value().trim()
+      const secretKey = awsSecretAccessKey.value().trim()
+
+      console.log('=== PRESIGNED URL DEBUG ===')
+      console.log('Credentials check:', {
+        accessKeyPrefix: accessKey.substring(0, 4),
+        accessKeyLength: accessKey.length,
+        secretKeyPrefix: secretKey.substring(0, 4),
+        secretKeyLength: secretKey.length,
+        hasNewline: secretKey.includes('\n') || secretKey.includes('\r'),
+        region,
+        bucket,
+        key
       })
 
-      // Generate pre-signed URL for PUT operation (15 minutes expiry)
+      // Initialize S3 client with explicit configuration
+      const s3Client = new S3Client({
+        region,
+        credentials: {
+          accessKeyId: accessKey,
+          secretAccessKey: secretKey,
+        },
+        // Disable SDK modifications
+        useGlobalEndpoint: false,
+      })
+
+      // Generate pre-signed URL for PUT operation
+      // CRITICAL: The command MUST match exactly what the client will send
+      // Don't include headers that won't be sent by the client
       const command = new PutObjectCommand({
         Bucket: bucket,
         Key: key,
-        ContentType: mimeType || 'application/octet-stream',
-        CacheControl: 'max-age=31536000',
       })
 
-      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }) // 15 minutes
+      console.log('Command config:', {
+        Bucket: bucket,
+        Key: key,
+      })
+
+      // Generate the presigned URL
+      const uploadUrl = await getSignedUrl(s3Client, command, {
+        expiresIn: 900, // 15 minutes
+      })
+
+      console.log('Generated presigned URL (raw):', uploadUrl)
+
+      // Parse URL to inspect parameters
+      const urlObj = new URL(uploadUrl)
+      const params = {}
+      for (const [key, value] of urlObj.searchParams.entries()) {
+        params[key] = value
+      }
+      console.log('URL parameters:', params)
+
+      // CRITICAL: DO NOT remove or modify query parameters
+      // Any changes to the URL will break the AWS signature
+      // The signature includes ALL parameters, so removing any will cause SignatureDoesNotMatch
 
       // Return pre-signed URL and final CloudFront URL
       const cloudFrontDomain = process.env.CLOUDFRONT_DOMAIN || 'drcqcbq3desis.cloudfront.net'
       const finalUrl = `https://${cloudFrontDomain}/${key}`
+
+      console.log('=== SUCCESS ===')
+      console.log('Upload URL ready:', uploadUrl.substring(0, 100) + '...')
+      console.log('Final URL:', finalUrl)
 
       res.status(200).json({
         uploadUrl,
