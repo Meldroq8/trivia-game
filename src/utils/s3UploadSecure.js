@@ -20,7 +20,7 @@ const FUNCTION_URLS = isDevelopment ? {
 } : {
   s3Upload: 'https://s3upload-swxv7kjpya-uc.a.run.app',
   s3Delete: 'https://s3delete-swxv7kjpya-uc.a.run.app',
-  getUploadUrl: 'https://us-central1-lamah-357f3.cloudfunctions.net/getUploadUrl'
+  getUploadUrl: 'https://getuploadurl-swxv7kjpya-uc.a.run.app'
 }
 
 export class S3UploadServiceSecure {
@@ -210,14 +210,38 @@ export class S3UploadServiceSecure {
 
       devLog(`📤 Uploading directly to S3... (${(file.size / (1024 * 1024)).toFixed(2)}MB)`)
 
-      // Upload directly to S3 using pre-signed URL
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type || 'application/octet-stream'
-        }
+      // Upload directly to S3 using PUT with the pre-signed URL
+      // Using XMLHttpRequest instead of fetch to have better control over CORS
+      const uploadResult = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100
+            devLog(`Upload progress: ${percentComplete.toFixed(1)}%`)
+          }
+        })
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            resolve({ ok: true, status: xhr.status })
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`))
+          }
+        })
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'))
+        })
+
+        xhr.open('PUT', uploadUrl)
+        // IMPORTANT: Don't set Content-Type or Cache-Control headers
+        // The presigned URL doesn't include these in the signature
+        // S3 will infer the content type from the file extension
+        xhr.send(file)
       })
+
+      const uploadResponse = uploadResult
 
       if (!uploadResponse.ok) {
         throw new Error(`S3 upload failed: ${uploadResponse.status}`)
