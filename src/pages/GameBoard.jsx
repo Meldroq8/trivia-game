@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import PresentationModeToggle from '../components/PresentationModeToggle'
@@ -1062,8 +1062,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     setActivePerk({ type: null, team: null })
   }
 
-  // Mobile-first responsive system - start with square proportions and scale up
-  const getResponsiveStyles = () => {
+  // Memoize responsive styles for performance - depends on dimensions and header/footer heights
+  const responsiveStyles = useMemo(() => {
     const W = window.innerWidth // Use window width directly for better device detection
     const H = window.innerHeight
 
@@ -1559,9 +1559,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       padding: padding,
       isPhonePortrait: isPhonePortrait // Keep for portrait-specific styling adjustments
     }
-  }
-
-  const styles = getResponsiveStyles()
+  }, [dimensions.width, dimensions.height, headerHeight, footerHeight])
 
   // Wait for state to load before checking categories
   // This prevents false "no categories" state during Firebase loading
@@ -1627,11 +1625,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         ref={headerRef}
         className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-visible relative shadow-lg"
         style={{
-          padding: `${styles.headerPadding}px`,
-          height: `${styles.headerHeight}px`
+          padding: `${responsiveStyles.headerPadding}px`,
+          height: `${responsiveStyles.headerHeight}px`
         }}
       >
-        {styles.isPhonePortrait ? (
+        {responsiveStyles.isPhonePortrait ? (
           /* Portrait Mode: Header with team turn and hamburger menu */
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center gap-2">
@@ -1723,13 +1721,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         style={{
           width: '100%',
           minHeight: '0',
-          padding: `${styles.padding}px`
+          padding: `${responsiveStyles.padding}px`
         }}
       >
         <div
-          className={`grid ${styles.isPhonePortrait ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2'} w-full h-full`}
+          className={`grid ${responsiveStyles.isPhonePortrait ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2'} w-full h-full`}
           style={{
-            gap: `${styles.rowGap}px ${styles.colGap}px`,
+            gap: `${responsiveStyles.rowGap}px ${responsiveStyles.colGap}px`,
             maxWidth: '100vw',
             maxHeight: '100vh'
           }}
@@ -1744,21 +1742,21 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   key={`skeleton-${categoryIndex}`}
                   className="relative flex items-center justify-center animate-pulse max-sm:max-w-80 max-md:max-w-[420px] lg:max-w-[500px] xl:max-w-[550px] 4xl:max-w-[600px] mx-auto"
                   style={{
-                    width: `${styles.categoryGroupWidth}px`,
-                    height: `${styles.categoryGroupHeight}px`,
-                    maxHeight: `${styles.categoryGroupHeight}px`
+                    width: `${responsiveStyles.categoryGroupWidth}px`,
+                    height: `${responsiveStyles.categoryGroupHeight}px`,
+                    maxHeight: `${responsiveStyles.categoryGroupHeight}px`
                   }}
                 >
                   {/* Skeleton buttons */}
-                  <div className="absolute inset-0 flex flex-col justify-center items-center" style={{ gap: `${styles.innerRowGap}px`, zIndex: 30 }}>
+                  <div className="absolute inset-0 flex flex-col justify-center items-center" style={{ gap: `${responsiveStyles.innerRowGap}px`, zIndex: 30 }}>
                     {[1, 2, 3].map((i) => (
                       <div
                         key={i}
                         className="bg-gray-200 rounded"
                         style={{
-                          width: `${styles.cardWidth + (styles.buttonWidth * 1.6)}px`,
-                          height: `${styles.buttonHeight}px`,
-                          borderRadius: `${styles.buttonBorderRadius}px`
+                          width: `${responsiveStyles.cardWidth + (responsiveStyles.buttonWidth * 1.6)}px`,
+                          height: `${responsiveStyles.buttonHeight}px`,
+                          borderRadius: `${responsiveStyles.buttonBorderRadius}px`
                         }}
                       />
                     ))}
@@ -1768,8 +1766,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                     <div
                       className="bg-gray-100 border-2 border-gray-200 rounded shadow-lg"
                       style={{
-                        width: `${styles.cardWidth}px`,
-                        height: `${styles.cardHeight}px`
+                        width: `${responsiveStyles.cardWidth}px`,
+                        height: `${responsiveStyles.cardHeight}px`
                       }}
                     />
                   </div>
@@ -1786,8 +1784,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 style={{
                   width: '100%',
                   height: '100%',
-                  maxWidth: `${styles.categoryGroupWidth}px`,
-                  maxHeight: `${styles.categoryGroupHeight}px`,
+                  maxWidth: `${responsiveStyles.categoryGroupWidth}px`,
+                  maxHeight: `${responsiveStyles.categoryGroupHeight}px`,
                   padding: '0',
                   margin: '0 auto',
                   overflow: 'hidden',
@@ -1910,7 +1908,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
       {/* Footer Score Controls */}
       <div ref={footerRef} className="bg-gradient-to-b from-amber-100 to-[#f7f2e6] border-t-2 border-red-200 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6 shadow-lg">
-        {styles.isPhonePortrait ? (
+        {responsiveStyles.isPhonePortrait ? (
           <div className="flex flex-col gap-2 w-full">
             {/* First Row: Team Names */}
             <div className="flex items-center w-full justify-between mb-2">
@@ -2291,11 +2289,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       />
 
       {/* Portrait Menu Dropdown - Rendered at root level to avoid z-index issues */}
-      {styles.isPhonePortrait && portraitMenuOpen && (
+      {responsiveStyles.isPhonePortrait && portraitMenuOpen && (
         <div
           className="fixed bg-red-700 shadow-xl rounded-br-lg border-t border-red-500 portrait-menu"
           style={{
-            top: `${Math.max(56, styles.headerFontSize * 3)}px`,
+            top: `${Math.max(56, responsiveStyles.headerFontSize * 3)}px`,
             left: '12px',
             zIndex: 99999,
             width: 'auto',

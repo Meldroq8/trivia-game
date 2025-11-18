@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from '../utils/devLog'
 import { QRCodeSVG } from 'qrcode.react'
 import { useAuth } from '../hooks/useAuth'
 import { useState, useEffect } from 'react'
@@ -15,7 +16,7 @@ function QRCodeWithLogo({ questionId, size = 250 }) {
           setLogoUrl(settings.logo)
         }
       } catch (error) {
-        console.error('Error loading logo:', error)
+        prodError('Error loading logo:', error)
       }
     }
     loadLogo()

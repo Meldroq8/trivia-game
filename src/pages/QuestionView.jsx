@@ -488,7 +488,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           previewGameData: parsed.gameData
         }
       } catch (e) {
-        console.error('Failed to parse preview data from localStorage:', e)
+        prodError('Failed to parse preview data from localStorage:', e)
       }
     }
 
@@ -517,7 +517,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           previewGameData: parsed.gameData
         }
       } catch (e) {
-        console.error('Failed to parse preview data from sessionStorage:', e)
+        prodError('Failed to parse preview data from sessionStorage:', e)
       }
     }
 
@@ -1371,6 +1371,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             }}
             context={showAnswer ? "answer" : "question"}
             size="original"
+            fetchPriority="high"
             onClick={handleImageClick}
           />
         </div>
@@ -2085,6 +2086,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         className="w-full h-full object-contain mx-auto cursor-pointer image"
                         context="question"
                         size="large"
+                        fetchPriority="high"
                         onClick={handleImageClick}
                       />
                     </div>
@@ -2520,6 +2522,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           className="w-full h-full object-contain mx-auto cursor-pointer image"
                           context="answer"
                           size="large"
+                          fetchPriority="high"
                           onClick={handleImageClick}
                         />
                       </div>
@@ -2749,7 +2752,7 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
         userName: user.displayName || user.email || 'مستخدم'
       }
 
-      console.log('Submitting report with data:', reportData)
+      devLog('Submitting report with data:', reportData)
 
       await FirebaseQuestionsService.submitQuestionReport(reportData)
 
@@ -2757,9 +2760,9 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
       onSuccess()
     } catch (error) {
       prodError('Error submitting question report:', error)
-      console.error('Full error object:', error)
-      console.error('Error code:', error.code)
-      console.error('Error message:', error.message)
+      prodError('Full error object:', error)
+      prodError('Error code:', error.code)
+      prodError('Error message:', error.message)
       alert(`حدث خطأ أثناء إرسال الإبلاغ:\n\nالخطأ: ${error.code || 'unknown'}\nالرسالة: ${error.message}\n\nالرجاء المحاولة مرة أخرى.`)
     } finally {
       setSubmitting(false)

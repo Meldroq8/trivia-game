@@ -2311,17 +2311,17 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       firebaseUpdate.points = editingData.points
 
       // Handle tolerance hint
-      console.log('🔍 Checking tolerance hint before save:', editingData.toleranceHint)
+      devLog('🔍 Checking tolerance hint before save:', editingData.toleranceHint)
       if (editingData.toleranceHint?.enabled) {
         updatedQuestion.toleranceHint = editingData.toleranceHint
         firebaseUpdate.toleranceHint = editingData.toleranceHint
-        console.log('✅ Tolerance hint WILL be saved:', editingData.toleranceHint)
+        devLog('✅ Tolerance hint WILL be saved:', editingData.toleranceHint)
       } else {
         delete updatedQuestion.toleranceHint
         firebaseUpdate.toleranceHint = deleteField()
-        console.log('❌ Tolerance hint WILL be deleted (not enabled)')
+        devLog('❌ Tolerance hint WILL be deleted (not enabled)')
       }
-      console.log('📋 Final firebaseUpdate object:', firebaseUpdate)
+      devLog('📋 Final firebaseUpdate object:', firebaseUpdate)
 
       // Handle optional fields - use deleteField() for empty values
       if (editingData.audioUrl && editingData.audioUrl.trim()) {
@@ -2890,12 +2890,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       // Add tolerance hint if enabled
       if (singleQuestion.toleranceHint?.enabled) {
         newQuestion.toleranceHint = singleQuestion.toleranceHint
-        console.log('✅ Tolerance hint added to question:', singleQuestion.toleranceHint)
+        devLog('✅ Tolerance hint added to question:', singleQuestion.toleranceHint)
       } else {
-        console.log('⚠️ Tolerance hint NOT enabled. Current state:', singleQuestion.toleranceHint)
+        devLog('⚠️ Tolerance hint NOT enabled. Current state:', singleQuestion.toleranceHint)
       }
 
-      console.log('📋 Full question object being saved:', newQuestion)
+      devLog('📋 Full question object being saved:', newQuestion)
 
       devLog('🚀 Submitting question with media:', {
         hasQuestionImage: !!newQuestion.imageUrl,
@@ -4571,7 +4571,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 const question = questions[category.id][originalIndex]
                                 const categoryName = categories.find(cat => cat.id === category.id)?.name || category.id
 
-                                console.log('👁️ Preview button clicked for question:', {
+                                devLog('👁️ Preview button clicked for question:', {
                                   categoryId: category.id,
                                   categoryName,
                                   originalIndex,
@@ -4599,11 +4599,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                   }
                                 }
 
-                                console.log('💾 Storing preview data:', previewData)
+                                devLog('💾 Storing preview data:', previewData)
 
                                 // Store in localStorage instead of sessionStorage for new window access
                                 localStorage.setItem('questionPreview', JSON.stringify(previewData))
-                                console.log('✅ localStorage set, opening new window')
+                                devLog('✅ localStorage set, opening new window')
 
                                 // Open in new window
                                 window.open('/question', '_blank')

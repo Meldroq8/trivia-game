@@ -1,3 +1,4 @@
+import { devLog, devWarn, prodError } from '../utils/devLog'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import loaderService from '../firebase/loaderService'
@@ -57,7 +58,7 @@ function Loader() {
       const rejected = questions.filter(q => q.status === 'rejected').length
       setStats({ pending, approved, rejected })
     } catch (err) {
-      console.error('Error loading loader data:', err)
+      prodError('Error loading loader data:', err)
       // Don't throw - just log the error and continue with empty data
       setCategories([])
       setPendingCategories([])
@@ -72,7 +73,7 @@ function Loader() {
       await loadData() // Reload questions
       return true
     } catch (err) {
-      console.error('Error adding question:', err)
+      prodError('Error adding question:', err)
       throw err
     }
   }

@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import HeaderAuth from '../components/HeaderAuth'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
+import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function GameSetup({ gameState, setGameState }) {
-  console.log('GameSetup: gameState.gameName =', gameState.gameName)
+  devLog('GameSetup: gameState.gameName =', gameState.gameName)
   const [gameName, setGameName] = useState('')
   const [team1Name, setTeam1Name] = useState('')
   const [team2Name, setTeam2Name] = useState('')

@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import LogoDisplay from '../components/LogoDisplay'
+import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function ProfilePage() {
   const [stats, setStats] = useState(null)
@@ -26,10 +27,10 @@ function ProfilePage() {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    console.log('🔧 ProfilePage: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
+    devLog('🔧 ProfilePage: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      console.log('✅ ProfilePage: Set questionUsageTracker user ID to:', user.uid)
+      devLog('✅ ProfilePage: Set questionUsageTracker user ID to:', user.uid)
     }
   }, [user])
 
@@ -52,10 +53,10 @@ function ProfilePage() {
           const statistics = await questionUsageTracker.getUsageStatistics()
           setStats(statistics)
         } else {
-          console.log('⏳ ProfilePage: Waiting for user authentication before loading stats')
+          devLog('⏳ ProfilePage: Waiting for user authentication before loading stats')
         }
       } catch (error) {
-        console.error('Error loading profile data:', error)
+        prodError('Error loading profile data:', error)
       } finally {
         setLoading(false)
       }
@@ -106,7 +107,7 @@ function ProfilePage() {
 
       alert('تم إعادة تعيين جميع الأسئلة بنجاح!')
     } catch (error) {
-      console.error('Error resetting questions:', error)
+      prodError('Error resetting questions:', error)
       alert('حدث خطأ أثناء إعادة تعيين الأسئلة')
     } finally {
       setResetting(false)
@@ -202,7 +203,7 @@ function ProfilePage() {
         availableHeight: H - actualHeaderHeight - (padding * 2)
       }
     } catch (error) {
-      console.error('Error in getResponsiveStyles:', error)
+      prodError('Error in getResponsiveStyles:', error)
       return {
         isPC: false,
         isUltraNarrow: false,

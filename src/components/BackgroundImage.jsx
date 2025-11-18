@@ -1,12 +1,12 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import React from 'react';
+import React, { memo } from 'react';
 import { useSmartImageUrl } from '../hooks/useSmartImageUrl';
 
 /**
  * Component that handles background images with local/Firebase fallback
  * Perfect for category cards and other elements that need background images
  */
-const BackgroundImage = ({
+const BackgroundImage = memo(({
   src,
   size = 'medium',
   context = 'category',
@@ -17,7 +17,7 @@ const BackgroundImage = ({
   categoryId = null,
   ...props
 }) => {
-  const { url: smartUrl, isLoading } = useSmartImageUrl(src, size, context, categoryId);
+  const { url: smartUrl } = useSmartImageUrl(src, size, context, categoryId);
 
   const backgroundStyle = {
     backgroundImage: smartUrl ? `url(${smartUrl})` : 'none',
@@ -40,15 +40,8 @@ const BackgroundImage = ({
       {...props}
     >
       {children}
-
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-300 bg-opacity-75">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
-        </div>
-      )}
     </div>
   );
-};
+});
 
 export default BackgroundImage;
