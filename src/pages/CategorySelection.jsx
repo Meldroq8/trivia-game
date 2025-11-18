@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
@@ -454,6 +454,55 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     return questionCounts[categoryId] || 0
   }
 
+  // Memoize category grouping logic for performance
+  const sortedMasterCategories = useMemo(() => {
+    // Group categories by masterCategoryId and sort by displayOrder
+    const groupedCategories = {}
+
+    availableCategories.forEach(category => {
+      const masterId = category.masterCategoryId || 'general'
+      if (!groupedCategories[masterId]) {
+        groupedCategories[masterId] = []
+      }
+      groupedCategories[masterId].push(category)
+    })
+
+    // Sort categories within each group by displayOrder
+    Object.keys(groupedCategories).forEach(masterId => {
+      groupedCategories[masterId].sort((a, b) =>
+        (a.displayOrder || 0) - (b.displayOrder || 0)
+      )
+    })
+
+    // Create sorted array of master categories
+    const sortedMasters = []
+
+    // Add general category first if it exists
+    if (groupedCategories['general']) {
+      sortedMasters.push({
+        id: 'general',
+        name: 'فئات عامة',
+        order: 0,
+        categories: groupedCategories['general']
+      })
+    }
+
+    // Add other master categories sorted by order (exclude 'general' since we added it above)
+    masterCategories
+      .filter(master => master.id !== 'general' && groupedCategories[master.id])
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .forEach(master => {
+        sortedMasters.push({
+          id: master.id,
+          name: master.name,
+          order: master.order,
+          categories: groupedCategories[master.id]
+        })
+      })
+
+    return sortedMasters
+  }, [availableCategories, masterCategories])
+
   // Responsive styling system
   const getResponsiveStyles = () => {
     const { width, height } = dimensions
@@ -492,9 +541,6 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   }
 
   const styles = getResponsiveStyles()
-
-  // Show skeleton/empty state while loading in background
-  const isLoading = availableCategories.length === 0 && !loadingError
 
   // Show error state
   if (loadingError) {
@@ -660,71 +706,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
             {/* Categories Grid - Grouped by Master Categories */}
             <div className="w-full max-w-7xl mx-auto flex-1">
-              {isLoading ? (
-                // Show skeleton loading cards without blocking UI
-                <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
-                  {Array.from({ length: 12 }).map((_, index) => (
-                    <div
-                      key={`skeleton-${index}`}
-                      className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
-                    >
-                      <div className="flex-1 relative flex items-center justify-center">
-                        <div className="w-8 h-8 bg-gray-300 rounded"></div>
-                      </div>
-                      <div className="p-2 md:p-3 border-t-2 border-gray-200 bg-gray-100">
-                        <div className="h-4 bg-gray-300 rounded w-3/4 mx-auto"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                (() => {
-                  // Group categories by masterCategoryId and sort by displayOrder
-                  const groupedCategories = {}
-
-                  availableCategories.forEach(category => {
-                    const masterId = category.masterCategoryId || 'general'
-                    if (!groupedCategories[masterId]) {
-                      groupedCategories[masterId] = []
-                    }
-                    groupedCategories[masterId].push(category)
-                  })
-
-                  // Sort categories within each group by displayOrder
-                  Object.keys(groupedCategories).forEach(masterId => {
-                    groupedCategories[masterId].sort((a, b) =>
-                      (a.displayOrder || 0) - (b.displayOrder || 0)
-                    )
-                  })
-
-                  // Create sorted array of master categories
-                  const sortedMasters = []
-
-                  // Add general category first if it exists
-                  if (groupedCategories['general']) {
-                    sortedMasters.push({
-                      id: 'general',
-                      name: 'فئات عامة',
-                      order: 0,
-                      categories: groupedCategories['general']
-                    })
-                  }
-
-                  // Add other master categories sorted by order (exclude 'general' since we added it above)
-                  masterCategories
-                    .filter(master => master.id !== 'general' && groupedCategories[master.id])
-                    .sort((a, b) => (a.order || 0) - (b.order || 0))
-                    .forEach(master => {
-                      sortedMasters.push({
-                        id: master.id,
-                        name: master.name,
-                        order: master.order,
-                        categories: groupedCategories[master.id]
-                      })
-                    })
-
-                  // Render grouped categories
-                  return sortedMasters.map(master => (
+              {sortedMasterCategories.map(master => (
                     <div key={master.id} className="mb-10 relative">
                       {/* Categories Container with header badge */}
                       <div className={`bg-gradient-to-b from-white to-gray-50 rounded-2xl md:rounded-3xl px-3 sm:px-6 md:px-8 lg:px-10 relative transition-all duration-300 shadow-xl ${
@@ -853,9 +835,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       )}
                       </div>
                     </div>
-                  ))
-                })()
-              )}
+                  ))}
             </div>
           </div>
         ) : (

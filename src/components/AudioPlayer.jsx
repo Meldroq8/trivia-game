@@ -1,8 +1,8 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 
-function AudioPlayer({ src, className = '' }) {
+const AudioPlayer = memo(function AudioPlayer({ src, className = '' }) {
   // Convert URL to optimized CloudFront URL
   const optimizedSrc = src ? getOptimizedMediaUrl(src, 'medium', 'audio') : null
 
@@ -273,6 +273,6 @@ function AudioPlayer({ src, className = '' }) {
       </div>
     </div>
   )
-}
+})
 
 export default AudioPlayer

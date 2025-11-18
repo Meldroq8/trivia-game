@@ -65,7 +65,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         availableWidth
       }
     } catch (error) {
-      console.error('Error in getResponsiveStyles:', error)
+      prodError('Error in getResponsiveStyles:', error)
       // Return safe fallback values
       return {
         isSmallScreen: true,
@@ -105,10 +105,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
-    console.log('🔧 QuestionView: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
+    devLog('🔧 QuestionView: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      console.log('✅ QuestionView: Set questionUsageTracker user ID to:', user.uid)
+      devLog('✅ QuestionView: Set questionUsageTracker user ID to:', user.uid)
     }
   }, [user])
 
@@ -119,7 +119,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Allow some time for Firebase state to fully load before redirecting
       const timeout = setTimeout(() => {
         if (!gameState.selectedCategories.length) {
-          console.log('🔄 QuestionView: No categories found after state load, redirecting to categories')
+          devLog('🔄 QuestionView: No categories found after state load, redirecting to categories')
           navigate('/categories')
         }
       }, 500) // Give 500ms for any remaining state loading

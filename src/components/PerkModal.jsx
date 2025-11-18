@@ -1,7 +1,7 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 
-function PerkModal({
+const PerkModal = memo(function PerkModal({
   isOpen,
   onClose,
   perkType,
@@ -227,7 +227,7 @@ function PerkModal({
       </div>
     </div>
   )
-}
+})
 
 // Helper function to get perk information
 function getPerkInfo(perkType) {

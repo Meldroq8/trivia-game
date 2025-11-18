@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
 import { GameDataLoader } from '../utils/gameDataLoader'
+import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function MyGames({ gameState, setGameState }) {
   const [games, setGames] = useState([])
@@ -54,10 +55,10 @@ function MyGames({ gameState, setGameState }) {
         const gameData = await GameDataLoader.loadGameData()
         if (gameData && gameData.categories) {
           setCategories(gameData.categories)
-          console.log('📂 Loaded categories for MyGames:', gameData.categories)
+          devLog('📂 Loaded categories for MyGames:', gameData.categories)
         }
       } catch (error) {
-        console.error('❌ Error loading categories:', error)
+        prodError('❌ Error loading categories:', error)
       }
     }
     loadCategories()
@@ -71,9 +72,9 @@ function MyGames({ gameState, setGameState }) {
       try {
         setLoading(true)
         setIndexError(null)
-        console.log('🎮 Loading user games...')
+        devLog('🎮 Loading user games...')
         const userGames = await getUserGames()
-        console.log('📖 Loaded games:', userGames)
+        devLog('📖 Loaded games:', userGames)
 
         // Sort games by date (newest first) and calculate progress
         const sortedGames = userGames
@@ -106,7 +107,7 @@ function MyGames({ gameState, setGameState }) {
 
         setGames(sortedGames)
       } catch (error) {
-        console.error('❌ Error loading games:', error)
+        prodError('❌ Error loading games:', error)
         if (error.message && error.message.includes('requires an index')) {
           setIndexError(error)
         }
@@ -119,18 +120,18 @@ function MyGames({ gameState, setGameState }) {
   }, [isAuthenticated, user])
 
   const handleGameSelect = (game) => {
-    console.log('🎯 Game selected:', game)
-    console.log('🎯 Setting selected game and showing modal...')
+    devLog('🎯 Game selected:', game)
+    devLog('🎯 Setting selected game and showing modal...')
     setSelectedGame(game)
     setShowResumeModal(true)
-    console.log('🎯 Modal should now be visible')
+    devLog('🎯 Modal should now be visible')
   }
 
   const handleResumeGame = () => {
-    console.log('🔄 Resuming game:', selectedGame)
+    devLog('🔄 Resuming game:', selectedGame)
 
     if (!selectedGame?.gameData) {
-      console.error('❌ No game data to resume')
+      prodError('❌ No game data to resume')
       return
     }
 
@@ -169,25 +170,25 @@ function MyGames({ gameState, setGameState }) {
         }
       }
 
-      console.log('📋 Restored game state:', restoredGameState)
-      console.log('🔒 Assigned questions for continuation:', restoredGameState.assignedQuestions)
-      console.log('✅ Used questions restored:', Array.from(usedQuestions))
+      devLog('📋 Restored game state:', restoredGameState)
+      devLog('🔒 Assigned questions for continuation:', restoredGameState.assignedQuestions)
+      devLog('✅ Used questions restored:', Array.from(usedQuestions))
       setGameState(restoredGameState)
 
       // Navigate to game board to continue
       navigate('/game')
     } catch (error) {
-      console.error('❌ Error resuming game:', error)
+      prodError('❌ Error resuming game:', error)
     }
 
     setShowResumeModal(false)
   }
 
   const handleRestartGame = () => {
-    console.log('🆕 Restarting game with exact same questions:', selectedGame)
+    devLog('🆕 Restarting game with exact same questions:', selectedGame)
 
     if (!selectedGame?.gameData?.selectedCategories) {
-      console.error('❌ No categories to restart with')
+      prodError('❌ No categories to restart with')
       return
     }
 
@@ -222,15 +223,15 @@ function MyGames({ gameState, setGameState }) {
         isGameContinuation: true // Flag to indicate this updates the existing game, not create new
       }
 
-      console.log('🆕 Fresh game state with SAME assigned questions:', freshGameState)
-      console.log('🔒 Assigned questions preserved for payment model:', freshGameState.assignedQuestions)
-      console.log('🆔 Game ID for update (prevents duplicate):', freshGameState.gameId)
+      devLog('🆕 Fresh game state with SAME assigned questions:', freshGameState)
+      devLog('🔒 Assigned questions preserved for payment model:', freshGameState.assignedQuestions)
+      devLog('🆔 Game ID for update (prevents duplicate):', freshGameState.gameId)
       setGameState(freshGameState)
 
       // Navigate to game board to start fresh with same questions
       navigate('/game')
     } catch (error) {
-      console.error('❌ Error restarting game:', error)
+      prodError('❌ Error restarting game:', error)
     }
 
     setShowResumeModal(false)
@@ -238,7 +239,7 @@ function MyGames({ gameState, setGameState }) {
 
   const handleDeleteClick = (e, game) => {
     e.stopPropagation() // Prevent triggering the game select
-    console.log('🗑️ Delete clicked for game:', game)
+    devLog('🗑️ Delete clicked for game:', game)
     setGameToDelete(game)
     setShowDeleteModal(true)
   }
@@ -247,15 +248,15 @@ function MyGames({ gameState, setGameState }) {
     if (!gameToDelete) return
 
     try {
-      console.log('🗑️ Deleting game:', gameToDelete.id)
+      devLog('🗑️ Deleting game:', gameToDelete.id)
       await deleteGame(gameToDelete.id)
 
       // Remove the deleted game from the local state
       setGames(prevGames => prevGames.filter(game => game.id !== gameToDelete.id))
 
-      console.log('✅ Game deleted successfully')
+      devLog('✅ Game deleted successfully')
     } catch (error) {
-      console.error('❌ Error deleting game:', error)
+      prodError('❌ Error deleting game:', error)
       alert('حدث خطأ أثناء حذف اللعبة. حاول مرة أخرى.')
     } finally {
       setShowDeleteModal(false)

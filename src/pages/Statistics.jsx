@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
+import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function Statistics() {
   const [games, setGames] = useState([])
@@ -26,7 +27,7 @@ function Statistics() {
 
       try {
         setLoading(true)
-        console.log('📊 Loading games for statistics...')
+        devLog('📊 Loading games for statistics...')
         const userGames = await getUserGames()
 
         // Sort games by date (newest first)
@@ -40,9 +41,9 @@ function Statistics() {
         calculateTeamStats(sortedGames)
         calculateCategoryStats(sortedGames)
 
-        console.log('📊 Statistics loaded:', sortedGames.length, 'games')
+        devLog('📊 Statistics loaded:', sortedGames.length, 'games')
       } catch (error) {
-        console.error('❌ Error loading games for statistics:', error)
+        prodError('❌ Error loading games for statistics:', error)
       } finally {
         setLoading(false)
       }

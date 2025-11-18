@@ -521,7 +521,6 @@ export default function AIEnhancementModal({
                           src={image.thumbnail}
                           alt={image.title}
                           className="w-full h-40 object-cover"
-                          loading="lazy"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-60 transition-opacity flex items-center justify-center">
                           <span className="text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity">

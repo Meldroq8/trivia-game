@@ -1,41 +1,21 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect } from 'react'
 import { usePresentationMode } from './hooks/usePresentationMode'
 import { useAuth } from './hooks/useAuth'
-import componentPreloader from './utils/componentPreloader'
 
 import { devLog, devWarn, prodError } from "./utils/devLog"
-// Core game flow components - loaded immediately for instant navigation
+// All components loaded immediately for instant navigation - no lazy loading
 import Index from './pages/Index'
 import CategorySelection from './pages/CategorySelection'
 import GameBoard from './pages/GameBoard'
 import QuestionView from './pages/QuestionView'
 import Results from './pages/Results'
 import AnswerViewPage from './pages/AnswerViewPage'
-
-// Less frequently used components - lazy loaded with background preloading
-const Statistics = lazy(() => import('./pages/Statistics'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const MyGames = lazy(() => import('./pages/MyGames'))
-const Admin = lazy(() => import('./pages/Admin'))
-const Loader = lazy(() => import('./pages/Loader'))
-
-// Reusable loading fallback component
-const PageLoading = ({ message = "جاري التحميل..." }) => (
-  <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-    <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-      <h1 className="text-lg font-bold text-red-800">{message}</h1>
-    </div>
-  </div>
-)
-
-// Helper function to wrap components with Suspense
-const withSuspense = (Component, props = {}, loadingMessage) => (
-  <Suspense fallback={<PageLoading message={loadingMessage} />}>
-    <Component {...props} />
-  </Suspense>
-)
+import Statistics from './pages/Statistics'
+import ProfilePage from './pages/ProfilePage'
+import MyGames from './pages/MyGames'
+import Admin from './pages/Admin'
+import Loader from './pages/Loader'
 
 // Route tracker component - needs to be inside Router
 function RouteTracker({ gameState, setGameState, stateLoaded }) {
@@ -170,35 +150,6 @@ function App() {
   const { isPresentationMode } = usePresentationMode()
   const { getGameState, saveGameState, migrateFromLocalStorage, isAuthenticated, loading: authLoading } = useAuth()
 
-  // Start background preloading after app loads
-  useEffect(() => {
-    const preloadComponents = [
-      {
-        importFn: () => import('./pages/Statistics'),
-        name: 'Statistics',
-        priority: 'low'
-      },
-      {
-        importFn: () => import('./pages/ProfilePage'),
-        name: 'ProfilePage',
-        priority: 'high' // Users might access profile more often
-      },
-      {
-        importFn: () => import('./pages/MyGames'),
-        name: 'MyGames',
-        priority: 'high' // Core feature for users
-      },
-      {
-        importFn: () => import('./pages/Admin'),
-        name: 'Admin',
-        priority: 'low' // Admin access is rare
-      }
-    ]
-
-    // Start preloading after 2 seconds to not interfere with initial load
-    componentPreloader.startBackgroundPreloading(preloadComponents, 2000)
-  }, [])
-
   // Default game state
   const getDefaultGameState = () => ({
     gameName: 'لعبة الأسئلة',
@@ -323,17 +274,7 @@ function App() {
     }
   }, [isPresentationMode])
 
-  // Show loading screen while auth and state are initializing (only on first load)
-  if (authLoading || !stateLoaded) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <h1 className="text-xl font-bold text-red-800">جاري التحميل...</h1>
-        </div>
-      </div>
-    )
-  }
+  // Removed loading screen - app loads instantly without blocking UI
 
   return (
     <>
@@ -367,23 +308,23 @@ function App() {
             />
             <Route
               path="/statistics"
-              element={withSuspense(Statistics, {}, "جاري تحميل الإحصائيات...")}
+              element={<Statistics />}
             />
             <Route
               path="/admin"
-              element={withSuspense(Admin, {}, "جاري تحميل لوحة التحكم...")}
+              element={<Admin />}
             />
             <Route
               path="/profile"
-              element={withSuspense(ProfilePage, {}, "جاري تحميل الملف الشخصي...")}
+              element={<ProfilePage />}
             />
             <Route
               path="/my-games"
-              element={withSuspense(MyGames, { gameState, setGameState }, "جاري تحميل ألعابي...")}
+              element={<MyGames gameState={gameState} setGameState={setGameState} />}
             />
             <Route
               path="/loader/:inviteCode"
-              element={withSuspense(Loader, {}, "جاري التحقق من الدعوة...")}
+              element={<Loader />}
             />
           </Routes>
         </div>

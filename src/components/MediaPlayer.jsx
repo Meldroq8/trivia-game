@@ -40,7 +40,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
       setDuration(media.duration)
       setIsLoading(false)
       if (autoPlay) {
-        media.play().catch(console.error)
+        media.play().catch(prodError)
         setIsPlaying(true)
       }
     }

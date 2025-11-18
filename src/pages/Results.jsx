@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
+import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function Results({ gameState, setGameState }) {
   const [confettiPieces, setConfettiPieces] = useState([])
@@ -75,19 +76,19 @@ function Results({ gameState, setGameState }) {
 
   // Debug logging and automatic save
   useEffect(() => {
-    console.log('🏆 Results page loaded with game state:')
-    console.log('Team 1:', team1)
-    console.log('Team 2:', team2)
-    console.log('Game History:', gameHistory)
-    console.log('Selected Categories:', selectedCategories)
-    console.log('Used Questions:', usedQuestions)
-    console.log('Total questions expected:', selectedCategories?.length * 6)
-    console.log('Questions answered:', usedQuestions?.size)
+    devLog('🏆 Results page loaded with game state:')
+    devLog('Team 1:', team1)
+    devLog('Team 2:', team2)
+    devLog('Game History:', gameHistory)
+    devLog('Selected Categories:', selectedCategories)
+    devLog('Used Questions:', usedQuestions)
+    devLog('Total questions expected:', selectedCategories?.length * 6)
+    devLog('Questions answered:', usedQuestions?.size)
 
     // Automatically save game statistics to Firebase when results page loads
     if (!gameAlreadySaved && gameState && (gameState.usedQuestions?.size > 0 || gameState.gameHistory?.length > 0)) {
-      console.log('🎯 Auto-saving game statistics to Firebase...')
-      console.log('🔐 Auth state - loading:', loading, 'authenticated:', isAuthenticated)
+      devLog('🎯 Auto-saving game statistics to Firebase...')
+      devLog('🔐 Auth state - loading:', loading, 'authenticated:', isAuthenticated)
 
       // Save to Firebase if authenticated (but wait for auth loading to complete)
       if (!loading) {
@@ -96,17 +97,17 @@ function Results({ gameState, setGameState }) {
             finalScore: Math.max(team1?.score || 0, team2?.score || 0),
             gameData: gameState
           }).then(() => {
-            console.log('✅ Game auto-saved to Firebase successfully')
+            devLog('✅ Game auto-saved to Firebase successfully')
             setGameAlreadySaved(true) // Mark as saved to prevent duplicates
           }).catch(error => {
-            console.error('❌ Error auto-saving to Firebase:', error)
+            prodError('❌ Error auto-saving to Firebase:', error)
           })
         } else {
-          console.log('ℹ️ User not authenticated, skipping Firebase save')
+          devLog('ℹ️ User not authenticated, skipping Firebase save')
           setGameAlreadySaved(true) // Still mark as processed to prevent duplicate attempts
         }
       } else {
-        console.log('⏳ Waiting for authentication to load...')
+        devLog('⏳ Waiting for authentication to load...')
       }
     }
   }, [gameState, isAuthenticated, updateGameStats, gameAlreadySaved, loading])
@@ -142,7 +143,7 @@ function Results({ gameState, setGameState }) {
   }
 
   const handleExit = () => {
-    console.log('🚪 Exiting to home...')
+    devLog('🚪 Exiting to home...')
 
     // Reset game state including perks and continuation flags
     setGameState({

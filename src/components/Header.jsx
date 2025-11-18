@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useWindowDimensions } from '../hooks/useWindowDimensions'
 import LogoDisplay from './LogoDisplay'
 import HeaderAuth from './HeaderAuth'
 
@@ -13,7 +14,7 @@ import HeaderAuth from './HeaderAuth'
  * @param {Function} props.onBackClick - Optional custom back handler
  * @param {React.ReactNode} props.children - Optional additional content
  */
-function Header({
+const Header = memo(function Header({
   title = '',
   showBackButton = false,
   backPath = '/',
@@ -23,22 +24,8 @@ function Header({
   const navigate = useNavigate()
   const { isAdminOrModerator } = useAuth()
   const headerRef = useRef(null)
-  const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  })
+  const dimensions = useWindowDimensions()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
-
-  // Track dimensions for responsive sizing
-  useEffect(() => {
-    const updateDimensions = () => {
-      setDimensions({ width: window.innerWidth, height: window.innerHeight })
-    }
-
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -106,7 +93,7 @@ function Header({
     }
   }
 
-  const styles = getResponsiveStyles()
+  const styles = useMemo(() => getResponsiveStyles(), [dimensions])
 
   const handleBackClick = () => {
     if (onBackClick) {
@@ -237,6 +224,6 @@ function Header({
       {children}
     </div>
   )
-}
+})
 
 export default Header
