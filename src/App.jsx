@@ -1,21 +1,41 @@
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { usePresentationMode } from './hooks/usePresentationMode'
 import { useAuth } from './hooks/useAuth'
+import componentPreloader from './utils/componentPreloader'
 
 import { devLog, devWarn, prodError } from "./utils/devLog"
-// All components loaded immediately for instant navigation - no lazy loading
+// Core game flow components - loaded immediately for instant navigation
 import Index from './pages/Index'
 import CategorySelection from './pages/CategorySelection'
 import GameBoard from './pages/GameBoard'
 import QuestionView from './pages/QuestionView'
 import Results from './pages/Results'
 import AnswerViewPage from './pages/AnswerViewPage'
-import Statistics from './pages/Statistics'
-import ProfilePage from './pages/ProfilePage'
-import MyGames from './pages/MyGames'
-import Admin from './pages/Admin'
-import Loader from './pages/Loader'
+
+// Less frequently used components - lazy loaded with background preloading
+const Statistics = lazy(() => import('./pages/Statistics'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const MyGames = lazy(() => import('./pages/MyGames'))
+const Admin = lazy(() => import('./pages/Admin'))
+const Loader = lazy(() => import('./pages/Loader'))
+
+// Reusable loading fallback component
+const PageLoading = ({ message = "جاري التحميل..." }) => (
+  <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
+    <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+      <h1 className="text-lg font-bold text-red-800">{message}</h1>
+    </div>
+  </div>
+)
+
+// Helper function to wrap components with Suspense
+const withSuspense = (Component, props = {}, loadingMessage) => (
+  <Suspense fallback={<PageLoading message={loadingMessage} />}>
+    <Component {...props} />
+  </Suspense>
+)
 
 // Route tracker component - needs to be inside Router
 function RouteTracker({ gameState, setGameState, stateLoaded }) {
@@ -150,6 +170,35 @@ function App() {
   const { isPresentationMode } = usePresentationMode()
   const { getGameState, saveGameState, migrateFromLocalStorage, isAuthenticated, loading: authLoading } = useAuth()
 
+  // Start background preloading after app loads
+  useEffect(() => {
+    const preloadComponents = [
+      {
+        importFn: () => import('./pages/Statistics'),
+        name: 'Statistics',
+        priority: 'low'
+      },
+      {
+        importFn: () => import('./pages/ProfilePage'),
+        name: 'ProfilePage',
+        priority: 'high' // Users might access profile more often
+      },
+      {
+        importFn: () => import('./pages/MyGames'),
+        name: 'MyGames',
+        priority: 'high' // Core feature for users
+      },
+      {
+        importFn: () => import('./pages/Admin'),
+        name: 'Admin',
+        priority: 'low' // Admin access is rare
+      }
+    ]
+
+    // Start preloading after 2 seconds to not interfere with initial load
+    componentPreloader.startBackgroundPreloading(preloadComponents, 2000)
+  }, [])
+
   // Default game state
   const getDefaultGameState = () => ({
     gameName: 'لعبة الأسئلة',
@@ -174,6 +223,9 @@ function App() {
 
   const [gameState, setGameState] = useState(getDefaultGameState)
   const [stateLoaded, setStateLoaded] = useState(false)
+  const lastSavedStateRef = useRef(null)
+  const saveTimeoutRef = useRef(null)
+  const isSavingRef = useRef(false)
   // Check if migration was already completed (persists across page refreshes)
   const [migrationComplete, setMigrationComplete] = useState(() => {
     return localStorage.getItem('migration_complete') === 'true'
@@ -235,6 +287,7 @@ function App() {
   // Save game state to Firebase whenever it changes (debounced)
   useEffect(() => {
     if (!stateLoaded || !isAuthenticated) return
+    if (isSavingRef.current) return // Skip if already saving
 
     // Don't save to Firebase in preview mode
     const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
@@ -243,7 +296,12 @@ function App() {
       return
     }
 
-    const saveStateDebounced = setTimeout(async () => {
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+
+    saveTimeoutRef.current = setTimeout(async () => {
       try {
         const stateToSave = {
           ...gameState,
@@ -252,13 +310,27 @@ function App() {
           usedPointValues: Array.from(gameState.usedPointValues || [])
         }
 
+        // Only save if state actually changed
+        const stateString = JSON.stringify(stateToSave)
+        if (lastSavedStateRef.current === stateString) {
+          return // No changes, skip save
+        }
+
+        isSavingRef.current = true
         await saveGameState(stateToSave)
+        lastSavedStateRef.current = stateString
+        isSavingRef.current = false
       } catch (error) {
         prodError('❌ Error saving game state:', error)
+        isSavingRef.current = false
       }
-    }, 1000) // Debounce saves by 1 second
+    }, 5000) // Increased to 5 seconds to prevent Firebase rate limiting
 
-    return () => clearTimeout(saveStateDebounced)
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
   }, [gameState, stateLoaded, isAuthenticated])
 
   // Add/remove presentation mode class to body
@@ -274,7 +346,17 @@ function App() {
     }
   }, [isPresentationMode])
 
-  // Removed loading screen - app loads instantly without blocking UI
+  // Show loading screen while auth and state are initializing (only on first load)
+  if (authLoading || !stateLoaded) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
+          <h1 className="text-xl font-bold text-red-800">جاري التحميل...</h1>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -308,23 +390,23 @@ function App() {
             />
             <Route
               path="/statistics"
-              element={<Statistics />}
+              element={withSuspense(Statistics, {}, "جاري تحميل الإحصائيات...")}
             />
             <Route
               path="/admin"
-              element={<Admin />}
+              element={withSuspense(Admin, {}, "جاري تحميل لوحة التحكم...")}
             />
             <Route
               path="/profile"
-              element={<ProfilePage />}
+              element={withSuspense(ProfilePage, {}, "جاري تحميل الملف الشخصي...")}
             />
             <Route
               path="/my-games"
-              element={<MyGames gameState={gameState} setGameState={setGameState} />}
+              element={withSuspense(MyGames, { gameState, setGameState }, "جاري تحميل ألعابي...")}
             />
             <Route
               path="/loader/:inviteCode"
-              element={<Loader />}
+              element={withSuspense(Loader, {}, "جاري التحقق من الدعوة...")}
             />
           </Routes>
         </div>
