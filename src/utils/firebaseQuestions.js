@@ -2,6 +2,7 @@ import { devLog, devWarn, prodError } from "./devLog.js"
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   addDoc,
   setDoc,
@@ -74,6 +75,30 @@ export class FirebaseQuestionsService {
       return questions
     } catch (error) {
       prodError('Error getting questions by category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get a single question by ID
+   * @param {string} questionId - The question ID
+   * @returns {Promise<Object|null>} Question data or null if not found
+   */
+  static async getQuestionById(questionId) {
+    try {
+      const questionRef = doc(db, this.COLLECTIONS.QUESTIONS, questionId)
+      const questionDoc = await getDoc(questionRef)
+
+      if (questionDoc.exists()) {
+        return {
+          id: questionDoc.id,
+          ...questionDoc.data()
+        }
+      }
+
+      return null
+    } catch (error) {
+      prodError('Error getting question by ID:', error)
       throw error
     }
   }

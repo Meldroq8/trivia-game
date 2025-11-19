@@ -451,9 +451,33 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     }
   }, [isAuthenticated, loading])
 
-  // Check for preview mode from location.state, localStorage, or sessionStorage
+  // Check for preview mode from URL query, location.state, localStorage, or sessionStorage
   const [previewData, setPreviewData] = useState(() => {
-    // Try location.state first
+    // Check URL query parameter first (from user messages preview)
+    const urlParams = new URLSearchParams(location.search)
+    const previewQuestionId = urlParams.get('preview')
+    if (previewQuestionId) {
+      devLog('🔗 Preview mode detected from URL parameter:', previewQuestionId)
+      // Mark as preview mode, question will be loaded from Firebase in useEffect
+      return {
+        previewMode: true,
+        previewQuestionId: previewQuestionId,
+        previewQuestion: null, // Will be loaded from Firebase
+        previewGameData: {
+          team1: { name: 'الفريق 1', score: 0 },
+          team2: { name: 'الفريق 2', score: 0 },
+          currentTeam: 'team1',
+          currentTurn: 'team1',
+          gameName: 'معاينة السؤال',
+          selectedCategories: [],
+          usedQuestions: new Set(),
+          usedPointValues: new Set(),
+          gameStarted: true
+        }
+      }
+    }
+
+    // Try location.state
     if (location.state?.previewMode) {
       devLog('📍 Loading preview from location.state')
       return {
@@ -524,7 +548,32 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     return { previewMode: false, previewQuestion: null, previewGameData: null }
   })
 
-  const { previewMode, previewQuestion, previewGameData } = previewData
+  const { previewMode, previewQuestion, previewGameData, previewQuestionId } = previewData
+
+  // Load question from Firebase if preview mode with questionId (from URL parameter)
+  useEffect(() => {
+    if (previewMode && previewQuestionId && !previewQuestion) {
+      const loadPreviewQuestion = async () => {
+        try {
+          devLog('📥 Loading preview question from Firebase:', previewQuestionId)
+          const question = await FirebaseQuestionsService.getQuestionById(previewQuestionId)
+
+          if (question) {
+            devLog('✅ Preview question loaded:', question.text?.substring(0, 50))
+            setPreviewData(prev => ({
+              ...prev,
+              previewQuestion: question
+            }))
+          } else {
+            prodError('❌ Preview question not found:', previewQuestionId)
+          }
+        } catch (error) {
+          prodError('Error loading preview question:', error)
+        }
+      }
+      loadPreviewQuestion()
+    }
+  }, [previewMode, previewQuestionId, previewQuestion])
 
   // Debug preview data
   useEffect(() => {
@@ -533,11 +582,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         previewMode,
         previewQuestion,
         previewGameData,
+        previewQuestionId,
         hasText: !!previewQuestion?.text,
         questionKeys: previewQuestion ? Object.keys(previewQuestion) : []
       })
     }
-  }, [previewMode, previewQuestion, previewGameData])
+  }, [previewMode, previewQuestion, previewGameData, previewQuestionId])
 
   // Use preview question if in preview mode, otherwise use gameState question
   const currentQuestion = previewMode ? previewQuestion : gameState.currentQuestion
