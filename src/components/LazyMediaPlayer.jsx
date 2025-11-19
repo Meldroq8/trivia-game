@@ -1,7 +1,6 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState } from 'react'
-import AudioPlayer from './AudioPlayer'
-import QuestionMediaPlayer from './QuestionMediaPlayer'
+import MediaPlayer from './MediaPlayer'
 
 function LazyMediaPlayer({ src, type = 'audio', className = '', ...props }) {
   const [isLoaded, setIsLoaded] = useState(false)
@@ -26,19 +25,9 @@ function LazyMediaPlayer({ src, type = 'audio', className = '', ...props }) {
     )
   }
 
-  // Once clicked, load the same players used in QuestionView
-  if (type === 'audio') {
-    return (
-      <AudioPlayer
-        src={src}
-        className={className}
-        {...props}
-      />
-    )
-  }
-
+  // Once clicked, load the MediaPlayer which handles both audio and video
   return (
-    <QuestionMediaPlayer
+    <MediaPlayer
       src={src}
       type={type}
       className={className}

@@ -4008,10 +4008,14 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           {/* Question Audio Display */}
                           {question.audioUrl && (
                             <div className="mb-3">
-                              <label className="block text-xs font-bold mb-1 text-gray-900">صوت السؤال:</label>
+                              <label className="block text-xs font-bold mb-1 text-gray-900">
+                                {question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov')
+                                  ? 'فيديو السؤال:'
+                                  : 'صوت السؤال:'}
+                              </label>
                               <LazyMediaPlayer
                                 src={question.audioUrl}
-                                type="audio"
+                                type={question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov') ? 'video' : 'audio'}
                                 className="w-full max-w-xs"
                               />
                             </div>
@@ -5847,11 +5851,15 @@ function PendingQuestionsManager() {
                     )}
                     {question.audioUrl && (
                       <div>
-                        <strong className="text-gray-900">صوت السؤال:</strong>
+                        <strong className="text-gray-900">
+                          {question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov')
+                            ? 'فيديو السؤال:'
+                            : 'صوت السؤال:'}
+                        </strong>
                         <div className="mt-2 w-48">
                           <LazyMediaPlayer
                             src={question.audioUrl}
-                            type="audio"
+                            type={question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov') ? 'video' : 'audio'}
                             className="w-full"
                           />
                         </div>
