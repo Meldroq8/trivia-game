@@ -143,8 +143,16 @@ const uploadMediaFile = async (file, folder) => {
       return await S3UploadService.uploadMedia(processedFile, folder)
     }
 
-    // Upload audio/video (compression handled automatically by S3UploadService)
-    return await S3UploadService.uploadMedia(file, folder)
+    // Upload audio/video with unique filename (compression handled automatically by S3UploadService)
+    const extension = file.name.split('.').pop()
+    const baseName = file.name.split('.')[0]
+    const uniqueFileName = `${baseName}_${Date.now()}.${extension}`
+    const renamedFile = new File([file], uniqueFileName, {
+      type: file.type,
+      lastModified: Date.now(),
+    })
+
+    return await S3UploadService.uploadMedia(renamedFile, folder)
   } catch (error) {
     prodError(`Error uploading ${file.name}:`, error)
     throw error
