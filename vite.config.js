@@ -47,10 +47,6 @@ export default defineConfig({
             'firebase/firestore',
             'firebase/storage'
           ],
-          // AWS SDK for S3 uploads (large dependency, lazy-loaded with admin)
-          'aws-sdk': ['@aws-sdk/client-s3'],
-          // Admin utilities (only used in admin, lazy-loaded)
-          'admin-utils': ['xlsx', 'jszip'],
           // Admin page (large, rarely accessed by regular users)
           'admin': ['./src/pages/Admin.jsx'],
           // AI services (only used in admin)

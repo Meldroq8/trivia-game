@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
+import { useDarkMode } from '../hooks/useDarkMode'
 import AudioPlayer from '../components/AudioPlayer'
 import QuestionMediaPlayer from '../components/QuestionMediaPlayer'
 import { GameDataLoader } from '../utils/gameDataLoader'
@@ -20,6 +21,7 @@ import { db } from '../firebase/config'
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
 
 
   // Responsive scaling system - viewport-aware scaling to prevent scrolling
@@ -382,11 +384,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
   const [activeTimer, setActiveTimer] = useState({ active: false, type: null, team: null, timeLeft: 0, paused: false })
   const [burgerMenuOpen, setBurgerMenuOpen] = useState(false)
-  const { isAuthenticated, loading, user } = useAuth()
+  const { isAuthenticated, loading, user, saveGameState } = useAuth()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [headerHeight, setHeaderHeight] = useState(0)
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - سؤال'
+  }, [])
 
   // Report modal state
   const [showReportModal, setShowReportModal] = useState(false)
@@ -999,6 +1006,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         }
       }
 
+      // CRITICAL: Save to Firebase immediately after score update
+      const stateToSave = {
+        ...stateUpdate,
+        usedQuestions: Array.from(stateUpdate.usedQuestions || []),
+        usedPointValues: Array.from(stateUpdate.usedPointValues || [])
+      }
+
+      if (isAuthenticated && saveGameState) {
+        saveGameState(stateToSave).then(() => {
+          devLog('💾 State saved to Firebase immediately after scoring')
+        }).catch(err => {
+          prodError('❌ Error saving state after scoring:', err)
+        })
+      }
+
       return stateUpdate
     })
 
@@ -1073,18 +1095,37 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     })
 
     // Clear all perks after question ends
-    setGameState(prev => ({
-      ...prev,
-      activatedPerks: {
-        ...prev.activatedPerks,
-        doublePoints: { active: false, team: null },
-        riskPoints: { active: false, team: null },
-        twoAnswers: { active: false, team: null },
-        prison: { active: false, team: null, targetTeam: null }
-      },
-      // Clear perk lock for next question
-      currentQuestionPerkLock: null
-    }))
+    setGameState(prev => {
+      const finalState = {
+        ...prev,
+        activatedPerks: {
+          ...prev.activatedPerks,
+          doublePoints: { active: false, team: null },
+          riskPoints: { active: false, team: null },
+          twoAnswers: { active: false, team: null },
+          prison: { active: false, team: null, targetTeam: null }
+        },
+        // Clear perk lock for next question
+        currentQuestionPerkLock: null
+      }
+
+      // CRITICAL: Save to Firebase immediately after no-answer update
+      const stateToSave = {
+        ...finalState,
+        usedQuestions: Array.from(finalState.usedQuestions || []),
+        usedPointValues: Array.from(finalState.usedPointValues || [])
+      }
+
+      if (isAuthenticated && saveGameState) {
+        saveGameState(stateToSave).then(() => {
+          devLog('💾 State saved to Firebase immediately after no-answer')
+        }).catch(err => {
+          prodError('❌ Error saving state after no-answer:', err)
+        })
+      }
+
+      return finalState
+    })
 
     // Clear stored question when completing
     localStorage.removeItem('current_question')
@@ -1372,7 +1413,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   // Get responsive styles - use the memoized version from line 200
 
   return (
-    <div ref={containerRef} className="bg-[#f5f5dc] flex flex-col" style={{
+    <div ref={containerRef} className="bg-[#f5f5dc] dark:bg-slate-900 flex flex-col" style={{
       height: '100vh',
       overflow: 'hidden'
     }} onClick={handleBackdropClick}>
@@ -1480,6 +1521,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           <div className="relative">
             {/* Landscape Mode - Show all buttons */}
             <div className="hidden landscape:flex" style={{ gap: `${styles.baseGap}px` }}>
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-red-200 transition-colors p-2"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
               <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
               <button
                 onClick={() => navigate('/game')}
@@ -1504,7 +1552,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Portrait Mode - Burger Menu */}
-            <div className="landscape:hidden burger-menu-container">
+            <div className="landscape:hidden burger-menu-container flex items-center gap-2">
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-red-200 transition-colors p-2"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
               <button
                 onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
                 className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
@@ -1563,7 +1618,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
       {/* Preview Mode Banner */}
       {previewMode && (
-        <div className="bg-yellow-500 text-black py-3 px-4 flex items-center justify-between shadow-md z-[9997]">
+        <div className="bg-yellow-500 dark:bg-yellow-600 text-black dark:text-gray-900 py-3 px-4 flex items-center justify-between shadow-md z-[9997]">
           <div className="flex items-center gap-3">
             <span className="text-2xl">👁️</span>
             <div>
@@ -1573,7 +1628,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           </div>
           <button
             onClick={() => navigate('/admin')}
-            className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg font-bold transition-colors"
+            className="bg-black hover:bg-gray-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-colors"
           >
             ← العودة للإدارة
           </button>
@@ -1607,10 +1662,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     {gameState.team1?.name || 'الفريق 1'}
                   </span>
                 </div>
-                <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
+                <div className={`text-60 game-text font-bold text-black dark:text-gray-100 ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
                   {gameState.team1?.score || 0}
                 </div>
-                <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
+                <div className={`text-[#231E1E] dark:text-gray-200 xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
                      style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
                   وسائل المساعدة
                 </div>
@@ -1629,10 +1684,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         key={perkId}
                         className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
                           isGameBoardOnly || isUsed || isLockedByOpponent
-                            ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                            ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                             : !canActivate
-                            ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                            : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                            ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                            : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                         }`}
                         disabled={isGameBoardOnly || isUsed || isLockedByOpponent || !canActivate}
                         onClick={() => !isGameBoardOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team1')}
@@ -1662,10 +1717,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     {gameState.team2?.name || 'الفريق 2'}
                   </span>
                 </div>
-                <div className={`text-60 game-text font-bold text-black ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
+                <div className={`text-60 game-text font-bold text-black dark:text-gray-100 ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
                   {gameState.team2?.score || 0}
                 </div>
-                <div className={`text-[#231E1E] xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
+                <div className={`text-[#231E1E] dark:text-gray-200 xl:text-2xl sm:text-xl text-xs sm:text-sm ${styles.perkTitleSpacing} font-bold whitespace-nowrap`}
                      style={{ fontSize: `${styles.teamHelpFontSize}px` }}>
                   وسائل المساعدة
                 </div>
@@ -1684,10 +1739,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         key={perkId}
                         className={`icon-nav-link border-2 rounded-full ${styles.perkButtonPadding} flex items-center justify-center ${
                           isGameBoardOnly || isUsed || isLockedByOpponent
-                            ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                            ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                             : !canActivate
-                            ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                            : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                            ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                            : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                         }`}
                         disabled={isGameBoardOnly || isUsed || isLockedByOpponent || !canActivate}
                         onClick={() => !isGameBoardOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team2')}
@@ -1703,13 +1758,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           </div>
 
           {/* Main Question Area - xl:col-span-9 */}
-          <div className="xl:col-span-9 xl:order-2 landscape:flex-1 max-xl:row-start-1 h-full relative gamemain_section max-xl:mb-7 landscape:mb-0 barcode-box barcode-more"
-               style={{ backgroundColor: '#f7f2e6' }}>
-            <div className="h-full game-mainSec px-3.5 landscape:px-6 xs:px-6 2xl:rounded-[78px] xl:rounded-[54px] rounded-3xl pt-2 game-section_wrapper flex justify-center hint-question-wrapper"
+          <div className="xl:col-span-9 xl:order-2 landscape:flex-1 max-xl:row-start-1 h-full relative gamemain_section max-xl:mb-7 landscape:mb-0 barcode-box barcode-more bg-[#f5f5dc] dark:bg-slate-900"
+               style={{ backgroundColor: isDarkMode ? 'rgb(15 23 42)' : '#f5f5dc' }}>
+            <div className="h-full game-mainSec px-3.5 landscape:px-6 xs:px-6 2xl:rounded-[78px] xl:rounded-[54px] rounded-3xl pt-2 game-section_wrapper flex justify-center hint-question-wrapper bg-[#f7f2e6] dark:bg-slate-800"
                  style={{
                    paddingBottom: `${styles.bottomPadding}px`,
-                   backgroundColor: '#f7f2e6',
-                   background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                   backgroundColor: isDarkMode ? 'rgb(30 41 59)' : '#f7f2e6',
+                   background: isDarkMode
+                     ? 'linear-gradient(rgb(30 41 59), rgb(30 41 59)) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box'
+                     : 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
                    border: '5px solid transparent'
                  }}>
 
@@ -1767,7 +1824,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               {/* Two Answers Perk Visual - Bottom Right */}
               {gameState.activatedPerks?.twoAnswers?.active && !activeTimer.active && (
                 <div className="absolute bottom-16 right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
                     <svg viewBox="0 0 72 72" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
                       <path fill="none" stroke="#dc2626" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m52.62 31.13 1.8-22.18c-0.3427-4.964-6.779-5.02-7.227-0.026l-2.42 17.36c-0.3 2.179-1.278 3.962-2.166 3.962s-1.845-1.785-2.126-3.967l-2.231-17.34c-0.8196-5.278-7.439-4.322-7.037 0.0011l2.527 21.03"/>
                       <path fill="none" stroke="#dc2626" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m53.63 50.08c0 9.872-8.02 16.88-17.89 16.88"/>
@@ -1784,7 +1841,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               {/* Prison Perk Visual - Bottom Left */}
               {gameState.activatedPerks?.prison?.active && (
                 <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
                     <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
                       <path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z" fill="#dc2626" stroke="none"/>
                     </svg>
@@ -2015,7 +2072,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   // Show normal question content
                   return (
                     <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
-                    <label className="flex justify-center items-center w-full question-content text-center pb-2 sm:pb-3 font-extrabold text-black"
+                    <label className="flex justify-center items-center w-full question-content text-center pb-2 sm:pb-3 font-extrabold text-black dark:text-gray-100"
                            style={{
                              direction: 'rtl',
                              fontSize: `${styles.questionFontSize}px`,
@@ -2029,8 +2086,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       <div className="flex justify-center items-center w-full pb-4 landscape:pb-2">
                         <div className="relative inline-flex items-center gap-1.5 sm:gap-2 md:gap-3
                                         bg-gradient-to-br from-amber-50 to-amber-100/80
+                                        dark:from-amber-900/30 dark:to-amber-800/40
                                         border-2 border-amber-400/60
+                                        dark:border-amber-600/60
                                         shadow-lg shadow-amber-200/50
+                                        dark:shadow-amber-900/50
                                         rounded-2xl
                                         px-1.5 py-0.5 sm:px-2 sm:py-1
                                         portrait:px-2 portrait:py-0.5
@@ -2040,7 +2100,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           {/* Right Arrow - Points RIGHT outward (visually on right in RTL) */}
                           <svg
                             className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6
-                                       text-amber-600 animate-pulse-subtle flex-shrink-0"
+                                       text-amber-600 dark:text-amber-400 animate-pulse-subtle flex-shrink-0"
                             viewBox="0 0 24 24"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
@@ -2057,7 +2117,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                           {/* Tolerance Value */}
                           <div className="flex items-center gap-0.5 sm:gap-1">
-                            <span className="font-black text-amber-700
+                            <span className="font-black text-amber-700 dark:text-amber-300
                                            text-sm sm:text-lg
                                            portrait:text-base
                                            md:text-xl
@@ -2071,7 +2131,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           {/* Left Arrow - Points LEFT outward (visually on left in RTL) */}
                           <svg
                             className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6
-                                       text-amber-600 animate-pulse-subtle flex-shrink-0"
+                                       text-amber-600 dark:text-amber-400 animate-pulse-subtle flex-shrink-0"
                             viewBox="0 0 24 24"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
@@ -2171,7 +2231,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 lg:scale-150">
                           {/* QR Code */}
                           <div
-                            className="bg-white rounded-lg shadow-xl flex-shrink-0 portrait:scale-90"
+                            className="bg-white dark:bg-slate-800 rounded-lg shadow-xl flex-shrink-0 portrait:scale-90"
                             style={{
                               padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
                             }}
@@ -2196,7 +2256,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               }}
                             >
                               <div
-                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
                                 style={{
                                   width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
                                   height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
@@ -2228,7 +2288,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               }}
                             >
                               <div
-                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
                                 style={{
                                   width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
                                   height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
@@ -2260,7 +2320,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               }}
                             >
                               <div
-                                className="bg-[#f7f2e6] rounded-full flex items-center justify-center flex-shrink-0"
+                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
                                 style={{
                                   width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
                                   height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
@@ -2433,9 +2493,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
               {/* Answer Section - Show answer text and question image */}
               {showAnswer && !showScoring && (
-                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0"
+                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0 bg-[#f7f2e6] dark:bg-slate-800"
                      style={{
-                       background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                       background: isDarkMode
+                         ? 'linear-gradient(rgb(30 41 59), rgb(30 41 59)) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box'
+                         : 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
                        border: '5px solid transparent',
                        borderRadius: 'inherit'
                      }}>
@@ -2470,7 +2532,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   {/* Answer Content - Same as question content */}
                   <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
-                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black font-arabic"
+                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
                            style={{
                              direction: 'rtl',
                              fontSize: `${styles.questionFontSize}px`
@@ -2597,9 +2659,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
               {/* Scoring Section - Clean scoring area with team buttons only */}
               {showScoring && (
-                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0"
+                <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0 bg-[#f7f2e6] dark:bg-slate-800"
                      style={{
-                       background: 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
+                       background: isDarkMode
+                         ? 'linear-gradient(rgb(30 41 59), rgb(30 41 59)) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box'
+                         : 'linear-gradient(#f7f2e6, #f7f2e6) padding-box, linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626) border-box',
                        border: '5px solid transparent',
                        borderRadius: 'inherit'
                      }}>
@@ -2608,7 +2672,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   <div className="flex flex-col gap-4 justify-center items-center w-full h-full">
                     {/* Title Text */}
                     <div className="text-center mb-4">
-                      <h2 className="text-black font-bold font-arabic"
+                      <h2 className="text-black dark:text-gray-100 font-bold font-arabic"
                           style={{ fontSize: `${styles.questionFontSize}px` }}>
                         منو جاوب صح؟
                       </h2>
@@ -2665,7 +2729,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           fontSize: `${styles.buttonFontSize}px`
                         }}
                       >
-                        محد
+                        محد جاوب
                       </button>
                     </div>
                   </div>
@@ -2829,7 +2893,7 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
+        className="bg-white dark:bg-slate-800 rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -2850,27 +2914,27 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
         <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
           <div className="space-y-4">
             {/* Question Info */}
-            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 space-y-2">
+            <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-3 sm:p-4 space-y-2">
               <div>
-                <p className="text-xs sm:text-sm text-gray-500 mb-1">السؤال:</p>
-                <p className="text-sm sm:text-base font-bold text-gray-800" dir="rtl">
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">السؤال:</p>
+                <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-100" dir="rtl">
                   {question?.text || question?.question?.text || 'غير محدد'}
                 </p>
               </div>
               <div>
-                <p className="text-xs sm:text-sm text-gray-500 mb-1">الفئة:</p>
-                <p className="text-sm sm:text-base font-bold text-amber-600" dir="rtl">{category}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">الفئة:</p>
+                <p className="text-sm sm:text-base font-bold text-amber-600 dark:text-amber-400" dir="rtl">{category}</p>
               </div>
             </div>
 
             {/* Report Types */}
             <div>
-              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900" dir="rtl">سبب الإبلاغ</p>
+              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900 dark:text-gray-100" dir="rtl">سبب الإبلاغ</p>
               <div className="space-y-2">
                 {reportOptions.map(option => (
                   <label
                     key={option.id}
-                    className="flex items-center gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+                    className="flex items-center gap-3 p-2 sm:p-3 bg-gray-50 dark:bg-slate-700 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -2878,7 +2942,7 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
                       onChange={() => handleCheckboxChange(option.id)}
                       className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 rounded focus:ring-red-500"
                     />
-                    <span className="text-sm sm:text-base font-medium text-gray-700" dir="rtl">
+                    <span className="text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300" dir="rtl">
                       {option.label}
                     </span>
                   </label>
@@ -2888,12 +2952,12 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
 
             {/* Custom Message */}
             <div>
-              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900" dir="rtl">رسالة إضافية (اختياري)</p>
+              <p className="font-bold text-sm sm:text-base mb-2 text-gray-900 dark:text-gray-100" dir="rtl">رسالة إضافية (اختياري)</p>
               <textarea
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="اكتب أي تفاصيل إضافية..."
-                className="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm sm:text-base resize-none text-gray-900"
+                className="w-full p-3 border-2 border-gray-300 dark:border-slate-600 dark:bg-slate-700 rounded-lg focus:border-red-500 focus:outline-none text-sm sm:text-base resize-none text-gray-900 dark:text-gray-100"
                 rows="4"
                 dir="rtl"
               />
@@ -2902,7 +2966,7 @@ function ReportModal({ isOpen, onClose, question, category, user, onSuccess }) {
         </div>
 
         {/* Footer */}
-        <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200 flex gap-3 justify-center">
+        <div className="p-4 sm:p-6 bg-gray-50 dark:bg-slate-700 border-t border-gray-200 dark:border-slate-600 flex gap-3 justify-center">
           <button
             onClick={onClose}
             disabled={submitting}

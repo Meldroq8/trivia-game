@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
+import { useDarkMode } from '../hooks/useDarkMode'
 import AudioPlayer from '../components/AudioPlayer'
 import PerkModal from '../components/PerkModal'
 import SmartImage from '../components/SmartImage'
@@ -15,11 +16,13 @@ import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils
 import gamePreloader from '../utils/preloader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 import { debounce } from '../utils/debounce'
+import ConfirmExitModal from '../components/ConfirmExitModal'
 
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const footerRef = useRef(null)
@@ -30,6 +33,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const [loadingError, setLoadingError] = useState(null)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [loadedImages, setLoadedImages] = useState(new Set())
+
+  // Confirmation modal state
+  const [showExitModal, setShowExitModal] = useState(false)
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - لعبة جارية'
+  }, [])
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -1062,8 +1073,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     setActivePerk({ type: null, team: null })
   }
 
-  // Memoize responsive styles for performance - depends on dimensions and header/footer heights
-  const responsiveStyles = useMemo(() => {
+  // Mobile-first responsive system - start with square proportions and scale up
+  const getResponsiveStyles = () => {
     const W = window.innerWidth // Use window width directly for better device detection
     const H = window.innerHeight
 
@@ -1559,27 +1570,26 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       padding: padding,
       isPhonePortrait: isPhonePortrait // Keep for portrait-specific styling adjustments
     }
-  }, [dimensions.width, dimensions.height, headerHeight, footerHeight])
-
-  // Wait for state to load before checking categories
-  // This prevents false "no categories" state during Firebase loading
-  if (!stateLoaded) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800">جاري تحميل حالة اللعبة...</h1>
-        </div>
-      </div>
-    )
   }
 
+  const styles = getResponsiveStyles()
+
+  // OPTIMIZATION: State loads instantly from cache - no need to block rendering
+
   if (!gameState.selectedCategories.length) {
+    // If state is loaded but still no categories, redirect instead of infinite loading
+    if (stateLoaded && !hasGameStarted(gameState)) {
+      devLog('⚠️ GameBoard: State loaded but no categories - redirecting to categories page')
+      navigate('/categories')
+      return null
+    }
+
+    // Otherwise show loading screen while state is being restored
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800">جاري تحميل لوحة اللعبة...</h1>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري تحميل لوحة اللعبة...</h1>
         </div>
       </div>
     )
@@ -1590,11 +1600,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   // Show error state
   if (loadingError) {
     return (
-      <div className="h-screen bg-[#f7f2e6] flex flex-col items-center justify-center p-4">
+      <div className="h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="text-red-600 text-6xl mb-4">🎮</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">خطأ في تحميل اللعبة</h2>
-          <p className="text-gray-600 mb-4">{loadingError}</p>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">خطأ في تحميل اللعبة</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{loadingError}</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => window.location.reload()}
@@ -1619,17 +1629,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const showSkeleton = !initialLoadComplete && !gameData && (!stateLoaded || (authLoading && !user && !gameState.selectedCategories.length))
 
   return (
-    <div className="h-screen w-full bg-[#f7f2e6] flex flex-col overflow-hidden" ref={containerRef}>
+    <div className="h-screen w-full bg-[#f7f2e6] dark:bg-slate-900 flex flex-col overflow-hidden" ref={containerRef}>
       {/* Red Header Bar */}
       <div
         ref={headerRef}
         className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-visible relative shadow-lg"
         style={{
-          padding: `${responsiveStyles.headerPadding}px`,
-          height: `${responsiveStyles.headerHeight}px`
+          padding: `${styles.headerPadding}px`,
+          height: `${styles.headerHeight}px`
         }}
       >
-        {responsiveStyles.isPhonePortrait ? (
+        {styles.isPhonePortrait ? (
           /* Portrait Mode: Header with team turn and hamburger menu */
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center gap-2">
@@ -1652,7 +1662,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </h1>
             </div>
 
-            <div className="flex items-center portrait-menu relative">
+            <div className="flex items-center gap-2 portrait-menu relative">
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-red-200 transition-colors p-2"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
               <button
                 onClick={() => setPortraitMenuOpen(!portraitMenuOpen)}
                 className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-lg sm:text-xl"
@@ -1696,6 +1713,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             <div className="flex gap-3">
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-red-200 transition-colors p-2"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
               <PresentationModeToggle className="text-sm md:text-base" />
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -1704,7 +1728,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 الرجوع للوحة
               </button>
               <button
-                onClick={() => navigate('/results')}
+                onClick={() => setShowExitModal(true)}
                 className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors text-sm md:text-base"
               >
                 انهاء
@@ -1717,17 +1741,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
       {/* Game Board - Perfect Scaled Layout */}
       <div
-        className="flex-1 bg-[#f7f2e6] flex flex-col items-center justify-center"
+        className="flex-1 bg-[#f7f2e6] dark:bg-slate-900 flex flex-col items-center justify-center"
         style={{
           width: '100%',
           minHeight: '0',
-          padding: `${responsiveStyles.padding}px`
+          padding: `${styles.padding}px`
         }}
       >
         <div
-          className={`grid ${responsiveStyles.isPhonePortrait ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2'} w-full h-full`}
+          className={`grid ${styles.isPhonePortrait ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2'} w-full h-full`}
           style={{
-            gap: `${responsiveStyles.rowGap}px ${responsiveStyles.colGap}px`,
+            gap: `${styles.rowGap}px ${styles.colGap}px`,
             maxWidth: '100vw',
             maxHeight: '100vh'
           }}
@@ -1742,21 +1766,21 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   key={`skeleton-${categoryIndex}`}
                   className="relative flex items-center justify-center animate-pulse max-sm:max-w-80 max-md:max-w-[420px] lg:max-w-[500px] xl:max-w-[550px] 4xl:max-w-[600px] mx-auto"
                   style={{
-                    width: `${responsiveStyles.categoryGroupWidth}px`,
-                    height: `${responsiveStyles.categoryGroupHeight}px`,
-                    maxHeight: `${responsiveStyles.categoryGroupHeight}px`
+                    width: `${styles.categoryGroupWidth}px`,
+                    height: `${styles.categoryGroupHeight}px`,
+                    maxHeight: `${styles.categoryGroupHeight}px`
                   }}
                 >
                   {/* Skeleton buttons */}
-                  <div className="absolute inset-0 flex flex-col justify-center items-center" style={{ gap: `${responsiveStyles.innerRowGap}px`, zIndex: 30 }}>
+                  <div className="absolute inset-0 flex flex-col justify-center items-center" style={{ gap: `${styles.innerRowGap}px`, zIndex: 30 }}>
                     {[1, 2, 3].map((i) => (
                       <div
                         key={i}
-                        className="bg-gray-200 rounded"
+                        className="bg-gray-200 dark:bg-slate-700 rounded"
                         style={{
-                          width: `${responsiveStyles.cardWidth + (responsiveStyles.buttonWidth * 1.6)}px`,
-                          height: `${responsiveStyles.buttonHeight}px`,
-                          borderRadius: `${responsiveStyles.buttonBorderRadius}px`
+                          width: `${styles.cardWidth + (styles.buttonWidth * 1.6)}px`,
+                          height: `${styles.buttonHeight}px`,
+                          borderRadius: `${styles.buttonBorderRadius}px`
                         }}
                       />
                     ))}
@@ -1764,10 +1788,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   {/* Skeleton card */}
                   <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 50 }}>
                     <div
-                      className="bg-gray-100 border-2 border-gray-200 rounded shadow-lg"
+                      className="bg-gray-100 dark:bg-slate-700 border-2 border-gray-200 dark:border-slate-600 rounded shadow-lg"
                       style={{
-                        width: `${responsiveStyles.cardWidth}px`,
-                        height: `${responsiveStyles.cardHeight}px`
+                        width: `${styles.cardWidth}px`,
+                        height: `${styles.cardHeight}px`
                       }}
                     />
                   </div>
@@ -1784,8 +1808,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 style={{
                   width: '100%',
                   height: '100%',
-                  maxWidth: `${responsiveStyles.categoryGroupWidth}px`,
-                  maxHeight: `${responsiveStyles.categoryGroupHeight}px`,
+                  maxWidth: `${styles.categoryGroupWidth}px`,
+                  maxHeight: `${styles.categoryGroupHeight}px`,
                   padding: '0',
                   margin: '0 auto',
                   overflow: 'hidden',
@@ -1802,7 +1826,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 200, 0)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 0)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1813,7 +1837,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 400, 0)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 0)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1824,7 +1848,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 600, 0)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 0)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1868,7 +1892,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 200, 1)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 1)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1879,7 +1903,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 400, 1)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 1)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1890,7 +1914,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       disabled={isPointValueUsed(categoryId, 600, 1)}
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 1)
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                          ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
                           : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
                       }`}
                     >
@@ -1907,8 +1931,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       </div>
 
       {/* Footer Score Controls */}
-      <div ref={footerRef} className="bg-gradient-to-b from-amber-100 to-[#f7f2e6] border-t-2 border-red-200 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6 shadow-lg">
-        {responsiveStyles.isPhonePortrait ? (
+      <div ref={footerRef} className="bg-gradient-to-b from-amber-100 to-[#f7f2e6] dark:from-slate-800 dark:to-slate-900 border-t-2 border-red-200 dark:border-slate-700 flex-shrink-0 px-1 sm:px-2 md:px-4 lg:px-6 xl:px-12 4xl:px-20 py-1 sm:py-2 lg:py-3 xl:py-4 4xl:py-6 shadow-lg">
+        {styles.isPhonePortrait ? (
           <div className="flex flex-col gap-2 w-full">
             {/* First Row: Team Names */}
             <div className="flex items-center w-full justify-between mb-2">
@@ -1944,7 +1968,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               {/* Team 1 Controls */}
               <div className="flex items-center" style={{ gap: '4px' }}>
                 {/* Score with integrated +/- buttons */}
-                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
+                <div className="footer-element-portrait bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -1995,10 +2019,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       key={`team1-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
-                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
-                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
                       onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team1')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
@@ -2025,10 +2049,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       key={`team2-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
-                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
-                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
                       onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team2')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
@@ -2039,7 +2063,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                 })}
 
                 {/* Score with integrated +/- buttons */}
-                <div className="footer-element-portrait bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
+                <div className="footer-element-portrait bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2136,7 +2160,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               {/* Team 1 Controls (Left) */}
               <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
                 {/* Score with integrated +/- buttons */}
-                <div className="footer-element-landscape bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
+                <div className="footer-element-landscape bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
                   <button
                     onClick={() => setGameState(prev => ({
                       ...prev,
@@ -2187,10 +2211,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       key={`team1-pc-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
-                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
-                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
                       onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team1')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
@@ -2219,10 +2243,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       key={`team2-pc-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
-                          ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
-                          ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                          : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                          ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                          : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
                       onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team2')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
@@ -2234,7 +2258,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </div>
 
               {/* Score with integrated +/- buttons */}
-              <div className="footer-element-landscape bg-white border-2 border-gray-300 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
+              <div className="footer-element-landscape bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
                 <button
                   onClick={() => setGameState(prev => ({
                     ...prev,
@@ -2289,11 +2313,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       />
 
       {/* Portrait Menu Dropdown - Rendered at root level to avoid z-index issues */}
-      {responsiveStyles.isPhonePortrait && portraitMenuOpen && (
+      {styles.isPhonePortrait && portraitMenuOpen && (
         <div
           className="fixed bg-red-700 shadow-xl rounded-br-lg border-t border-red-500 portrait-menu"
           style={{
-            top: `${Math.max(56, responsiveStyles.headerFontSize * 3)}px`,
+            top: `${Math.max(56, styles.headerFontSize * 3)}px`,
             left: '12px',
             zIndex: 99999,
             width: 'auto',
@@ -2334,7 +2358,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
             <button
               onClick={() => {
-                navigate('/results')
+                setShowExitModal(true)
                 setPortraitMenuOpen(false)
               }}
               className="px-4 py-2 text-right hover:bg-red-800 transition-colors text-sm"
@@ -2344,6 +2368,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           </div>
         </div>
       )}
+
+      {/* Exit Confirmation Modal */}
+      <ConfirmExitModal
+        isOpen={showExitModal}
+        onConfirm={() => {
+          setShowExitModal(false)
+          navigate('/results')
+        }}
+        onCancel={() => setShowExitModal(false)}
+        title="إنهاء اللعبة"
+        message="هل أنت متأكد من إنهاء اللعبة والذهاب إلى النتائج؟"
+      />
     </div>
   )
 }

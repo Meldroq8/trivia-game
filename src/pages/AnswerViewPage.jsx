@@ -96,7 +96,6 @@ function AnswerViewPage() {
                   alt="Answer"
                   size="large"
                   context="answer"
-                  fetchPriority="high"
                   className="max-w-full rounded-xl shadow-2xl"
                 />
               </div>

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, memo, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { useWindowDimensions } from '../hooks/useWindowDimensions'
+import { useDarkMode } from '../hooks/useDarkMode'
 import LogoDisplay from './LogoDisplay'
 import HeaderAuth from './HeaderAuth'
 
@@ -14,7 +14,7 @@ import HeaderAuth from './HeaderAuth'
  * @param {Function} props.onBackClick - Optional custom back handler
  * @param {React.ReactNode} props.children - Optional additional content
  */
-const Header = memo(function Header({
+function Header({
   title = '',
   showBackButton = false,
   backPath = '/',
@@ -22,10 +22,26 @@ const Header = memo(function Header({
   children
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { isAdminOrModerator } = useAuth()
+  const { isDarkMode, toggleDarkMode } = useDarkMode()
   const headerRef = useRef(null)
-  const dimensions = useWindowDimensions()
+  const [dimensions, setDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  })
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+
+  // Track dimensions for responsive sizing
+  useEffect(() => {
+    const updateDimensions = () => {
+      setDimensions({ width: window.innerWidth, height: window.innerHeight })
+    }
+
+    updateDimensions()
+    window.addEventListener('resize', updateDimensions)
+    return () => window.removeEventListener('resize', updateDimensions)
+  }, [])
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -93,7 +109,7 @@ const Header = memo(function Header({
     }
   }
 
-  const styles = useMemo(() => getResponsiveStyles(), [dimensions])
+  const styles = getResponsiveStyles()
 
   const handleBackClick = () => {
     if (onBackClick) {
@@ -103,12 +119,15 @@ const Header = memo(function Header({
     }
   }
 
-  const menuItems = [
+  // Filter out current page from menu items
+  const allMenuItems = [
     { label: 'الصفحة الرئيسية', path: '/', icon: '🏠' },
     { label: 'العابي', path: '/my-games', icon: '🎮' },
     { label: 'الملف الشخصي', path: '/profile', icon: '👤' },
     ...(isAdminOrModerator ? [{ label: 'إعدادات المدير', path: '/admin', icon: '⚙️' }] : [])
   ]
+
+  const menuItems = allMenuItems.filter(item => item.path !== location.pathname)
 
   return (
     <div
@@ -120,9 +139,38 @@ const Header = memo(function Header({
       }}
     >
       <div className="flex justify-between items-center h-full">
-        {/* Left Section: Logo */}
-        <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
+        {/* Left Section: Logo + Quick Links */}
+        <div className="flex items-center" style={{ gap: `${styles.baseGap}px`, maxWidth: styles.showHamburger ? '70%' : 'auto' }}>
           <LogoDisplay />
+
+          {/* Quick navigation links - no background */}
+          <div className="flex items-center" style={{ gap: `${styles.baseGap * 0.8}px` }}>
+            <button
+              onClick={() => navigate('/my-games')}
+              className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+              style={{
+                fontSize: `${styles.headerFontSize * 0.7}px`,
+                opacity: 0.95
+              }}
+              title="ألعابي"
+            >
+              ألعابي
+            </button>
+
+            {!styles.showHamburger && (
+              <button
+                onClick={() => navigate('/profile')}
+                className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                style={{
+                  fontSize: `${styles.headerFontSize * 0.7}px`,
+                  opacity: 0.95
+                }}
+                title="الملف الشخصي"
+              >
+                الملف الشخصي
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Center Section: Title */}
@@ -162,6 +210,13 @@ const Header = memo(function Header({
                   style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {/* Username at top */}
+                  <div className="px-4 py-2">
+                    <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} inMobileMenu={true} />
+                  </div>
+
+                  <hr className="my-2 border-gray-200" />
+
                   {showBackButton && (
                     <>
                       <button
@@ -194,15 +249,33 @@ const Header = memo(function Header({
 
                   <hr className="my-2 border-gray-200" />
 
-                  <div className="px-4 py-2">
-                    <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} />
-                  </div>
+                  {/* Dark Mode Toggle in Mobile Menu */}
+                  <button
+                    onClick={() => {
+                      toggleDarkMode()
+                      setShowMobileMenu(false)
+                    }}
+                    className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                  >
+                    <span>{isDarkMode ? '☀️' : '🌙'}</span>
+                    <span>{isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            /* Desktop mode: Show auth and back button separately */
+            /* Desktop mode: Show dark mode toggle, auth and back button separately */
             <>
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-blue-200 transition-colors p-2 rounded-lg hover:bg-white/10"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+                style={{ fontSize: `${styles.headerFontSize}px` }}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
+
               <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} />
               {showBackButton && (
                 <button
@@ -224,6 +297,6 @@ const Header = memo(function Header({
       {children}
     </div>
   )
-})
+}
 
 export default Header

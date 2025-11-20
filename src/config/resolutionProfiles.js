@@ -1,4 +1,3 @@
-import { devLog, devWarn, prodError } from '../utils/devLog'
 /**
  * Resolution Profiles Configuration
  *
@@ -396,7 +395,7 @@ export function getProfileWithOverrides(profile, deviceType) {
       const parsed = JSON.parse(overrides)
       return deepMerge(profile, parsed)
     } catch (e) {
-      devWarn('Failed to parse profile overrides:', e)
+      console.warn('Failed to parse profile overrides:', e)
     }
   }
 

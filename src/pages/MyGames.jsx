@@ -18,6 +18,11 @@ function MyGames({ gameState, setGameState }) {
   const navigate = useNavigate()
   const { isAuthenticated, user, getUserGames, deleteGame, loading: authLoading } = useAuth()
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - ألعابي'
+  }, [])
+
   // Responsive scaling system
   useEffect(() => {
     const updateDimensions = () => {
@@ -76,8 +81,18 @@ function MyGames({ gameState, setGameState }) {
         const userGames = await getUserGames()
         devLog('📖 Loaded games:', userGames)
 
+        // Deduplicate games by ID (remove duplicates from Firebase rate limiting)
+        const uniqueGames = userGames.reduce((acc, game) => {
+          // Use game ID if available, otherwise fallback to name+timestamp
+          const key = game.id || `${game.gameName}_${new Date(game.createdAt).getTime()}`
+          if (!acc.has(key)) {
+            acc.set(key, game)
+          }
+          return acc
+        }, new Map())
+
         // Sort games by date (newest first) and calculate progress
-        const sortedGames = userGames
+        const sortedGames = Array.from(uniqueGames.values())
           .filter(game => game.gameData && game.gameData.selectedCategories)
           .map(game => {
             // Handle usedQuestions - it might be an array or Set from Firebase
@@ -289,10 +304,10 @@ function MyGames({ gameState, setGameState }) {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">{authLoading ? 'جاري التحقق من تسجيل الدخول...' : 'جاري تحميل ألعابك...'}</p>
+          <p className="text-gray-600 dark:text-gray-400">{authLoading ? 'جاري التحقق من تسجيل الدخول...' : 'جاري تحميل ألعابك...'}</p>
         </div>
       </div>
     )
@@ -317,7 +332,7 @@ function MyGames({ gameState, setGameState }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f2e6]">
+    <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900">
       {/* Header */}
       <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden shadow-lg" style={{
         padding: '8px',
@@ -348,12 +363,12 @@ function MyGames({ gameState, setGameState }) {
         {indexError ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-red-700 mb-4">مطلوب إعداد قاعدة البيانات</h2>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-2xl mx-auto mb-6">
-              <p className="text-gray-700 mb-4 leading-relaxed">
+            <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-4">مطلوب إعداد قاعدة البيانات</h2>
+            <div className="bg-red-50 dark:bg-slate-800 border border-red-200 dark:border-slate-700 rounded-lg p-6 max-w-2xl mx-auto mb-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
                 لعرض تاريخ الألعاب، نحتاج إلى إنشاء فهرس في قاعدة البيانات. هذا إعداد لمرة واحدة فقط.
               </p>
-              <div className="text-sm text-gray-600 mb-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <strong>الخطوات:</strong>
                 <ol className="list-decimal list-inside mt-2 space-y-1 text-right">
                   <li>انقر على الرابط أدناه</li>
@@ -390,8 +405,8 @@ function MyGames({ gameState, setGameState }) {
         ) : games.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🎮</div>
-            <h2 className="text-2xl font-bold text-gray-700 mb-2">لا توجد ألعاب محفوظة</h2>
-            <p className="text-gray-600 mb-6">ابدأ لعبة جديدة لترى تاريخ ألعابك هنا</p>
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-100 mb-2">لا توجد ألعاب محفوظة</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">ابدأ لعبة جديدة لترى تاريخ ألعابك هنا</p>
             <button
               onClick={() => navigate('/categories')}
               className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
@@ -402,8 +417,8 @@ function MyGames({ gameState, setGameState }) {
         ) : (
           <div className="space-y-4">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">تاريخ الألعاب ({games.length})</h2>
-              <p className="text-gray-600">انقر على أي لعبة للمتابعة من حيث توقفت أو البدء من جديد</p>
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">تاريخ الألعاب ({games.length})</h2>
+              <p className="text-gray-600 dark:text-gray-400">انقر على أي لعبة للمتابعة من حيث توقفت أو البدء من جديد</p>
             </div>
 
             {games.map((game, index) => {
@@ -413,12 +428,12 @@ function MyGames({ gameState, setGameState }) {
                 <div
                   key={game.id || index}
                   onClick={() => handleGameSelect(game)}
-                  className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200"
+                  className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-md hover:shadow-lg transition-shadow cursor-pointer border border-gray-200 dark:border-slate-700"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-4 mb-2">
-                        <h3 className="text-lg font-bold text-gray-800">
+                        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
                           {game.gameData.gameName || `لعبة #{index + 1}`}
                         </h3>
                         <span className={`text-sm font-medium ${getProgressColor(progress)}`}>
@@ -426,7 +441,7 @@ function MyGames({ gameState, setGameState }) {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 dark:text-gray-400">
                         <div>
                           <span className="font-medium">التاريخ:</span>
                           <div>{formatDate(game.createdAt)}</div>
@@ -447,7 +462,7 @@ function MyGames({ gameState, setGameState }) {
 
                       {/* Categories */}
                       <div className="mt-3">
-                        <span className="text-sm font-medium text-gray-600">الفئات: </span>
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">الفئات: </span>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {game.gameData.selectedCategories?.map((categoryId, idx) => {
                             // Map category IDs to proper Arabic names
@@ -476,7 +491,7 @@ function MyGames({ gameState, setGameState }) {
 
                       {/* Progress bar */}
                       <div className="mt-4">
-                        <div className="bg-gray-200 rounded-full h-2">
+                        <div className="bg-gray-200 dark:bg-slate-700 rounded-full h-2">
                           <div
                             className={`h-2 rounded-full transition-all duration-300 ${
                               progress === 100 ? 'bg-green-500' :
@@ -515,13 +530,13 @@ function MyGames({ gameState, setGameState }) {
       {/* Resume/Restart Modal */}
       {showResumeModal && selectedGame && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full">
             <div className="text-center mb-6">
               <div className="text-4xl mb-3">🎮</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                 {selectedGame.gameData.gameName || `لعبة #{games.indexOf(selectedGame) + 1}`}
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 {selectedGame.answeredQuestions} / {selectedGame.totalQuestions} سؤال تم الإجابة عليه
               </p>
             </div>
@@ -557,13 +572,13 @@ function MyGames({ gameState, setGameState }) {
       {/* Delete Confirmation Modal */}
       {showDeleteModal && gameToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full">
             <div className="text-center mb-6">
               <div className="text-4xl mb-3">🗑️</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
+              <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
                 تأكيد الحذف
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 هل أنت متأكد من حذف "{gameToDelete.gameData.gameName || `لعبة #{games.indexOf(gameToDelete) + 1}`}"؟
               </p>
               <p className="text-sm text-red-600 mt-2">
