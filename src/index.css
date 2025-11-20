@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Base Arabic theme */
+/* Base Arabic theme - Light and Dark modes */
 :root{
   --bg1:#0b1020;
   --bg2:#1b1f36;
@@ -10,6 +10,16 @@
   --primary:#DC2626;
   --accent:#22D3EE;
   --text:#E6E8EF;
+}
+
+/* Dark mode variables */
+.dark {
+  --bg1:#0f172a;
+  --bg2:#1e293b;
+  --card:#1e293b;
+  --primary:#DC2626;
+  --accent:#22D3EE;
+  --text:#e2e8f0;
 }
 
 *{ box-sizing:border-box; }
@@ -27,6 +37,14 @@ body{
   overflow-x:hidden;
 }
 
+/* Dark mode body adjustments */
+.dark body{
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(220,38,38,.2), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, rgba(34,211,238,.15), transparent 60%),
+    linear-gradient(180deg,#0f172a, #1e293b);
+}
+
 /* Cards / panels */
 .card{
   background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
@@ -34,6 +52,12 @@ body{
   border-radius: 1rem;
   backdrop-filter: blur(6px);
   box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+
+.dark .card{
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 12px 30px rgba(0,0,0,.4);
 }
 
 /* Fancy button */
@@ -75,6 +99,13 @@ body{
   box-shadow: 0 6px 18px rgba(0,0,0,.18);
 }
 .tile:hover{ transform: translateY(-3px); border-color: rgba(34,211,238,.35); box-shadow: 0 10px 26px rgba(34,211,238,.22); }
+
+.dark .tile{
+  background: radial-gradient(120% 120% at 30% 10%, rgba(255,255,255,.12), rgba(255,255,255,.06));
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,.3);
+}
+.dark .tile:hover{ border-color: rgba(34,211,238,.45); box-shadow: 0 10px 26px rgba(34,211,238,.3); }
 
 /* Badges */
 .badge{
@@ -119,6 +150,17 @@ body{
   opacity: .9;
 }
 
+.dark .game-board-button{
+  background: #334155;
+  color: #f87171;
+  border: 1px solid #475569;
+  box-shadow: 0 4px 10px rgba(0,0,0,.2);
+}
+.dark .game-board-button:disabled{
+  color: #64748b;
+  opacity: .9;
+}
+
 /* Results page animations */
 @keyframes confetti {
   0% { opacity: 1; transform: translateY(-10vh) rotateZ(0deg); }
@@ -150,3 +192,31 @@ body{
 .animate-slideInFromTop { animation: slideInFromTop 0.5s ease-out; }
 .animate-slideInFromBottom { animation: slideInFromBottom 0.5s ease-out; }
 .animate-pulse-subtle { animation: pulse-subtle 2s ease-in-out infinite; }
+
+/* Circular outline background pattern */
+.hive-pattern {
+  background-image:
+    radial-gradient(circle, transparent 38%, rgba(128, 128, 128, 0.15) 39%, rgba(128, 128, 128, 0.15) 41%, transparent 42%);
+  background-size: 80px 80px;
+  background-position: 0 0, 40px 40px;
+  position: relative;
+}
+
+.dark .hive-pattern {
+  background-image:
+    radial-gradient(circle, transparent 38%, rgba(200, 200, 200, 0.15) 39%, rgba(200, 200, 200, 0.15) 41%, transparent 42%);
+  background-size: 80px 80px;
+  background-position: 0 0, 40px 40px;
+}
+
+.hive-pattern::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, transparent 0%, transparent 40%, rgba(247, 242, 230, 1) 80%);
+  pointer-events: none;
+}
+
+.dark .hive-pattern::before {
+  background: linear-gradient(to top, transparent 0%, transparent 40%, rgb(15 23 42) 80%);
+}

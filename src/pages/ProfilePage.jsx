@@ -18,6 +18,11 @@ function ProfilePage() {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [headerHeight, setHeaderHeight] = useState(0)
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - الملف الشخصي'
+  }, [])
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -228,8 +233,8 @@ function ProfilePage() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-amber-50 flex items-center justify-center">
-        <div className="text-gray-800 text-center">
+      <div className="min-h-screen bg-amber-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-gray-800 dark:text-gray-100 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
           <div style={{ fontSize: `${styles?.textFontSize || 16}px` }}>جاري التحميل...</div>
         </div>
@@ -260,7 +265,7 @@ function ProfilePage() {
   }
 
   return (
-    <div ref={containerRef} className="bg-amber-50 flex flex-col" style={{
+    <div ref={containerRef} className="bg-amber-50 dark:bg-slate-900 flex flex-col" style={{
       minHeight: '100vh',
       overflow: 'auto'
     }}>
@@ -292,11 +297,11 @@ function ProfilePage() {
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="max-w-4xl mx-auto">
           {/* User Info Card */}
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               معلومات المستخدم
             </h2>
-            <div className="text-gray-600">
+            <div className="text-gray-600 dark:text-gray-400">
               <p><strong>الاسم:</strong> {user?.displayName || 'غير محدد'}</p>
               <p><strong>البريد الإلكتروني:</strong> {user?.email || 'غير محدد'}</p>
             </div>
@@ -304,25 +309,25 @@ function ProfilePage() {
 
           {/* Question Statistics Card */}
           {stats && (
-            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">
                 إحصائيات الأسئلة
               </h2>
 
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">
+                <div className="text-center p-4 bg-blue-50 dark:bg-slate-700 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {stats.usedQuestions}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     أسئلة مستخدمة
                   </div>
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
+                <div className="text-center p-4 bg-green-50 dark:bg-slate-700 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {stats.unusedQuestions}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
                     أسئلة متاحة
                   </div>
                 </div>
@@ -330,14 +335,14 @@ function ProfilePage() {
 
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">
+                  <span className="text-gray-600 dark:text-gray-400">
                     نسبة الإنجاز
                   </span>
-                  <span className="font-bold text-blue-600">
+                  <span className="font-bold text-blue-600 dark:text-blue-400">
                     {stats.completionPercentage}%
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-4">
+                <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-4">
                   <div
                     className="bg-blue-600 h-4 rounded-full transition-all duration-300"
                     style={{ width: `${stats.completionPercentage}%` }}
@@ -346,11 +351,11 @@ function ProfilePage() {
               </div>
 
               <div className="text-center">
-                <div className="text-gray-600">
+                <div className="text-gray-600 dark:text-gray-400">
                   إجمالي الأسئلة: {stats.poolSize}
                 </div>
                 {stats.cycleComplete && (
-                  <div className="text-green-600 font-bold mt-2">
+                  <div className="text-green-600 dark:text-green-400 font-bold mt-2">
                     🎉 تم الانتهاء من جميع الأسئلة!
                   </div>
                 )}
@@ -367,7 +372,7 @@ function ProfilePage() {
             >
               {resetting ? 'جاري إعادة التعيين...' : '🔄 إعادة تعيين جميع الأسئلة'}
             </button>
-            <p className="text-gray-600 mt-2 text-sm">
+            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">
               سيؤدي هذا إلى إتاحة جميع الأسئلة مرة أخرى
             </p>
           </div>

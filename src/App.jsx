@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, Suspense, lazy } from 'react'
 import { usePresentationMode } from './hooks/usePresentationMode'
 import { useAuth } from './hooks/useAuth'
 import componentPreloader from './utils/componentPreloader'
+import ConfirmExitModal from './components/ConfirmExitModal'
 
 import { devLog, devWarn, prodError } from "./utils/devLog"
 // Core game flow components - loaded immediately for instant navigation
@@ -42,6 +43,11 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
   const location = useLocation()
   const navigate = useNavigate()
 
+  // State for custom confirmation modal
+  const [showExitModal, setShowExitModal] = useState(false)
+  const [exitModalConfig, setExitModalConfig] = useState({ title: '', message: '', onConfirm: null })
+  const confirmResolveRef = useRef(null)
+
   // Update currentRoute in gameState when route changes
   useEffect(() => {
     if (stateLoaded && gameState.currentRoute !== location.pathname) {
@@ -50,11 +56,14 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
         currentRoute: location.pathname
       }
 
-      // Reset the explicit exit flag when user starts a new game flow
+      // Reset the explicit exit flag and game state when user starts a new game flow
       if (location.pathname === '/categories') {
         newState.userExplicitlyExited = false
+        newState.usedQuestions = new Set() // Reset used questions for new game
+        newState.usedPointValues = new Set() // Reset used point values
+        newState.currentQuestion = null
         localStorage.removeItem('trivia_user_exited')
-        devLog('🔄 Resetting explicit exit flags (gameState + localStorage) - user starting new game flow')
+        devLog('🔄 Resetting game state for new game - user at category selection')
       }
 
       setGameState(prev => ({
@@ -64,34 +73,91 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     }
   }, [location.pathname, stateLoaded])
 
-  // BULLETPROOF Route Restoration (run only once when state loads)
+  // Smart Route Restoration - Restore only on page reload, not new tabs
   useEffect(() => {
     if (!stateLoaded) return
 
-    // Check immediate localStorage flag for explicit exit
-    const userExplicitlyExited = localStorage.getItem('trivia_user_exited') === 'true'
-    if (userExplicitlyExited) {
-      devLog('🚫 BULLETPROOF: User explicitly exited (localStorage check) - skipping route restoration')
+    // Check if this is a new tab (should NOT restore)
+    const isNewTab = sessionStorage.getItem('isNewTab') === 'true'
+
+    // Check if user explicitly exited
+    const userExited = localStorage.getItem('trivia_user_exited') === 'true' || gameState.userExplicitlyExited
+
+    if (isNewTab) {
+      devLog('🆕 New tab detected - skipping route restoration')
+      sessionStorage.removeItem('isNewTab') // Clear flag after first check
       return
     }
 
-    // Don't restore routes if user explicitly exited the game (gameState check)
-    if (gameState.userExplicitlyExited) {
-      devLog('🚫 BULLETPROOF: User explicitly exited (gameState check) - skipping route restoration')
+    if (userExited) {
+      devLog('🚪 User explicitly exited - skipping route restoration')
       return
     }
 
-    // All game-related routes should be restored
-    const validRoutesToRestore = ['/game', '/question', '/categories']
+    // Restore route ONLY if we have an active game and valid saved route
+    const hasActiveGame = gameState.selectedCategories?.length > 0 ||
+                         gameState.gameHistory?.length > 0 ||
+                         gameState.team1?.score > 0 ||
+                         gameState.team2?.score > 0
 
-    // Only restore if we have a saved route AND we're currently on index
-    if (gameState.currentRoute && location.pathname === '/' && gameState.currentRoute !== '/') {
-      if (validRoutesToRestore.includes(gameState.currentRoute)) {
-        devLog(`🔄 BULLETPROOF: Restoring route from ${location.pathname} to ${gameState.currentRoute}`)
+    if (hasActiveGame && gameState.currentRoute && gameState.currentRoute !== location.pathname) {
+      // Only restore to game pages, not to other pages like admin/profile
+      const validGameRoutes = ['/game', '/question', '/answer', '/results']
+
+      if (validGameRoutes.includes(gameState.currentRoute)) {
+        devLog('🔄 Restoring route after reload:', gameState.currentRoute)
         navigate(gameState.currentRoute, { replace: true })
       }
+    } else {
+      devLog('✅ Game state loaded, user can navigate freely')
     }
-  }, [stateLoaded]) // Only run when stateLoaded changes from false to true
+  }, [stateLoaded])
+
+  // Custom confirm dialog using modal
+  const showConfirmDialog = (title, message) => {
+    return new Promise((resolve) => {
+      setExitModalConfig({ title, message, onConfirm: () => resolve(true) })
+      setShowExitModal(true)
+      confirmResolveRef.current = resolve
+    })
+  }
+
+  const handleModalConfirm = () => {
+    setShowExitModal(false)
+    if (exitModalConfig.onConfirm) {
+      exitModalConfig.onConfirm()
+    }
+  }
+
+  const handleModalCancel = () => {
+    setShowExitModal(false)
+    if (confirmResolveRef.current) {
+      confirmResolveRef.current(false)
+    }
+  }
+
+  // Prevent accidental tab/window close during game
+  useEffect(() => {
+    const currentPath = location.pathname
+
+    // Only add protection on game pages
+    if (currentPath === '/game' || currentPath === '/question') {
+      const handleBeforeUnload = (e) => {
+        // Standard way to trigger browser's native confirmation dialog
+        e.preventDefault()
+        // Chrome requires returnValue to be set
+        e.returnValue = 'هل أنت متأكد من الخروج؟ قد تفقد تقدمك في اللعبة.'
+        // For older browsers
+        return 'هل أنت متأكد من الخروج؟ قد تفقد تقدمك في اللعبة.'
+      }
+
+      window.addEventListener('beforeunload', handleBeforeUnload)
+
+      return () => {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+      }
+    }
+  }, [location.pathname])
 
   // Browser Back Button Control with Warning System
   useEffect(() => {
@@ -104,7 +170,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
       // Add a dummy history state to detect back button
       window.history.pushState({ page: currentPath, timestamp: Date.now() }, '', currentPath)
 
-      const handlePopState = (event) => {
+      const handlePopState = async (event) => {
         devLog('🔄 PopState detected on', currentPath, 'event:', event)
 
         // Prevent the default behavior
@@ -112,7 +178,10 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
 
         if (currentPath === '/game') {
           devLog('🔄 Back button from gameboard → showing warning')
-          const confirmed = window.confirm('هل أنت متأكد من الخروج من اللعبة؟ سيتم إغلاق اللعبة والعودة للصفحة الرئيسية.')
+          const confirmed = await showConfirmDialog(
+            'الخروج من اللعبة',
+            'هل أنت متأكد من الخروج من اللعبة؟ سيتم إغلاق اللعبة والعودة للصفحة الرئيسية.'
+          )
           if (confirmed) {
             devLog('✅ User confirmed exit from gameboard → setting immediate exit flag and redirecting to index')
             isNavigatingAway = true
@@ -137,7 +206,10 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
           }
         } else if (currentPath === '/question') {
           devLog('🔄 Back button from question → showing warning')
-          const confirmed = window.confirm('هل أنت متأكد من الخروج من السؤال؟ ستعود للوحة اللعبة وسيتم إنهاء الوقت المحدد.')
+          const confirmed = await showConfirmDialog(
+            'الخروج من السؤال',
+            'هل أنت متأكد من الخروج من السؤال؟ ستعود للوحة اللعبة وسيتم إنهاء الوقت المحدد.'
+          )
           if (confirmed) {
             devLog('✅ User confirmed exit from question → updating route and redirecting to gameboard')
             isNavigatingAway = true
@@ -163,12 +235,30 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     }
   }, [location.pathname, navigate])
 
-  return null
+  return (
+    <>
+      <ConfirmExitModal
+        isOpen={showExitModal}
+        onConfirm={handleModalConfirm}
+        onCancel={handleModalCancel}
+        title={exitModalConfig.title}
+        message={exitModalConfig.message}
+      />
+    </>
+  )
 }
 
 function App() {
   const { isPresentationMode } = usePresentationMode()
   const { getGameState, saveGameState, migrateFromLocalStorage, isAuthenticated, loading: authLoading } = useAuth()
+
+  // Detect new tab/window immediately
+  if (!sessionStorage.getItem('tabId')) {
+    const newTabId = Date.now() + '_' + Math.random()
+    sessionStorage.setItem('tabId', newTabId)
+    sessionStorage.setItem('isNewTab', 'true')
+    devLog('🆕 NEW TAB DETECTED - Will not restore game state')
+  }
 
   // Start background preloading after app loads
   useEffect(() => {
@@ -221,8 +311,32 @@ function App() {
     userExplicitlyExited: false // Flag to track when user confirms exit via back button
   })
 
-  const [gameState, setGameState] = useState(getDefaultGameState)
-  const [stateLoaded, setStateLoaded] = useState(false)
+  // OPTIMIZATION: Initialize gameState from cache immediately for instant restoration
+  const [gameState, setGameState] = useState(() => {
+    try {
+      const cachedState = sessionStorage.getItem('gameState_cache')
+      if (cachedState) {
+        const parsedCache = JSON.parse(cachedState)
+        // Convert arrays back to Sets
+        if (parsedCache.usedQuestions && Array.isArray(parsedCache.usedQuestions)) {
+          parsedCache.usedQuestions = new Set(parsedCache.usedQuestions)
+        }
+        if (parsedCache.usedPointValues && Array.isArray(parsedCache.usedPointValues)) {
+          parsedCache.usedPointValues = new Set(parsedCache.usedPointValues)
+        }
+        devLog('⚡ Initial state loaded from cache')
+        return { ...getDefaultGameState(), ...parsedCache }
+      }
+    } catch (e) {
+      devWarn('⚠️ Cache init error:', e)
+    }
+    return getDefaultGameState()
+  })
+
+  // OPTIMIZATION: Initialize stateLoaded to true if cache exists (instant load)
+  const [stateLoaded, setStateLoaded] = useState(() => {
+    return sessionStorage.getItem('gameState_cache') !== null
+  })
   const lastSavedStateRef = useRef(null)
   const saveTimeoutRef = useRef(null)
   const isSavingRef = useRef(false)
@@ -237,6 +351,12 @@ function App() {
       // Wait for auth to complete before loading state
       if (authLoading) return
 
+      // Skip if we already loaded from cache during initialization
+      if (stateLoaded && sessionStorage.getItem('gameState_cache')) {
+        devLog('ℹ️ State already loaded from cache during init, skipping useEffect load')
+        return
+      }
+
       // Check if we're in preview mode - if so, don't load from Firebase
       const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
       if (previewData) {
@@ -246,6 +366,41 @@ function App() {
       }
 
       try {
+        // OPTIMIZATION: Try to load from sessionStorage cache first for instant restoration
+        const cachedState = sessionStorage.getItem('gameState_cache')
+        if (cachedState) {
+          try {
+            const parsedCache = JSON.parse(cachedState)
+            // Convert arrays back to Sets
+            if (parsedCache.usedQuestions && Array.isArray(parsedCache.usedQuestions)) {
+              parsedCache.usedQuestions = new Set(parsedCache.usedQuestions)
+            }
+            if (parsedCache.usedPointValues && Array.isArray(parsedCache.usedPointValues)) {
+              parsedCache.usedPointValues = new Set(parsedCache.usedPointValues)
+            }
+
+            const completeState = {
+              ...getDefaultGameState(),
+              ...parsedCache
+            }
+
+            setGameState(completeState)
+            setStateLoaded(true)
+            devLog('⚡ Instant state restoration from cache (useEffect)')
+
+            // DON'T sync from Firebase in background - cache is the source of truth
+            // Firebase is only for persistence across sessions, not for real-time sync
+            // The cache is always the most recent state in the current session
+            devLog('ℹ️ Using cache as source of truth (Firebase sync disabled to prevent overwrites)')
+            return
+          } catch (e) {
+            devWarn('⚠️ Cache parse error, loading from Firebase:', e)
+          }
+        }
+
+        // No cache available, load from Firebase (first time)
+        setStateLoaded(true) // Mark as loaded immediately to prevent blocking
+
         // Migrate localStorage data first (one-time operation)
         if (!migrationComplete && isAuthenticated) {
           await migrateFromLocalStorage()
@@ -272,12 +427,13 @@ function App() {
             }
 
             setGameState(completeState)
+            // Cache for next reload
+            sessionStorage.setItem('gameState_cache', JSON.stringify(savedState))
           }
         }
       } catch (error) {
         prodError('❌ Error loading game state:', error)
-      } finally {
-        setStateLoaded(true)
+        setStateLoaded(true) // Still mark as loaded to prevent infinite loading
       }
     }
 
@@ -296,6 +452,21 @@ function App() {
       return
     }
 
+    // OPTIMIZATION: Save to BOTH sessionStorage AND localStorage for instant restoration + backup
+    const stateToSave = {
+      ...gameState,
+      // Convert Sets to arrays for JSON serialization
+      usedQuestions: Array.from(gameState.usedQuestions || []),
+      usedPointValues: Array.from(gameState.usedPointValues || [])
+    }
+    const stateString = JSON.stringify(stateToSave)
+
+    // Save to sessionStorage for instant same-session restoration
+    sessionStorage.setItem('gameState_cache', stateString)
+
+    // ALSO save to localStorage as backup in case tab is closed before Firebase saves
+    localStorage.setItem('gameState_backup', stateString)
+
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
@@ -303,13 +474,6 @@ function App() {
 
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const stateToSave = {
-          ...gameState,
-          // Convert Sets to arrays for JSON serialization
-          usedQuestions: Array.from(gameState.usedQuestions || []),
-          usedPointValues: Array.from(gameState.usedPointValues || [])
-        }
-
         // Only save if state actually changed
         const stateString = JSON.stringify(stateToSave)
         if (lastSavedStateRef.current === stateString) {
@@ -324,7 +488,8 @@ function App() {
         prodError('❌ Error saving game state:', error)
         isSavingRef.current = false
       }
-    }, 5000) // Increased to 5 seconds to prevent Firebase rate limiting
+    }, 3000) // 3 seconds - only for non-critical updates (team names, game setup, etc.)
+    // Critical updates (scores, answers) are saved immediately in QuestionView
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -346,8 +511,11 @@ function App() {
     }
   }, [isPresentationMode])
 
-  // Show loading screen while auth and state are initializing (only on first load)
-  if (authLoading || !stateLoaded) {
+  // OPTIMIZATION: Skip loading screen entirely if we have cached state
+  // Only show on absolute first visit when no cache exists
+  const hasCachedState = sessionStorage.getItem('gameState_cache')
+
+  if (authLoading && !isAuthenticated && !hasCachedState) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">

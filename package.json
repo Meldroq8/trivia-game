@@ -18,12 +18,14 @@
     "@dnd-kit/utilities": "^3.2.2",
     "dotenv": "^17.2.3",
     "firebase": "^12.2.1",
+    "firebase-admin": "^13.5.0",
     "jszip": "^3.10.1",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.23.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
-    "tailwindcss": "^3.4.18",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -32,15 +34,10 @@
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.4.22",
     "eslint": "^9.33.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "firebase-admin": "^13.5.0",
     "globals": "^16.3.0",
-    "node-fetch": "^3.3.2",
-    "postcss": "^8.5.6",
-    "puppeteer": "^24.23.0",
     "terser": "^5.44.0",
     "vite": "^7.1.2"
   }

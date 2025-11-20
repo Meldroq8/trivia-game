@@ -1,9 +1,9 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useMemo, memo } from 'react'
+import { useMemo } from 'react'
 import MediaPlayer from './MediaPlayer'
 import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 
-const QuestionMediaPlayer = memo(function QuestionMediaPlayer({ currentQuestion, showAnswer, isQuestionMedia, styles }) {
+function QuestionMediaPlayer({ currentQuestion, showAnswer, isQuestionMedia, styles }) {
   // Determine the media source based on mode and availability
   const { src, type } = useMemo(() => {
     if (!currentQuestion) {
@@ -92,6 +92,6 @@ const QuestionMediaPlayer = memo(function QuestionMediaPlayer({ currentQuestion,
       )}
     </div>
   )
-})
+}
 
 export default QuestionMediaPlayer

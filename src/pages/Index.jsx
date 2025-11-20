@@ -21,6 +21,11 @@ function Index({ setGameState }) {
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [tipsExpanded, setTipsExpanded] = useState(false)
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه'
+  }, [])
+
   useEffect(() => {
     const updateDimensions = () => {
       setDimensions({ width: window.innerWidth, height: window.innerHeight })
@@ -142,12 +147,14 @@ function Index({ setGameState }) {
   }
 
   return (
-    <div className="h-screen bg-[#f7f2e6] flex flex-col">
+    <div className="h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col hive-pattern">
       {/* Header */}
-      <Header title="الصفحة الرئيسية" />
+      <div className="relative z-20">
+        <Header title="" />
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-start justify-center overflow-auto pt-8 px-4">
+      <div className="flex-1 flex items-start justify-center overflow-auto pt-8 px-4 relative z-10">
         <div className="text-center w-full">
 
           {/* Large Logo */}
@@ -193,13 +200,13 @@ function Index({ setGameState }) {
           {/* Slogan */}
           <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
             <h1
-              className="font-bold text-gray-800 mb-4 leading-relaxed"
+              className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
               style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
             >
               {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
             </h1>
             <p
-              className="text-gray-600"
+              className="text-gray-600 dark:text-gray-300"
               style={{
                 fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
                 marginBottom: `${responsiveStyles.baseGap * 2}px`
@@ -224,7 +231,7 @@ function Index({ setGameState }) {
           {/* Additional Info */}
           <div style={{ marginTop: `${responsiveStyles.baseGap * 2}px` }}>
             <p
-              className="text-gray-500"
+              className="text-gray-500 dark:text-gray-400"
               style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.7)}px` }}
             >
               اضغط على "إنشاء لعبة جديدة" للبدء في إعداد لعبتك
@@ -235,21 +242,21 @@ function Index({ setGameState }) {
           {(
             <div style={{ marginTop: `${responsiveStyles.baseGap * 3}px` }}>
               <h3
-                className="font-bold text-gray-800 mb-4"
+                className="font-bold text-gray-800 dark:text-gray-100 mb-4"
                 style={{ fontSize: `${Math.max(16, responsiveStyles.titleFontSize * 0.6)}px` }}
               >
                 🏆 لوحة المتصدرين
               </h3>
 
               <div
-                className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden mx-auto"
+                className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden mx-auto"
                 style={{
                   maxWidth: responsiveStyles.availableWidth > 768 ? '600px' : '100%'
                 }}
               >
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-red-600 text-white">
+                    <thead className="bg-red-600 dark:bg-red-700 text-white">
                       <tr>
                         <th
                           className="px-4 py-2 text-center font-bold"
@@ -276,7 +283,7 @@ function Index({ setGameState }) {
                         <tr>
                           <td
                             colSpan="3"
-                            className="px-4 py-8 text-center text-gray-500"
+                            className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                             style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}
                           >
                             جاري تحميل البيانات...
@@ -284,15 +291,15 @@ function Index({ setGameState }) {
                         </tr>
                       ) : leaderboard.length > 0 ? (
                         leaderboard.map((player, index) => (
-                          <tr key={index} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                          <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-700' : 'bg-white dark:bg-slate-800'}>
                             <td
-                              className="px-4 py-2 text-center text-gray-600 font-bold"
+                              className="px-4 py-2 text-center text-gray-600 dark:text-gray-300 font-bold"
                               style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}
                             >
                               {player.gamesPlayed}
                             </td>
                             <td
-                              className="px-4 py-2 text-right text-gray-800"
+                              className="px-4 py-2 text-right text-gray-800 dark:text-gray-200"
                               style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}
                             >
                               {player.name}
@@ -312,7 +319,7 @@ function Index({ setGameState }) {
                         <tr>
                           <td
                             colSpan="3"
-                            className="px-4 py-8 text-center text-gray-500"
+                            className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                             style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}
                           >
                             لا توجد بيانات لعرضها حاليًا. ابدأ لعبتك الأولى!
@@ -331,22 +338,22 @@ function Index({ setGameState }) {
             <div className="flex justify-center">
               <button
                 onClick={() => setTipsExpanded(!tipsExpanded)}
-                className="text-right bg-white/60 hover:bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4 mb-4 transition-all duration-200"
+                className="text-right bg-white/60 dark:bg-slate-800/80 hover:bg-white/80 dark:hover:bg-slate-700/90 backdrop-blur-sm rounded-xl shadow-lg p-4 mb-4 transition-all duration-200"
                 style={{
                   width: responsiveStyles.availableWidth > 768 ? 'auto' : '100%',
-                  minWidth: responsiveStyles.availableWidth > 768 ? '400px' : 'auto',
-                  maxWidth: responsiveStyles.availableWidth > 768 ? '600px' : '100%'
+                  minWidth: responsiveStyles.availableWidth > 768 ? '300px' : 'auto',
+                  maxWidth: responsiveStyles.availableWidth > 768 ? '450px' : '100%'
                 }}
               >
                 <div className="flex items-center justify-between" style={{ gap: '20px' }}>
                   <h3
-                    className="font-bold text-gray-800"
+                    className="font-bold text-gray-800 dark:text-gray-100"
                     style={{ fontSize: `${Math.max(16, responsiveStyles.titleFontSize * 0.6)}px` }}
                   >
                     💡 نصائح وطريقة اللعب
                   </h3>
                   <span
-                    className="text-gray-600 font-bold transform transition-transform duration-200"
+                    className="text-gray-600 dark:text-gray-300 font-bold transform transition-transform duration-200"
                     style={{
                       fontSize: `${Math.max(14, responsiveStyles.buttonFontSize)}px`,
                       transform: tipsExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
@@ -361,14 +368,14 @@ function Index({ setGameState }) {
             {tipsExpanded && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
                 {/* Game Rules Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4">
+                <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
                   <h4
-                    className="font-bold text-red-600 mb-3 flex items-center gap-2"
+                    className="font-bold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2"
                     style={{ fontSize: `${Math.max(14, responsiveStyles.buttonFontSize * 0.9)}px` }}
                   >
                     📋 قواعد اللعبة
                   </h4>
-                  <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
+                  <ul className="space-y-2 text-right text-gray-700 dark:text-gray-300" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
                     <li>• اختر الفئات التي تريد اللعب بها</li>
                     <li>• كل فئة تحتوي على 6 أسئلة (سهل، متوسط، صعب)</li>
                     <li>• 200 نقطة للأسئلة السهلة، 400 للمتوسطة، 600 للصعبة</li>
@@ -377,14 +384,14 @@ function Index({ setGameState }) {
                 </div>
 
                 {/* Tips Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4">
+                <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
                   <h4
-                    className="font-bold text-green-600 mb-3 flex items-center gap-2"
+                    className="font-bold text-green-600 dark:text-green-400 mb-3 flex items-center gap-2"
                     style={{ fontSize: `${Math.max(14, responsiveStyles.buttonFontSize * 0.9)}px` }}
                   >
                     🎯 نصائح للفوز
                   </h4>
-                  <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
+                  <ul className="space-y-2 text-right text-gray-700 dark:text-gray-300" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
                     <li>• ابدأ بالأسئلة السهلة لبناء الثقة</li>
                     <li>• استخدم القوى الخاصة في الوقت المناسب</li>
                     <li>• ناقش مع فريقك قبل الإجابة</li>
@@ -393,34 +400,39 @@ function Index({ setGameState }) {
                 </div>
 
                 {/* Perks Explanation Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4">
+                <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
                   <h4
-                    className="font-bold text-purple-600 mb-3 flex items-center gap-2"
+                    className="font-bold text-purple-600 dark:text-purple-400 mb-3 flex items-center gap-2"
                     style={{ fontSize: `${Math.max(14, responsiveStyles.buttonFontSize * 0.9)}px` }}
                   >
-                    ⚡ القوى الخاصة
+                    ⚡ وسائل المساعدة
                   </h4>
-                  <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
-                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/><text x="12" y="15" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">2</text></svg>:</span> مضاعفة النقاط للسؤال التالي</li>
-                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>:</span> اتصال بصديق للمساعدة</li>
-                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>:</span> البحث عن معلومات إضافية</li>
-                    <li className="text-red-600">• كل قوة تُستخدم مرة واحدة فقط</li>
+                  <ul className="space-y-2 text-right text-gray-700 dark:text-gray-300" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/><text x="12" y="15" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">2</text></svg> دبلها:</span> ضعف النقاط للسؤال الحالي</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg> اتصال بصديق:</span> مساعدة من صديق لمدة 30 ثانية</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg> جوجلها:</span> البحث في جوجل لمدة 15 ثانية</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="7" cy="7" r="1.5" fill="white"/><circle cx="17" cy="7" r="1.5" fill="white"/><circle cx="7" cy="17" r="1.5" fill="white"/><circle cx="17" cy="17" r="1.5" fill="white"/><circle cx="12" cy="12" r="1.5" fill="white"/></svg> يا تصيب يا تخيب:</span> 3 أضعاف إن صحيح، وخصم ضعف النقاط إن خطأ</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 72 72" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="m52.62 31.13 1.8-22.18c-0.3427-4.964-6.779-5.02-7.227-0.026l-2.42 17.36c-0.3 2.179-1.278 3.962-2.166 3.962s-1.845-1.785-2.126-3.967l-2.231-17.34c-0.8196-5.278-7.439-4.322-7.037 0.0011l2.527 21.03"/><path d="m53.63 50.08c0 9.872-8.02 16.88-17.89 16.88"/><path d="m43.74 47.29v-2.333c0-1.1-1.789-2.2-3.976-2.441l-1.049-0.117c-2.187-0.242-3.976-1.851-3.976-3.774s1.8-3.334 4-3.334h10c2.201-0.0448 4.057 1.632 4.235 3.826l0.657 11.21"/><path d="m37.96 50.36c1.63-1.48 3.624-2.5 5.777-2.958"/><path d="m18.53 52.1c1.142 8.6 8.539 14.98 17.21 14.86 9.667 0 17.89-6.833 17.89-16.88"/><path d="m31.75 49.72c0 1.258-0.6709 2.42-1.76 3.048s-2.431 0.6288-3.52 0-1.76-1.791-1.76-3.048v-15.96c0-1.258 0.6709-2.42 1.76-3.048s2.431-0.6288 3.52 0c1.089 0.6288 1.76 1.791 1.76 3.049z"/><path d="m24.71 44.94c0 1.262-0.6709 2.427-1.76 3.058s-2.431 0.6308-3.52 0c-1.089-0.6308-1.76-1.796-1.76-3.058v-7.937c0-1.262 0.6709-2.427 1.76-3.058 1.089-0.6308 2.431-0.6308 3.52 0s1.76 1.796 1.76 3.058z"/></svg> جوابين:</span> إعطاء إجابتين بدلاً من واحدة</li>
+                    <li>• <span className="font-bold inline-flex items-center gap-1"><svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor"><path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z"/></svg> السجن:</span> سجن لاعب من الفريق الآخر</li>
                   </ul>
                 </div>
 
                 {/* Scoring System Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-4">
+                <div className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
                   <h4
-                    className="font-bold text-blue-600 mb-3 flex items-center gap-2"
+                    className="font-bold text-blue-600 dark:text-blue-400 mb-3 flex items-center gap-2"
                     style={{ fontSize: `${Math.max(14, responsiveStyles.buttonFontSize * 0.9)}px` }}
                   >
                     🏆 نظام النقاط
                   </h4>
-                  <ul className="space-y-2 text-gray-700" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
-                    <li>• <span className="font-bold text-green-600">إجابة صحيحة:</span> تكسب النقاط المحددة</li>
-                    <li>• <span className="font-bold text-red-600">إجابة خاطئة:</span> لا تكسب نقاط</li>
-                    <li>• <span className="font-bold text-purple-600 inline-flex items-center gap-1">مع قوة <svg width={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} height={Math.max(18, responsiveStyles.buttonFontSize * 1.2)} viewBox="0 0 24 24" fill="currentColor" className="inline"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/><text x="12" y="15" textAnchor="middle" fontSize="10" fill="white" fontWeight="bold">2</text></svg>:</span> مضاعفة النقاط</li>
-                    <li>• النقاط لا تقل عن الصفر أبداً</li>
+                  <ul className="space-y-2 text-right text-gray-700 dark:text-gray-300" style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.8)}px` }}>
+                    <li>• <span className="font-bold text-green-600 dark:text-green-400">إجابة صحيحة:</span> تكسب النقاط (200، 400، أو 600)</li>
+                    <li>• <span className="font-bold text-red-600 dark:text-red-400">إجابة خاطئة:</span> لا تكسب نقاط</li>
+                    <li>• <span className="font-bold text-purple-600 dark:text-purple-400">مع دبلها:</span> ضعف النقاط</li>
+                    <li>• <span className="font-bold text-orange-600 dark:text-orange-400">مع يا تصيب يا تخيب:</span> 3 أضعاف إن صحيح، أو خصم ضعفين إن خطأ</li>
+                    <li>• <span className="font-bold text-blue-600 dark:text-blue-400">مع جوابين:</span> إحدى الإجابتين صحيحة تكفي</li>
+                    <li>• <span className="font-bold text-gray-700 dark:text-gray-300">محد جاوب:</span> لا نقاط لأي فريق</li>
+                    <li className="font-bold text-amber-600 dark:text-amber-400">• تحذير: النقاط يمكن أن تصبح سالبة مع يا تصيب يا تخيب!</li>
                   </ul>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect } from 'react'
 
-const PerkModal = memo(function PerkModal({
+function PerkModal({
   isOpen,
   onClose,
   perkType,
@@ -118,7 +118,7 @@ const PerkModal = memo(function PerkModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
+        className="bg-white dark:bg-slate-800 rounded-2xl border-4 border-red-600 shadow-2xl flex flex-col overflow-hidden max-w-lg w-full max-h-[90vh] transform transition-all duration-200 scale-100"
         onClick={e => e.stopPropagation()}
       >
         {/* Header with gradient */}
@@ -142,16 +142,16 @@ const PerkModal = memo(function PerkModal({
           <div className="space-y-3 sm:space-y-4">
             {/* Team name badge */}
             <div className="flex justify-center">
-              <div className="bg-red-50 border-2 border-red-200 rounded-full px-4 py-1.5 sm:px-6 sm:py-2">
-                <span className="font-bold text-red-600 text-base sm:text-lg lg:text-xl" dir="auto">
+              <div className="bg-red-50 dark:bg-red-900/30 border-2 border-red-200 dark:border-red-700 rounded-full px-4 py-1.5 sm:px-6 sm:py-2">
+                <span className="font-bold text-red-600 dark:text-red-400 text-base sm:text-lg lg:text-xl" dir="auto">
                   فريق: {teamName}
                 </span>
               </div>
             </div>
 
             {/* Description */}
-            <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
-              <p className="text-gray-700 text-center leading-relaxed text-sm sm:text-base lg:text-lg font-bold" dir="rtl">
+            <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-3 sm:p-4">
+              <p className="text-gray-700 dark:text-gray-200 text-center leading-relaxed text-sm sm:text-base lg:text-lg font-bold" dir="rtl">
                 {perkInfo.description}
               </p>
             </div>
@@ -227,7 +227,7 @@ const PerkModal = memo(function PerkModal({
       </div>
     </div>
   )
-})
+}
 
 // Helper function to get perk information
 function getPerkInfo(perkType) {

@@ -13,6 +13,11 @@ function Statistics() {
   const navigate = useNavigate()
   const { isAuthenticated, user, getUserGames, loading: authLoading } = useAuth()
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - الإحصائيات'
+  }, [])
+
   // Redirect to home if not authenticated (but only after loading is complete)
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -138,7 +143,7 @@ function Statistics() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f2e6]">
+    <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900">
       {/* Header - Red theme matching website */}
       <div className="bg-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden h-16 md:h-20 lg:h-24">
         <div className="flex items-center justify-between max-w-6xl mx-auto h-full px-4">
@@ -167,7 +172,7 @@ function Statistics() {
       {loading || authLoading ? (
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">جاري تحميل الإحصائيات...</p>
+          <p className="text-gray-600 dark:text-gray-400">جاري تحميل الإحصائيات...</p>
         </div>
       ) : (
         <>
@@ -207,8 +212,8 @@ function Statistics() {
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-2xl shadow-lg mb-8">
-            <div className="flex border-b">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg mb-8">
+            <div className="flex border-b dark:border-slate-700">
           <TabButton
             active={activeTab === 'history'}
             onClick={() => setActiveTab('history')}
@@ -257,7 +262,7 @@ function TabButton({ active, onClick, title }) {
       className={`flex-1 py-4 px-6 font-bold transition-colors ${
         active
           ? 'bg-red-600 text-white'
-          : 'text-gray-700 hover:bg-gray-100'
+          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
       }`}
     >
       {title}
@@ -268,7 +273,7 @@ function TabButton({ active, onClick, title }) {
 function GameHistoryTab({ games }) {
   if (games.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <div className="text-4xl mb-4">📊</div>
         <p className="text-xl">لا توجد ألعاب مسجلة بعد</p>
       </div>
@@ -277,7 +282,7 @@ function GameHistoryTab({ games }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold mb-4 text-red-600">آخر الألعاب</h3>
+      <h3 className="text-xl font-bold mb-4 text-red-600 dark:text-red-400">آخر الألعاب</h3>
       {games.slice(0, 10).map((game, index) => (
         <GameHistoryCard key={game.id} game={game} index={index} />
       ))}
@@ -318,12 +323,12 @@ function GameHistoryCard({ game, index }) {
   }
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border-l-4 border-blue-500">
+    <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4 border-l-4 border-blue-500">
       <div className="flex justify-between items-center mb-2">
-        <div className="font-bold text-gray-800">
+        <div className="font-bold text-gray-800 dark:text-gray-100">
           {gameData.gameName || `لعبة #${index + 1}`}
         </div>
-        <div className="text-sm text-gray-600">{formatDate(game.createdAt)}</div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">{formatDate(game.createdAt)}</div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 mb-3">
@@ -343,7 +348,7 @@ function GameHistoryCard({ game, index }) {
         </div>
       </div>
 
-      <div className="flex justify-between text-sm text-gray-600">
+      <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
         <span>{usedQuestionsSize} / {totalQuestions} سؤال</span>
         <span>{game.isComplete ? 'مكتملة' : 'قيد التقدم'}</span>
       </div>
@@ -370,7 +375,7 @@ function TeamStatsTab({ teamStats }) {
 
   if (teams.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <div className="text-4xl mb-4">👥</div>
         <p className="text-xl">لا توجد إحصائيات فرق متاحة</p>
       </div>
@@ -379,7 +384,7 @@ function TeamStatsTab({ teamStats }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold mb-4">إحصائيات الفرق</h3>
+      <h3 className="text-xl font-bold mb-4 dark:text-gray-100">إحصائيات الفرق</h3>
       {teams.map(([teamName, stats], index) => (
         <TeamStatsCard key={teamName} teamName={teamName} stats={stats} rank={index + 1} />
       ))}
@@ -391,7 +396,7 @@ function TeamStatsCard({ teamName, stats, rank }) {
   const winRate = stats.gamesPlayed > 0 ? Math.round((stats.wins / stats.gamesPlayed) * 100) : 0
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
+    <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3 ${
@@ -399,29 +404,29 @@ function TeamStatsCard({ teamName, stats, rank }) {
           }`}>
             {rank}
           </div>
-          <div className="font-bold text-lg">{teamName}</div>
+          <div className="font-bold text-lg dark:text-gray-100">{teamName}</div>
         </div>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 dark:text-gray-400">
           معدل الفوز: {winRate}%
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
         <div>
-          <div className="text-2xl font-bold text-green-600">{stats.wins}</div>
-          <div className="text-sm text-gray-600">انتصارات</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.wins}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">انتصارات</div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-red-600">{stats.losses}</div>
-          <div className="text-sm text-gray-600">هزائم</div>
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.losses}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">هزائم</div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-blue-600">{stats.averagePoints}</div>
-          <div className="text-sm text-gray-600">متوسط النقاط</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.averagePoints}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">متوسط النقاط</div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-red-600">{stats.highestScore}</div>
-          <div className="text-sm text-gray-600">أعلى نتيجة</div>
+          <div className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.highestScore}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">أعلى نتيجة</div>
         </div>
       </div>
     </div>
@@ -433,7 +438,7 @@ function CategoryStatsTab({ categoryStats }) {
 
   if (categories.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12 text-gray-500 dark:text-gray-400">
         <div className="text-4xl mb-4">📊</div>
         <p className="text-xl">لا توجد إحصائيات فئات متاحة</p>
       </div>
@@ -442,7 +447,7 @@ function CategoryStatsTab({ categoryStats }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold mb-4">إحصائيات الفئات</h3>
+      <h3 className="text-xl font-bold mb-4 dark:text-gray-100">إحصائيات الفئات</h3>
       {categories.map(([category, stats]) => (
         <CategoryStatsCard key={category} category={category} stats={stats} />
       ))}
@@ -456,32 +461,32 @@ function CategoryStatsCard({ category, stats }) {
     : 0
 
   return (
-    <div className="bg-gray-50 rounded-xl p-4">
+    <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
       <div className="flex justify-between items-center mb-3">
-        <h4 className="font-bold text-lg">{category}</h4>
-        <div className="text-sm text-gray-600">
+        <h4 className="font-bold text-lg dark:text-gray-100">{category}</h4>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
           معدل النجاح: {successRate}%
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4 text-center">
         <div>
-          <div className="text-2xl font-bold text-green-600">{stats.correctAnswers}</div>
-          <div className="text-sm text-gray-600">إجابات صحيحة</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.correctAnswers}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">إجابات صحيحة</div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-gray-600">{stats.noAnswers}</div>
-          <div className="text-sm text-gray-600">بدون إجابة</div>
+          <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{stats.noAnswers}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">بدون إجابة</div>
         </div>
         <div>
-          <div className="text-2xl font-bold text-blue-600">{stats.totalQuestions}</div>
-          <div className="text-sm text-gray-600">مجموع الأسئلة</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalQuestions}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">مجموع الأسئلة</div>
         </div>
       </div>
 
       {/* Progress bar */}
       <div className="mt-3">
-        <div className="bg-gray-200 rounded-full h-2">
+        <div className="bg-gray-200 dark:bg-slate-600 rounded-full h-2">
           <div
             className="bg-green-500 rounded-full h-2 transition-all duration-300"
             style={{ width: `${successRate}%` }}

@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AuthModal from './AuthModal'
 
-const HeaderAuth = memo(function HeaderAuth({ fontSize = 14, isAdmin = false }) {
+const HeaderAuth = memo(function HeaderAuth({ fontSize = 14, isAdmin = false, inMobileMenu = false }) {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showDropdown, setShowDropdown] = useState(false)
-  const { user, signOut, isAuthenticated, isAdminOrModerator } = useAuth()
+  const { user, signOut, isAuthenticated, isAdminOrModerator, loading } = useAuth()
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
 
@@ -40,7 +40,31 @@ const HeaderAuth = memo(function HeaderAuth({ fontSize = 14, isAdmin = false }) 
     }
   }
 
+  // Don't show anything while loading to prevent flash
+  if (loading) {
+    return null
+  }
+
   if (isAuthenticated) {
+    // In mobile menu: show username and signout button only (no dropdown, no duplicates)
+    if (inMobileMenu) {
+      return (
+        <div className="space-y-2">
+          <div className="text-gray-700 font-bold" style={{ fontSize: `${fontSize}px` }}>
+            {user?.displayName || user?.email?.split('@')[0]}
+          </div>
+          <button
+            onClick={() => signOut()}
+            className="w-full text-right px-4 py-2 text-red-600 hover:bg-red-50 transition-colors rounded-lg"
+            style={{ fontSize: `${fontSize * 0.9}px` }}
+          >
+            تسجيل الخروج
+          </button>
+        </div>
+      )
+    }
+
+    // Desktop mode: show dropdown with all options
     return (
       <div className="relative" ref={dropdownRef}>
         <button

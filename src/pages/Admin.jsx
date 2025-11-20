@@ -37,6 +37,11 @@ function Admin() {
   const navigate = useNavigate()
   const { isAdmin, isModerator, isAdminOrModerator, user, isAuthenticated, loading, userProfile, getAllUsers, updateUserRole, searchUsers } = useAuth()
 
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - لوحة التحكم'
+  }, [])
+
   // Load pending count for notification badge
   useEffect(() => {
     const loadPendingCount = async () => {
@@ -122,13 +127,13 @@ function Admin() {
   }
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-8">
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">لوحة التحكم</h1>
-            <p className="text-gray-900 mt-1">مرحباً، {user?.displayName || user?.email}</p>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">لوحة التحكم</h1>
+            <p className="text-gray-900 dark:text-gray-300 mt-1">مرحباً، {user?.displayName || user?.email}</p>
           </div>
           <button
             onClick={() => navigate('/')}
@@ -140,14 +145,14 @@ function Admin() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg mb-8">
-        <div className="flex border-b">
+      <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-2xl shadow-lg mb-8">
+        <div className="flex border-b dark:border-slate-700">
           <button
             onClick={() => changeTab('categories')}
             className={`flex-1 py-4 px-6 font-bold ${
               activeTab === 'categories'
-                ? 'bg-blue-600 text-white rounded-tl-2xl'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-600 dark:bg-blue-700 text-white rounded-tl-2xl'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
             }`}
           >
             إدارة الفئات
@@ -156,8 +161,8 @@ function Admin() {
             onClick={() => changeTab('questions')}
             className={`flex-1 py-4 px-6 font-bold ${
               activeTab === 'questions'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
+                ? 'bg-blue-600 dark:bg-blue-700 text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
             }`}
           >
             إدارة الأسئلة
@@ -540,8 +545,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       return
     }
 
+    // FILTER: Only export questions that belong to this category
+    const filteredQuestions = categoryQuestions.filter(q => {
+      // Make sure question belongs to this category
+      return q.category === categoryId || q.categoryId === categoryId
+    })
+
+    if (filteredQuestions.length === 0) {
+      alert('لا توجد أسئلة تنتمي لهذه الفئة للتصدير')
+      return
+    }
+
     // Prepare export data - handle different question structures
-    const exportData = categoryQuestions.map((q, index) => {
+    const exportData = filteredQuestions.map((q, index) => {
       // Get question text from different possible sources
       const questionText = q.question || q.text || q.questionText || ''
 
@@ -567,7 +583,14 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
         'الإجابة الخاطئة 3': wrongOptions[2] || '',
         'الصعوبة': q.difficulty || 'متوسط',
         'النقاط': q.points || q.value || 100,
-        'نوع السؤال': q.type || 'text'
+        'نوع السؤال': q.type || 'text',
+        'صورة السؤال': q.imageUrl || '',
+        'صوت السؤال': q.audioUrl || '',
+        'فيديو السؤال': q.videoUrl || '',
+        'صورة الإجابة': q.answerImageUrl || '',
+        'صوت الإجابة': q.answerAudioUrl || '',
+        'فيديو الإجابة': q.answerVideoUrl || '',
+        'الفئة': q.category || q.categoryId || categoryId
       }
     })
 
@@ -599,7 +622,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    alert(`تم تصدير ${categoryQuestions.length} سؤال من فئة "${category.name}" بنجاح!`)
+    alert(`تم تصدير ${filteredQuestions.length} سؤال من فئة "${category.name}" بنجاح!`)
   }
 
   const deleteCategory = async (categoryId) => {

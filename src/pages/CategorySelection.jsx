@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
@@ -18,6 +18,11 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [gameData, setGameData] = useState(null)
   const [questionCounts, setQuestionCounts] = useState({})
   const [masterCategories, setMasterCategories] = useState([])
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'لمّه - اختيار الفئات'
+  }, [])
   const [expandedMasters, setExpandedMasters] = useState({})
   const [searchText, setSearchText] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
@@ -454,55 +459,6 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     return questionCounts[categoryId] || 0
   }
 
-  // Memoize category grouping logic for performance
-  const sortedMasterCategories = useMemo(() => {
-    // Group categories by masterCategoryId and sort by displayOrder
-    const groupedCategories = {}
-
-    availableCategories.forEach(category => {
-      const masterId = category.masterCategoryId || 'general'
-      if (!groupedCategories[masterId]) {
-        groupedCategories[masterId] = []
-      }
-      groupedCategories[masterId].push(category)
-    })
-
-    // Sort categories within each group by displayOrder
-    Object.keys(groupedCategories).forEach(masterId => {
-      groupedCategories[masterId].sort((a, b) =>
-        (a.displayOrder || 0) - (b.displayOrder || 0)
-      )
-    })
-
-    // Create sorted array of master categories
-    const sortedMasters = []
-
-    // Add general category first if it exists
-    if (groupedCategories['general']) {
-      sortedMasters.push({
-        id: 'general',
-        name: 'فئات عامة',
-        order: 0,
-        categories: groupedCategories['general']
-      })
-    }
-
-    // Add other master categories sorted by order (exclude 'general' since we added it above)
-    masterCategories
-      .filter(master => master.id !== 'general' && groupedCategories[master.id])
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .forEach(master => {
-        sortedMasters.push({
-          id: master.id,
-          name: master.name,
-          order: master.order,
-          categories: groupedCategories[master.id]
-        })
-      })
-
-    return sortedMasters
-  }, [availableCategories, masterCategories])
-
   // Responsive styling system
   const getResponsiveStyles = () => {
     const { width, height } = dimensions
@@ -542,6 +498,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
   const styles = getResponsiveStyles()
 
+  // Show skeleton/empty state while loading in background
+  const isLoading = availableCategories.length === 0 && !loadingError
+
   // Show error state
   if (loadingError) {
     return (
@@ -562,17 +521,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   }
 
   return (
-    <div className="h-screen bg-[#f7f2e6] flex flex-col">
+    <div className="h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col">
       {/* Header */}
       <Header showBackButton={true} backPath="/" />
 
       {/* Main Content */}
-      <div className="flex-1 bg-[#f7f2e6] flex flex-col items-center justify-start p-3 md:p-6 overflow-y-auto category-selection-main-content relative">
+      <div className="flex-1 bg-[#f7f2e6] dark:bg-slate-900 flex flex-col items-center justify-start p-3 md:p-6 overflow-y-auto category-selection-main-content relative">
 
         {/* Selected Categories Sidebar - Shows on scroll */}
         {showSidebar && showCategoriesGrid && selectedCategories.length > 0 && (
           <div className="fixed portrait:bottom-4 portrait:left-1/2 portrait:-translate-x-1/2 landscape:left-2 landscape:top-1/2 landscape:-translate-y-1/2 lg:landscape:left-8 z-50 portrait:animate-slideInFromBottom landscape:animate-slideInFromLeft">
-            <div className="bg-white rounded-lg md:rounded-xl lg:rounded-2xl shadow-2xl p-1.5 md:p-2 lg:p-4 portrait:w-auto max-lg:landscape:w-[65px] md:max-lg:w-[82px] lg:w-[102px] border-2 border-gray-200">
+            <div className="bg-white dark:bg-slate-800 rounded-lg md:rounded-xl lg:rounded-2xl shadow-2xl p-1.5 md:p-2 lg:p-4 portrait:w-auto max-lg:landscape:w-[65px] md:max-lg:w-[82px] lg:w-[102px] border-2 border-gray-200 dark:border-slate-600">
               <div className="flex portrait:flex-row landscape:flex-col gap-1 max-lg:landscape:gap-0.5 md:gap-2 lg:gap-3 portrait:gap-1.5">
                 {selectedCategories.map((categoryId) => {
                   const category = availableCategories.find(cat => cat.id === categoryId)
@@ -627,8 +586,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           <div className="w-full animate-slideInFromTop max-lg:landscape:px-[75px] md:max-lg:landscape:px-[90px] lg:px-[110px]">
             {/* Selection Counter */}
             <div className="text-center mb-4 md:mb-6 flex-shrink-0">
-              <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-2 md:p-4 inline-block">
-                <span className="text-lg md:text-2xl font-bold text-red-600">
+              <div className="bg-gray-100 dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-lg p-2 md:p-4 inline-block">
+                <span className="text-lg md:text-2xl font-bold text-red-600 dark:text-red-400">
                   {selectedCategories.length} / 6 فئات محددة
                 </span>
               </div>
@@ -647,9 +606,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   onFocus={() => searchText.length > 0 && setShowSearchResults(true)}
                   onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
                   placeholder="ابحث عن فئة..."
-                  className="w-full px-4 py-3 pr-12 text-gray-900 bg-white border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg"
+                  className="w-full px-4 py-3 pr-12 text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-lg"
                 />
-                <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -661,7 +620,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 )
 
                 return filteredCategories.length > 0 ? (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-2xl max-h-96 overflow-y-auto z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-xl shadow-2xl max-h-96 overflow-y-auto z-50">
                     {filteredCategories.map(category => (
                       <div
                         key={category.id}
@@ -673,8 +632,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                           setSearchText('')
                           setShowSearchResults(false)
                         }}
-                        className={`p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-200 last:border-b-0 flex items-center gap-3 ${
-                          selectedCategories.includes(category.id) ? 'bg-green-50' : ''
+                        className={`p-3 hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer border-b border-gray-200 dark:border-slate-700 last:border-b-0 flex items-center gap-3 ${
+                          selectedCategories.includes(category.id) ? 'bg-green-50 dark:bg-green-900/30' : ''
                         }`}
                       >
                         {category.imageUrl ? (
@@ -685,20 +644,20 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                           </div>
                         )}
                         <div className="flex-1">
-                          <div className="font-bold text-gray-900">{category.name}</div>
-                          <div className="text-sm text-gray-600">
+                          <div className="font-bold text-gray-900 dark:text-gray-100">{category.name}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">
                             {masterCategories.find(m => m.id === category.masterCategoryId)?.name || 'فئات عامة'}
                           </div>
                         </div>
                         {selectedCategories.includes(category.id) && (
-                          <div className="text-green-600 font-bold">✓</div>
+                          <div className="text-green-600 dark:text-green-400 font-bold">✓</div>
                         )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border-2 border-gray-300 rounded-xl shadow-xl p-4 z-50">
-                    <div className="text-gray-500 text-center">لا توجد نتائج</div>
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-xl shadow-xl p-4 z-50">
+                    <div className="text-gray-500 dark:text-gray-400 text-center">لا توجد نتائج</div>
                   </div>
                 )
               })()}
@@ -706,14 +665,78 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
             {/* Categories Grid - Grouped by Master Categories */}
             <div className="w-full max-w-7xl mx-auto flex-1">
-              {sortedMasterCategories.map(master => (
+              {isLoading ? (
+                // Show skeleton loading cards without blocking UI
+                <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
+                  {Array.from({ length: 12 }).map((_, index) => (
+                    <div
+                      key={`skeleton-${index}`}
+                      className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
+                    >
+                      <div className="flex-1 relative flex items-center justify-center">
+                        <div className="w-8 h-8 bg-gray-300 dark:bg-slate-600 rounded"></div>
+                      </div>
+                      <div className="p-2 md:p-3 border-t-2 border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-700">
+                        <div className="h-4 bg-gray-300 dark:bg-slate-600 rounded w-3/4 mx-auto"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                (() => {
+                  // Group categories by masterCategoryId and sort by displayOrder
+                  const groupedCategories = {}
+
+                  availableCategories.forEach(category => {
+                    const masterId = category.masterCategoryId || 'general'
+                    if (!groupedCategories[masterId]) {
+                      groupedCategories[masterId] = []
+                    }
+                    groupedCategories[masterId].push(category)
+                  })
+
+                  // Sort categories within each group by displayOrder
+                  Object.keys(groupedCategories).forEach(masterId => {
+                    groupedCategories[masterId].sort((a, b) =>
+                      (a.displayOrder || 0) - (b.displayOrder || 0)
+                    )
+                  })
+
+                  // Create sorted array of master categories
+                  const sortedMasters = []
+
+                  // Add general category first if it exists
+                  if (groupedCategories['general']) {
+                    sortedMasters.push({
+                      id: 'general',
+                      name: 'فئات عامة',
+                      order: 0,
+                      categories: groupedCategories['general']
+                    })
+                  }
+
+                  // Add other master categories sorted by order (exclude 'general' since we added it above)
+                  masterCategories
+                    .filter(master => master.id !== 'general' && groupedCategories[master.id])
+                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .forEach(master => {
+                      sortedMasters.push({
+                        id: master.id,
+                        name: master.name,
+                        order: master.order,
+                        categories: groupedCategories[master.id]
+                      })
+                    })
+
+                  // Render grouped categories
+                  return sortedMasters.map(master => (
                     <div key={master.id} className="mb-10 relative">
                       {/* Categories Container with header badge */}
-                      <div className={`bg-gradient-to-b from-white to-gray-50 rounded-2xl md:rounded-3xl px-3 sm:px-6 md:px-8 lg:px-10 relative transition-all duration-300 shadow-xl ${
+                      <div className={`bg-gradient-to-b from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl md:rounded-3xl px-3 sm:px-6 md:px-8 lg:px-10 relative transition-all duration-300 shadow-xl ${
                         expandedMasters[master.id] ? 'py-16 sm:py-20 md:py-24' : 'py-8'
                       }`}>
                         {/* Master Header Badge - centered at top */}
-                        <div className="rounded-full bg-red-600 -top-4 sm:-top-5 md:-top-6 -translate-x-1/2 left-1/2 absolute flex items-center justify-center py-1.5 px-4 sm:py-2 sm:px-6 md:py-2.5 md:px-8 overflow-hidden transition-all shadow-lg">
+                        <div className="rounded-full bg-red-600 dark:bg-red-700 -top-4 sm:-top-5 md:-top-6 -translate-x-1/2 left-1/2 absolute flex items-center justify-center py-1.5 px-4 sm:py-2 sm:px-6 md:py-2.5 md:px-8 overflow-hidden transition-all shadow-lg">
                           <span className="text-base sm:text-lg md:text-xl text-white font-bold whitespace-nowrap">
                             {master.name}
                           </span>
@@ -724,8 +747,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                           onClick={() => toggleMasterExpand(master.id)}
                           className={`w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full absolute cursor-pointer flex justify-center items-center shadow-md right-2 sm:right-3 md:right-4 ${
                             expandedMasters[master.id]
-                              ? 'bg-gray-400 hover:bg-gray-500 top-2 sm:top-3 md:top-4'
-                              : 'bg-red-600 hover:bg-red-700 top-1/2 -translate-y-1/2'
+                              ? 'bg-gray-400 dark:bg-slate-600 hover:bg-gray-500 dark:hover:bg-slate-500 top-2 sm:top-3 md:top-4'
+                              : 'bg-red-600 dark:bg-red-700 hover:bg-red-700 dark:hover:bg-red-600 top-1/2 -translate-y-1/2'
                           }`}
                         >
                           {expandedMasters[master.id] ? (
@@ -757,10 +780,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   relative p-0 rounded-lg font-bold transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
                                   text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
                                   ${selected
-                                    ? 'text-white shadow-lg scale-105 border-red-600'
+                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
                                     : canSelect
-                                    ? 'text-red-600 border-gray-300 hover:border-red-300 hover:shadow-lg'
-                                    : 'text-gray-500 cursor-not-allowed border-gray-400 opacity-50'
+                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 hover:border-red-300 dark:hover:border-red-500 hover:shadow-lg'
+                                    : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                                   }
                                 `}
                               >
@@ -772,10 +795,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   categoryId={category.id}
                                   className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
                                     selected
-                                      ? 'bg-red-600'
+                                      ? 'bg-red-600 dark:bg-red-700'
                                       : canSelect
-                                      ? 'bg-white hover:bg-gray-50'
-                                      : 'bg-gray-300'
+                                      ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                      : 'bg-gray-300 dark:bg-slate-700'
                                   }`}
                                   fallbackGradient={
                                     selected
@@ -811,10 +834,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 {/* Bottom bar with category name */}
                                 <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
                                   selected
-                                    ? 'bg-red-700 border-red-800'
+                                    ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
                                     : canSelect
-                                    ? 'bg-gray-100 border-gray-200'
-                                    : 'bg-gray-400 border-gray-500'
+                                    ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
+                                    : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                 }`}>
                                   <div className="leading-tight font-bold text-center whitespace-nowrap overflow-hidden w-full">
                                     <div
@@ -835,7 +858,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       )}
                       </div>
                     </div>
-                  ))}
+                  ))
+                })()
+              )}
             </div>
           </div>
         ) : (
@@ -843,9 +868,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           <div className="w-full max-w-3xl animate-slideInFromBottom">
             {/* Selected Categories Display - Compact */}
             <div className="mb-4 md:mb-6">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-3 md:p-4 shadow-lg border border-green-300">
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-3 md:p-4 shadow-lg border border-green-300 dark:border-green-700">
                 <div className="text-center mb-2">
-                  <span className="inline-flex items-center gap-1 md:gap-2 bg-green-600 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold">
+                  <span className="inline-flex items-center gap-1 md:gap-2 bg-green-600 dark:bg-green-700 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold">
                     <span>✓</span>
                     <span>تم اختيار 6 فئات</span>
                   </span>
@@ -854,7 +879,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   {selectedCategories.map((categoryId) => {
                     const category = availableCategories.find(cat => cat.id === categoryId)
                     return category ? (
-                      <div key={categoryId} className="bg-red-600 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-base lg:text-lg font-bold">
+                      <div key={categoryId} className="bg-red-600 dark:bg-red-700 text-white px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-base lg:text-lg font-bold">
                         {category.name}
                       </div>
                     ) : null
@@ -881,18 +906,18 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
             {/* Perk Selection Section */}
             {showPerkSelection && (
-              <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 border border-gray-200 mb-4 md:mb-6">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-4 md:p-6 border border-gray-200 dark:border-slate-700 mb-4 md:mb-6">
                 {/* Title */}
                 <div className="text-center mb-4 md:mb-6">
-                  <h2 className="font-bold text-red-600 text-xl md:text-2xl">
+                  <h2 className="font-bold text-red-600 dark:text-red-400 text-xl md:text-2xl">
                     اعدادات وسائل المساعدة
                   </h2>
                 </div>
 
                 {/* Selection Counter with Random Button */}
                 <div className="text-center mb-4 md:mb-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-2 md:p-3 inline-block">
-                    <span className="text-base md:text-xl font-bold text-red-600">
+                  <div className="bg-gray-100 dark:bg-slate-700 border-2 border-gray-300 dark:border-slate-600 rounded-lg p-2 md:p-3 inline-block">
+                    <span className="text-base md:text-xl font-bold text-red-600 dark:text-red-400">
                       {selectedPerks.length === 0 && 'اختر 3 وسائل مساعدة'}
                       {selectedPerks.length === 1 && 'اختر وسيلتين إضافيتين'}
                       {selectedPerks.length === 2 && 'اختر وسيلة واحدة إضافية'}
@@ -956,19 +981,19 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     <div className="text-center">
                       <div className="flex justify-center mb-3">
                         <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                          selectedPerks.includes(expandedPerk) ? 'bg-red-600 text-white' : 'bg-gray-400 text-gray-600'
+                          selectedPerks.includes(expandedPerk) ? 'bg-red-600 dark:bg-red-700 text-white' : 'bg-gray-400 dark:bg-slate-600 text-gray-600 dark:text-gray-300'
                         }`}>
                           {getPerkInfo(expandedPerk).icon}
                         </div>
                       </div>
-                      <h3 className="font-bold text-lg md:text-xl mb-2 text-gray-800">
+                      <h3 className="font-bold text-lg md:text-xl mb-2 text-gray-800 dark:text-gray-100">
                         {getPerkInfo(expandedPerk).title}
                       </h3>
-                      <p className="text-gray-700 text-sm md:text-base leading-relaxed" dir="rtl">
+                      <p className="text-gray-700 dark:text-gray-300 text-sm md:text-base leading-relaxed" dir="rtl">
                         {getPerkInfo(expandedPerk).description}
                       </p>
                       {getPerkInfo(expandedPerk).duration && (
-                        <p className="text-gray-600 text-xs md:text-sm mt-2">
+                        <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm mt-2">
                           ⏱️ المدة: {getPerkInfo(expandedPerk).duration} ثانية
                         </p>
                       )}
@@ -991,17 +1016,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
             {/* Game Setup Form - Compact & Responsive */}
             {showTeamSetup && (
-              <div className="bg-white rounded-2xl shadow-xl p-4 md:p-6 border border-gray-200">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-4 md:p-6 border border-gray-200 dark:border-slate-700">
                 {/* Title */}
                 <div className="text-center mb-4 md:mb-6">
-                  <h2 className="font-bold text-red-600" style={{ fontSize: `${styles.labelFontSize * 1.3}px` }}>
+                  <h2 className="font-bold text-red-600 dark:text-red-400" style={{ fontSize: `${styles.labelFontSize * 1.3}px` }}>
                     إعداد فرق اللعبة
                   </h2>
                 </div>
 
                 {/* Game Name Section */}
                 <div className="mb-4 md:mb-5">
-                  <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700" style={{ fontSize: `${styles.labelFontSize}px` }}>
+                  <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700 dark:text-gray-300" style={{ fontSize: `${styles.labelFontSize}px` }}>
                     <span>اسم اللعبة</span>
                   </label>
                   <input
@@ -1009,13 +1034,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     value={gameName}
                     onChange={(e) => setGameName(e.target.value)}
                     dir="auto"
-                    className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
+                    className="w-full border-2 border-gray-300 dark:border-slate-600 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800 bg-white dark:bg-slate-700 shadow-sm placeholder-gray-400 dark:placeholder-gray-500 transition-all text-gray-900 dark:text-gray-100"
                     style={{
                       padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
                       fontSize: `${styles.inputFontSize}px`,
                       height: `${styles.inputHeight}px`,
-                      boxSizing: 'border-box',
-                      color: '#374151'
+                      boxSizing: 'border-box'
                     }}
                     placeholder="أدخل اسم اللعبة"
                     maxLength={30}
@@ -1025,8 +1049,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 {/* Teams Section */}
                 <div className={`${styles.isPortrait ? 'flex flex-col' : 'grid grid-cols-2'} gap-3 md:gap-4 mb-4 md:mb-5`}>
                   {/* Team 1 */}
-                  <div className="bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-300">
-                    <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700" style={{ fontSize: `${styles.labelFontSize * 0.95}px` }}>
+                  <div className="bg-gray-50 dark:bg-slate-700 p-3 md:p-4 rounded-xl border border-gray-300 dark:border-slate-600">
+                    <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700 dark:text-gray-300" style={{ fontSize: `${styles.labelFontSize * 0.95}px` }}>
                       <span>الفريق الأول</span>
                     </label>
                     <input
@@ -1034,13 +1058,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       value={team1Name}
                       onChange={(e) => setTeam1Name(e.target.value)}
                       dir="auto"
-                      className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
+                      className="w-full border-2 border-gray-300 dark:border-slate-600 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800 bg-white dark:bg-slate-600 shadow-sm placeholder-gray-400 dark:placeholder-gray-500 transition-all text-gray-700 dark:text-gray-200"
                       style={{
                         padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
                         fontSize: `${styles.inputFontSize}px`,
                         height: `${styles.inputHeight}px`,
                         boxSizing: 'border-box',
-                        color: '#374151'
+                        
                       }}
                       placeholder="اسم الفريق"
                       maxLength={20}
@@ -1048,8 +1072,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   </div>
 
                   {/* Team 2 */}
-                  <div className="bg-gray-50 p-3 md:p-4 rounded-xl border border-gray-300">
-                    <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700" style={{ fontSize: `${styles.labelFontSize * 0.95}px` }}>
+                  <div className="bg-gray-50 dark:bg-slate-700 p-3 md:p-4 rounded-xl border border-gray-300 dark:border-slate-600">
+                    <label className="flex items-center justify-center gap-1.5 mb-2 font-bold text-gray-700 dark:text-gray-300" style={{ fontSize: `${styles.labelFontSize * 0.95}px` }}>
                       <span>الفريق الثاني</span>
                     </label>
                     <input
@@ -1057,13 +1081,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       value={team2Name}
                       onChange={(e) => setTeam2Name(e.target.value)}
                       dir="auto"
-                      className="w-full border-2 border-gray-300 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 bg-white shadow-sm placeholder-gray-400 transition-all"
+                      className="w-full border-2 border-gray-300 dark:border-slate-600 rounded-xl text-center font-bold focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800 bg-white dark:bg-slate-600 shadow-sm placeholder-gray-400 dark:placeholder-gray-500 transition-all text-gray-700 dark:text-gray-200"
                       style={{
                         padding: `${styles.inputPadding}px ${styles.inputPadding * 1.5}px`,
                         fontSize: `${styles.inputFontSize}px`,
                         height: `${styles.inputHeight}px`,
                         boxSizing: 'border-box',
-                        color: '#374151'
+                        
                       }}
                       placeholder="اسم الفريق"
                       maxLength={20}

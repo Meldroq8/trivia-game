@@ -17,7 +17,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
   return (
     <div
       ref={footerRef}
-      className="bg-[#f7f2e6] border-t-2 border-gray-200 flex-shrink-0 sticky bottom-0 z-10"
+      className="bg-[#f7f2e6] dark:bg-slate-900 border-t-2 border-gray-200 dark:border-slate-700 flex-shrink-0 sticky bottom-0 z-10"
       style={{
         paddingLeft: `${styles.pcScaleFactor > 1 ? 64 : styles.isPhonePortrait ? 8 : 16}px`,
         paddingRight: `${styles.pcScaleFactor > 1 ? 64 : styles.isPhonePortrait ? 8 : 16}px`,
@@ -91,7 +91,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
             </div>
 
             {/* Score Container */}
-            <div className="bg-white rounded-full flex items-center justify-between font-bold relative" style={{
+            <div className="bg-white dark:bg-slate-800 rounded-full flex items-center justify-between font-bold relative" style={{
               fontSize: 'var(--score-font)',
               color: '#B91C1C',
               width: 'var(--score-width)',
@@ -118,7 +118,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
                   <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
                 </svg>
               </button>
-              <span className="flex-1 text-center">{gameState.team1.score}</span>
+              <span className="flex-1 text-center dark:text-red-400">{gameState.team1.score}</span>
               <button
                 onClick={() => setGameState(prev => ({
                   ...prev,
@@ -144,10 +144,10 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
             <div
               className={`rounded-full flex items-center justify-center transition-colors ${
                 (gameState.perkUsage?.team1?.double || 0) >= 1
-                  ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                  ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                   : gameState.currentTurn !== 'team1'
-                  ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                  : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                  ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                  : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
               }`}
               style={{
                 width: 'var(--perk-size)',
@@ -166,7 +166,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
               </svg>
             </div>
             <div
-              className="border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+              className="border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
               style={{
                 width: 'var(--perk-size)',
                 height: 'var(--perk-size)',
@@ -183,7 +183,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
               </svg>
             </div>
             <div
-              className="border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+              className="border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
               style={{
                 width: 'var(--perk-size)',
                 height: 'var(--perk-size)',
@@ -219,7 +219,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
             </div>
 
             {/* Score Container */}
-            <div className="bg-white rounded-full flex items-center justify-between font-bold relative" style={{
+            <div className="bg-white dark:bg-slate-800 rounded-full flex items-center justify-between font-bold relative" style={{
               fontSize: 'var(--score-font)',
               color: '#B91C1C',
               width: 'var(--score-width)',
@@ -246,7 +246,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
                   <rect x="3" y="7" width="10" height="2" rx="1" fill="white"/>
                 </svg>
               </button>
-              <span className="flex-1 text-center">{gameState.team2.score}</span>
+              <span className="flex-1 text-center dark:text-red-400">{gameState.team2.score}</span>
               <button
                 onClick={() => setGameState(prev => ({
                   ...prev,
@@ -272,10 +272,10 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
             <div
               className={`rounded-full flex items-center justify-center transition-colors ${
                 (gameState.perkUsage?.team2?.double || 0) >= 1
-                  ? 'border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed'
+                  ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                   : gameState.currentTurn !== 'team2'
-                  ? 'border-gray-600 bg-gray-100 opacity-60 cursor-not-allowed'
-                  : 'border-red-600 bg-white cursor-pointer hover:bg-red-50'
+                  ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
+                  : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
               }`}
               style={{
                 width: 'var(--perk-size)',
@@ -294,7 +294,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
               </svg>
             </div>
             <div
-              className="border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+              className="border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
               style={{
                 width: 'var(--perk-size)',
                 height: 'var(--perk-size)',
@@ -311,7 +311,7 @@ const FooterUnified = ({ gameState, setGameState, handlePerkClick, styles, foote
               </svg>
             </div>
             <div
-              className="border-gray-600 bg-gray-200 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
+              className="border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed rounded-full flex items-center justify-center transition-colors"
               style={{
                 width: 'var(--perk-size)',
                 height: 'var(--perk-size)',
