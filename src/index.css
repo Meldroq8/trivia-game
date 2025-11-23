@@ -37,6 +37,52 @@ body{
   overflow-x:hidden;
 }
 
+/* Custom Scrollbar - Light Mode */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 10px;
+  border: 2px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
+}
+
+/* Firefox scrollbar - Light Mode */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #dc2626 #f1f1f1;
+}
+
+/* Custom Scrollbar - Dark Mode */
+.dark ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border: 2px solid #1e293b;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #f87171;
+}
+
+/* Firefox scrollbar - Dark Mode */
+.dark * {
+  scrollbar-color: #dc2626 #1e293b;
+}
+
 /* Dark mode body adjustments */
 .dark body{
   background:

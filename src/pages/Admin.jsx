@@ -5,6 +5,7 @@ import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebas
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
+import { getTextDirection, formatText } from '../utils/textDirection'
 import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
@@ -4147,20 +4148,22 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 )}
                               </div>
                               <textarea
-                                value={editingData.text || ''}
+                                value={formatText(editingData.text || '')}
                                 onChange={(e) => updateEditingData('text', e.target.value)}
-                                className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white"
+                                className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white text-right"
                                 rows="3"
                                 placeholder="اكتب نص السؤال هنا..."
+                                dir={getTextDirection(editingData.text || '')}
                               />
 
                               <label className="block text-sm font-bold mb-2 text-yellow-800">الإجابة الصحيحة:</label>
                               <input
                                 type="text"
-                                value={editingData.answer || ''}
+                                value={formatText(editingData.answer || '')}
                                 onChange={(e) => updateEditingData('answer', e.target.value)}
-                                className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white"
+                                className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white text-right"
                                 placeholder="الإجابة الصحيحة..."
+                                dir={getTextDirection(editingData.answer || '')}
                               />
 
                               {/* Tolerance Hint */}
@@ -4506,19 +4509,23 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                               </div>
                             </div>
                           ) : (
-                            <p
-                              className="font-bold text-lg mb-2 text-black cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors"
-                              onDoubleClick={() => startEditing(category.id, originalIndex)}
-                              title="انقر مرتين للتعديل"
-                            >
-                              {question.text}
-                            </p>
+                            <div className="text-right">
+                              <p
+                                className="font-bold text-lg mb-2 text-black cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors inline-block"
+                                onDoubleClick={() => startEditing(category.id, originalIndex)}
+                                title="انقر مرتين للتعديل"
+                              >
+                                <span dir={getTextDirection(question.text)}>{formatText(question.text)}</span>
+                              </p>
+                            </div>
                           )}
 
 
-                          <p className="text-green-600 mb-2">
-                            ✓ {question.answer}
-                          </p>
+                          <div className="text-right">
+                            <p className="text-green-600 mb-2 inline-block">
+                              ✓ <span dir={getTextDirection(question.answer)}>{formatText(question.answer)}</span>
+                            </p>
+                          </div>
 
                           {/* Multiple Choice Options */}
                           {question.options && question.options.length > 1 && (
@@ -5827,14 +5834,18 @@ function PendingQuestionsManager() {
                     📅 {question.createdAt?.toDate?.()?.toLocaleDateString('ar-EG') || 'غير متوفر'}
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800">{question.question || question.text}</h3>
+                <h3 className="text-xl font-bold text-gray-800 text-right">
+                  <span dir={getTextDirection(question.question || question.text)}>{formatText(question.question || question.text)}</span>
+                </h3>
               </div>
 
               {/* Answer and Options */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <strong className="text-green-700">✅ الإجابة:</strong>
-                  <p className="mt-1 text-gray-900 font-semibold">{question.answer}</p>
+                  <p className="mt-1 text-gray-900 font-semibold text-right">
+                    <span dir={getTextDirection(question.answer)}>{formatText(question.answer)}</span>
+                  </p>
                 </div>
                 {question.options && question.options.length > 0 && (
                   <div>

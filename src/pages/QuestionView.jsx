@@ -17,6 +17,7 @@ import SmartImage from '../components/SmartImage'
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config'
+import { getTextDirection, formatText } from '../utils/textDirection'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -2074,11 +2075,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
                     <label className="flex justify-center items-center w-full question-content text-center pb-2 sm:pb-3 font-extrabold text-black dark:text-gray-100"
                            style={{
-                             direction: 'rtl',
                              fontSize: `${styles.questionFontSize}px`,
                              lineHeight: styles.questionLineHeight
                            }}>
-                      {currentQuestion ? (currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
+                      <span dir={currentQuestion ? getTextDirection(currentQuestion.question?.text || currentQuestion.text) : 'rtl'}>
+                        {currentQuestion ? formatText(currentQuestion.question?.text || currentQuestion.text) : 'جاري تحميل السؤال...'}
+                      </span>
                     </label>
 
                     {/* Tolerance Hint - Modern Design with Arrows */}
@@ -2534,10 +2536,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
                     <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
                            style={{
-                             direction: 'rtl',
                              fontSize: `${styles.questionFontSize}px`
                            }}>
-                      {currentQuestion ? (currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
+                      <span dir={currentQuestion ? getTextDirection(currentQuestion.question?.answer || currentQuestion.answer) : 'rtl'}>
+                        {currentQuestion ? formatText(currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
+                      </span>
                     </label>
 
                     {/* Answer Media Player */}

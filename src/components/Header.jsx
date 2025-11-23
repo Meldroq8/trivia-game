@@ -23,7 +23,7 @@ function Header({
 }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAdminOrModerator } = useAuth()
+  const { isAdminOrModerator, isAuthenticated } = useAuth()
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({
@@ -122,8 +122,11 @@ function Header({
   // Filter out current page from menu items
   const allMenuItems = [
     { label: 'الصفحة الرئيسية', path: '/', icon: '🏠' },
-    { label: 'العابي', path: '/my-games', icon: '🎮' },
-    { label: 'الملف الشخصي', path: '/profile', icon: '👤' },
+    // Only show these if authenticated
+    ...(isAuthenticated ? [
+      { label: 'العابي', path: '/my-games', icon: '🎮' },
+      { label: 'الملف الشخصي', path: '/profile', icon: '👤' }
+    ] : []),
     ...(isAdminOrModerator ? [{ label: 'إعدادات المدير', path: '/admin', icon: '⚙️' }] : [])
   ]
 
@@ -143,34 +146,36 @@ function Header({
         <div className="flex items-center" style={{ gap: `${styles.baseGap}px`, maxWidth: styles.showHamburger ? '70%' : 'auto' }}>
           <LogoDisplay />
 
-          {/* Quick navigation links - no background */}
-          <div className="flex items-center" style={{ gap: `${styles.baseGap * 0.8}px` }}>
-            <button
-              onClick={() => navigate('/my-games')}
-              className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
-              style={{
-                fontSize: `${styles.headerFontSize * 0.7}px`,
-                opacity: 0.95
-              }}
-              title="ألعابي"
-            >
-              ألعابي
-            </button>
-
-            {!styles.showHamburger && (
+          {/* Quick navigation links - only show when authenticated */}
+          {isAuthenticated && (
+            <div className="flex items-center" style={{ gap: `${styles.baseGap * 0.8}px` }}>
               <button
-                onClick={() => navigate('/profile')}
+                onClick={() => navigate('/my-games')}
                 className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
                 style={{
                   fontSize: `${styles.headerFontSize * 0.7}px`,
                   opacity: 0.95
                 }}
-                title="الملف الشخصي"
+                title="ألعابي"
               >
-                الملف الشخصي
+                ألعابي
               </button>
-            )}
-          </div>
+
+              {!styles.showHamburger && (
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                  style={{
+                    fontSize: `${styles.headerFontSize * 0.7}px`,
+                    opacity: 0.95
+                  }}
+                  title="الملف الشخصي"
+                >
+                  الملف الشخصي
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Center Section: Title */}
@@ -187,8 +192,8 @@ function Header({
 
         {/* Right Section: Auth & Menu/Back Button */}
         <div className="flex items-center mobile-menu-container" style={{ gap: `${styles.baseGap}px` }}>
-          {/* Show hamburger menu in portrait/mobile mode */}
-          {styles.showHamburger ? (
+          {/* Show hamburger menu in portrait/mobile mode ONLY if authenticated */}
+          {styles.showHamburger && isAuthenticated ? (
             <div className="relative">
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -264,7 +269,7 @@ function Header({
               )}
             </div>
           ) : (
-            /* Desktop mode: Show dark mode toggle, auth and back button separately */
+            /* Desktop mode OR not authenticated: Show dark mode toggle, auth and back button separately */
             <>
               {/* Dark Mode Toggle */}
               <button
