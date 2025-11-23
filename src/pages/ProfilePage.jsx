@@ -231,7 +231,25 @@ function ProfilePage() {
 
   const styles = useMemo(() => getResponsiveStyles(), [dimensions, headerHeight])
 
-  if (authLoading || loading) {
+  // Check authentication FIRST before showing any content
+  if (!isAuthenticated) {
+    // Show loading while auth is still loading
+    if (authLoading) {
+      return (
+        <div className="min-h-screen bg-amber-50 dark:bg-slate-900 flex items-center justify-center">
+          <div className="text-gray-800 dark:text-gray-100 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <div style={{ fontSize: '16px' }}>جاري التحميل...</div>
+          </div>
+        </div>
+      )
+    }
+    // Not authenticated and not loading - don't show anything
+    return null
+  }
+
+  // Now show loading for data if authenticated
+  if (loading) {
     return (
       <div className="min-h-screen bg-amber-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-gray-800 dark:text-gray-100 text-center">
@@ -240,10 +258,6 @@ function ProfilePage() {
         </div>
       </div>
     )
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   // Calculate responsive header height

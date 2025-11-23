@@ -331,6 +331,23 @@ function MyGames({ gameState, setGameState }) {
     return Math.max(56, baseFontSize * 3)
   }
 
+  // Don't render page content while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
+          <h1 className="text-xl font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect handled in useEffect, but don't show content if not authenticated
+  if (!isAuthenticated) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900">
       {/* Header */}
