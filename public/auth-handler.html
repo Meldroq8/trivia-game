@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لمّه - إعادة تعيين كلمة المرور</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f7f2e6 0%, #e8dcc4 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      padding: 40px;
+      max-width: 450px;
+      width: 100%;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .icon {
+      font-size: 60px;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      color: #1f2937;
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .email {
+      color: #6b7280;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #374151;
+      font-weight: 600;
+      margin-bottom: 8px;
+      font-size: 14px;
+      text-align: right;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      transition: border-color 0.3s;
+      text-align: right;
+      direction: rtl;
+    }
+
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #dc2626;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(220, 38, 38, 0.3);
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .error {
+      background: #fee2e2;
+      border: 2px solid #fca5a5;
+      color: #991b1b;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: right;
+      font-size: 14px;
+    }
+
+    .success {
+      background: #d1fae5;
+      border: 2px solid #6ee7b7;
+      color: #065f46;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .loading {
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .spinner {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #dc2626;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">🔐</div>
+      <h1>إعادة تعيين كلمة المرور</h1>
+      <div class="email" id="emailDisplay"></div>
+    </div>
+
+    <div id="content">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>جاري التحقق من الرابط...</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js'
+    import { getAuth, verifyPasswordResetCode, confirmPasswordReset } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js'
+
+    // Your Firebase config (same as in your app)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDOXgEcA_YqDlhWiZcJDPtXFGvxAYNI7Mk",
+      authDomain: "lamah-357f3.firebaseapp.com",
+      projectId: "lamah-357f3",
+      storageBucket: "lamah-357f3.firebasestorage.app",
+      messagingSenderId: "482087427045",
+      appId: "1:482087427045:web:9120b88ed76c8b846d640c"
+    }
+
+    const app = initializeApp(firebaseConfig)
+    const auth = getAuth(app)
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const oobCode = urlParams.get('oobCode')
+    const mode = urlParams.get('mode')
+
+    const contentDiv = document.getElementById('content')
+    const emailDisplay = document.getElementById('emailDisplay')
+
+    if (!oobCode || mode !== 'resetPassword') {
+      contentDiv.innerHTML = '<div class="error">رابط غير صالح. يرجى طلب رابط جديد.</div>'
+    } else {
+      // Verify the code
+      verifyPasswordResetCode(auth, oobCode)
+        .then((email) => {
+          emailDisplay.textContent = email
+
+          contentDiv.innerHTML = `
+            <form id="resetForm">
+              <div id="errorDiv"></div>
+              <label for="newPassword">كلمة المرور الجديدة</label>
+              <input type="password" id="newPassword" placeholder="أدخل كلمة المرور الجديدة" required>
+
+              <label for="confirmPassword">تأكيد كلمة المرور</label>
+              <input type="password" id="confirmPassword" placeholder="أعد إدخال كلمة المرور" required>
+
+              <button type="submit">حفظ كلمة المرور الجديدة</button>
+            </form>
+          `
+
+          document.getElementById('resetForm').addEventListener('submit', async (e) => {
+            e.preventDefault()
+            const newPassword = document.getElementById('newPassword').value
+            const confirmPassword = document.getElementById('confirmPassword').value
+            const errorDiv = document.getElementById('errorDiv')
+
+            errorDiv.innerHTML = ''
+
+            if (!newPassword || !confirmPassword) {
+              errorDiv.innerHTML = '<div class="error">يرجى ملء جميع الحقول</div>'
+              return
+            }
+
+            if (newPassword.length < 6) {
+              errorDiv.innerHTML = '<div class="error">كلمة المرور يجب أن تحتوي على 6 أحرف على الأقل</div>'
+              return
+            }
+
+            if (newPassword !== confirmPassword) {
+              errorDiv.innerHTML = '<div class="error">كلمتا المرور غير متطابقتين</div>'
+              return
+            }
+
+            const submitButton = e.target.querySelector('button')
+            submitButton.disabled = true
+            submitButton.textContent = 'جاري الحفظ...'
+
+            try {
+              await confirmPasswordReset(auth, oobCode, newPassword)
+
+              contentDiv.innerHTML = `
+                <div class="success">
+                  <div style="font-size:40px;margin-bottom:10px">✅</div>
+                  <strong>تم بنجاح!</strong><br>
+                  تم تغيير كلمة المرور. جاري تحويلك...
+                </div>
+              `
+
+              setTimeout(() => {
+                window.location.href = '/?passwordReset=success'
+              }, 2000)
+            } catch (error) {
+              console.error('Reset error:', error)
+              if (error.code === 'auth/weak-password') {
+                errorDiv.innerHTML = '<div class="error">كلمة المرور ضعيفة جداً</div>'
+              } else {
+                errorDiv.innerHTML = '<div class="error">حدث خطأ. يرجى المحاولة مرة أخرى.</div>'
+              }
+              submitButton.disabled = false
+              submitButton.textContent = 'حفظ كلمة المرور الجديدة'
+            }
+          })
+        })
+        .catch((error) => {
+          console.error('Verification error:', error)
+          if (error.code === 'auth/expired-action-code') {
+            contentDiv.innerHTML = '<div class="error">انتهت صلاحية الرابط. يرجى طلب رابط جديد.</div>'
+          } else if (error.code === 'auth/invalid-action-code') {
+            contentDiv.innerHTML = '<div class="error">رابط غير صالح أو مستخدم بالفعل.</div>'
+          } else {
+            contentDiv.innerHTML = '<div class="error">حدث خطأ في التحقق من الرابط.</div>'
+          }
+        })
+    }
+  </script>
+</body>
+</html>
