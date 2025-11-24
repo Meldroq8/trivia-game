@@ -94,10 +94,10 @@ export class AuthService {
   // Send password reset email
   static async resetPassword(email) {
     try {
-      // Configure to use our custom domain/page
+      // Configure continue URL - where user goes after resetting password
       const actionCodeSettings = {
-        // This will be the continue URL after password reset
-        url: window.location.origin,
+        // After successful reset on Firebase page, redirect to homepage with success param
+        url: `${window.location.origin}/?passwordReset=success`,
         handleCodeInApp: false
       }
 

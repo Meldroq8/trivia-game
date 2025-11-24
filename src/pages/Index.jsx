@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../components/Header'
 import { useAuth } from '../hooks/useAuth'
 import { debounce } from '../utils/debounce'
@@ -7,6 +7,7 @@ import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function Index({ setGameState }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { getAppSettings, getPublicLeaderboard, updateLeaderboard } = useAuth()
   const [settings, setSettings] = useState(() => {
     try {
@@ -20,11 +21,27 @@ function Index({ setGameState }) {
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [tipsExpanded, setTipsExpanded] = useState(false)
+  const [showPasswordResetSuccess, setShowPasswordResetSuccess] = useState(false)
 
   // Set page title
   useEffect(() => {
     document.title = 'لمّه'
   }, [])
+
+  // Check for password reset success
+  useEffect(() => {
+    if (searchParams.get('passwordReset') === 'success') {
+      setShowPasswordResetSuccess(true)
+      // Clear the param from URL
+      searchParams.delete('passwordReset')
+      setSearchParams(searchParams, { replace: true })
+
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        setShowPasswordResetSuccess(false)
+      }, 5000)
+    }
+  }, [searchParams, setSearchParams])
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -156,6 +173,21 @@ function Index({ setGameState }) {
       {/* Main Content */}
       <div className="flex-1 flex items-start justify-center overflow-auto pt-8 px-4 relative z-10">
         <div className="text-center w-full">
+
+          {/* Password Reset Success Message */}
+          {showPasswordResetSuccess && (
+            <div className="mx-auto mb-6 max-w-md animate-fadeIn">
+              <div className="bg-green-100 border-2 border-green-500 text-green-800 px-6 py-4 rounded-xl shadow-lg">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">✅</span>
+                  <div className="text-right flex-1">
+                    <p className="font-bold text-lg">تم بنجاح!</p>
+                    <p className="text-sm">تم تغيير كلمة المرور. يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Large Logo */}
           <div style={{ marginBottom: `${responsiveStyles.baseGap * 0.5}px` }}>
