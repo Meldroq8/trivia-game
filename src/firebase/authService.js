@@ -94,10 +94,10 @@ export class AuthService {
   // Send password reset email
   static async resetPassword(email) {
     try {
-      // Custom action code settings to use our custom reset page
+      // Configure to use our custom domain/page
       const actionCodeSettings = {
-        // URL to redirect after clicking reset link - points to our custom page
-        url: `${window.location.origin}/reset-password`,
+        // This will be the continue URL after password reset
+        url: window.location.origin,
         handleCodeInApp: false
       }
 
