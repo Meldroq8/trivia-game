@@ -160,9 +160,13 @@
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js'
     import { getAuth, verifyPasswordResetCode, confirmPasswordReset } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js'
 
-    // Your Firebase config (same as in your app)
+    // Get apiKey from URL parameter (Firebase includes it)
+    const urlParams = new URLSearchParams(window.location.search)
+    const apiKeyFromUrl = urlParams.get('apiKey')
+
+    // Your Firebase config
     const firebaseConfig = {
-      apiKey: "AIzaSyDOXgEcA_YqDlhWiZcJDPtXFGvxAYNI7Mk",
+      apiKey: apiKeyFromUrl || "AIzaSyBzT4qfM3CF8v36Wx6AaGySdmlTsYvi0_U",
       authDomain: "lamah-357f3.firebaseapp.com",
       projectId: "lamah-357f3",
       storageBucket: "lamah-357f3.firebasestorage.app",
@@ -173,9 +177,14 @@
     const app = initializeApp(firebaseConfig)
     const auth = getAuth(app)
 
-    const urlParams = new URLSearchParams(window.location.search)
+    // Set language to Arabic
+    auth.languageCode = 'ar'
+
     const oobCode = urlParams.get('oobCode')
     const mode = urlParams.get('mode')
+    const continueUrl = urlParams.get('continueUrl')
+
+    console.log('Auth handler loaded:', { mode, oobCode: oobCode?.substring(0, 10) + '...', continueUrl })
 
     const contentDiv = document.getElementById('content')
     const emailDisplay = document.getElementById('emailDisplay')
@@ -240,7 +249,9 @@
               `
 
               setTimeout(() => {
-                window.location.href = '/?passwordReset=success'
+                // Use continueUrl if provided, otherwise go to homepage
+                const redirectUrl = continueUrl || '/?passwordReset=success'
+                window.location.href = redirectUrl
               }, 2000)
             } catch (error) {
               console.error('Reset error:', error)
@@ -256,13 +267,25 @@
         })
         .catch((error) => {
           console.error('Verification error:', error)
+          let errorMessage = 'حدث خطأ في التحقق من الرابط.'
+
           if (error.code === 'auth/expired-action-code') {
-            contentDiv.innerHTML = '<div class="error">انتهت صلاحية الرابط. يرجى طلب رابط جديد.</div>'
+            errorMessage = 'انتهت صلاحية الرابط. يرجى طلب رابط جديد.'
           } else if (error.code === 'auth/invalid-action-code') {
-            contentDiv.innerHTML = '<div class="error">رابط غير صالح أو مستخدم بالفعل.</div>'
-          } else {
-            contentDiv.innerHTML = '<div class="error">حدث خطأ في التحقق من الرابط.</div>'
+            errorMessage = 'رابط غير صالح أو مستخدم بالفعل.'
+          } else if (error.code === 'auth/user-disabled') {
+            errorMessage = 'هذا الحساب معطل.'
+          } else if (error.code === 'auth/user-not-found') {
+            errorMessage = 'الحساب غير موجود.'
           }
+
+          contentDiv.innerHTML = `
+            <div class="error">
+              ${errorMessage}<br>
+              <small style="margin-top:10px;display:block;color:#991b1b;">رمز الخطأ: ${error.code || 'غير معروف'}</small>
+            </div>
+            <button onclick="window.location.href='/'">العودة للصفحة الرئيسية</button>
+          `
         })
     }
   </script>
