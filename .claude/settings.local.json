@@ -26,7 +26,8 @@
       "Bash(node scripts/export-critical-duplicates.js:*)",
       "WebSearch",
       "WebFetch(domain:www.twilio.com)",
-      "WebFetch(domain:www.businesschat.io)"
+      "WebFetch(domain:www.businesschat.io)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []
