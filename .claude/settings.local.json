@@ -23,7 +23,10 @@
       "Bash(node scripts/analyze-s3-bucket.js:*)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(node scripts/export-critical-duplicates.js:*)"
+      "Bash(node scripts/export-critical-duplicates.js:*)",
+      "WebSearch",
+      "WebFetch(domain:www.twilio.com)",
+      "WebFetch(domain:www.businesschat.io)"
     ],
     "deny": [],
     "ask": []

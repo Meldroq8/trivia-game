@@ -69,6 +69,16 @@ export const useAuth = () => {
     }
   }
 
+  const resetPassword = async (email) => {
+    try {
+      setError(null)
+      await AuthService.resetPassword(email)
+    } catch (error) {
+      setError(error.message)
+      throw error
+    }
+  }
+
   const updateGameStats = async (gameData) => {
     if (user) {
       try {
@@ -110,6 +120,7 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
+    resetPassword,
     updateGameStats,
     getUserGames,
     deleteGame,

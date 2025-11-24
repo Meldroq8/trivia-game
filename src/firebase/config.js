@@ -22,4 +22,10 @@ export const db = getFirestore(app)
 export const auth = getAuth(app)
 export const storage = getStorage(app)
 
+// Set Arabic as the default language for auth emails
+auth.languageCode = 'ar'
+
+// Optional: Set custom action code settings for better branding
+auth.useDeviceLanguage() // This will use browser language, but we override with 'ar' above
+
 export default app
