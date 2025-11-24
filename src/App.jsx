@@ -14,6 +14,7 @@ import QuestionView from './pages/QuestionView'
 import Results from './pages/Results'
 import AnswerViewPage from './pages/AnswerViewPage'
 import PasswordReset from './pages/PasswordReset'
+import AuthAction from './pages/AuthAction'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -576,6 +577,10 @@ function App() {
             <Route
               path="/reset-password"
               element={<PasswordReset />}
+            />
+            <Route
+              path="/__/auth/action"
+              element={<AuthAction />}
             />
             <Route
               path="/loader/:inviteCode"
