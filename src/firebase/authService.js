@@ -4,7 +4,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   updateProfile,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, collection, addDoc, query, where, orderBy, getDocs, updateDoc, deleteDoc, limit } from 'firebase/firestore'
 import { auth, db } from './config'
@@ -86,6 +87,24 @@ export class AuthService {
       await signOut(auth)
     } catch (error) {
       prodError('Error signing out:', error)
+      throw error
+    }
+  }
+
+  // Send password reset email
+  static async resetPassword(email) {
+    try {
+      // Custom action code settings to use our custom reset page
+      const actionCodeSettings = {
+        // URL to redirect after clicking reset link - points to our custom page
+        url: `${window.location.origin}/reset-password`,
+        handleCodeInApp: false
+      }
+
+      await sendPasswordResetEmail(auth, email, actionCodeSettings)
+      devLog('Password reset email sent to:', email)
+    } catch (error) {
+      prodError('Error sending password reset email:', error)
       throw error
     }
   }

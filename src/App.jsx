@@ -13,6 +13,7 @@ import GameBoard from './pages/GameBoard'
 import QuestionView from './pages/QuestionView'
 import Results from './pages/Results'
 import AnswerViewPage from './pages/AnswerViewPage'
+import PasswordReset from './pages/PasswordReset'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -571,6 +572,10 @@ function App() {
             <Route
               path="/my-games"
               element={withSuspense(MyGames, { gameState, setGameState }, "جاري تحميل ألعابي...")}
+            />
+            <Route
+              path="/reset-password"
+              element={<PasswordReset />}
             />
             <Route
               path="/loader/:inviteCode"

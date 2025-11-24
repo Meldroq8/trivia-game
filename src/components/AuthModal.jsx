@@ -3,13 +3,14 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 
 function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
-  const [mode, setMode] = useState(initialMode) // 'signin' or 'signup'
+  const [mode, setMode] = useState(initialMode) // 'signin', 'signup', or 'reset'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [localError, setLocalError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [signUpEnabled, setSignUpEnabled] = useState(true)
-  const { signIn, signUp, loading, getAppSettings } = useAuth()
+  const { signIn, signUp, resetPassword, loading, getAppSettings } = useAuth()
 
   // Load sign-up setting when modal opens
   useEffect(() => {
@@ -33,6 +34,28 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLocalError('')
+    setSuccessMessage('')
+
+    // Handle password reset
+    if (mode === 'reset') {
+      if (!email) {
+        setLocalError('يرجى إدخال البريد الإلكتروني')
+        return
+      }
+
+      try {
+        await resetPassword(email)
+        setSuccessMessage('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني')
+        // Switch back to signin after 3 seconds
+        setTimeout(() => {
+          setMode('signin')
+          setSuccessMessage('')
+        }, 3000)
+      } catch (error) {
+        setLocalError(getErrorMessage(error.message))
+      }
+      return
+    }
 
     // Check if sign-up is disabled
     if (mode === 'signup' && !signUpEnabled) {
@@ -81,7 +104,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
       return 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
     }
     if (error.includes('user-not-found')) {
-      return 'المستخدم غير موجود'
+      return mode === 'reset' ? 'هذا البريد الإلكتروني غير مسجل' : 'المستخدم غير موجود'
     }
     if (error.includes('wrong-password')) {
       return 'كلمة المرور غير صحيحة'
@@ -100,7 +123,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
         <div className="p-4 md:p-6">
           <div className="flex justify-between items-center mb-4 md:mb-6">
             <h2 className="text-xl md:text-2xl font-bold text-gray-800">
-              {mode === 'signup' ? 'إنشاء حساب جديد' : 'تسجيل الدخول'}
+              {mode === 'signup' ? 'إنشاء حساب جديد' : mode === 'reset' ? 'إعادة تعيين كلمة المرور' : 'تسجيل الدخول'}
             </h2>
             <button
               onClick={onClose}
@@ -113,6 +136,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
           {localError && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-3 md:px-4 py-2 md:py-3 rounded mb-3 md:mb-4 text-sm md:text-base">
               {localError}
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-3 md:px-4 py-2 md:py-3 rounded mb-3 md:mb-4 text-sm md:text-base">
+              {successMessage}
             </div>
           )}
 
@@ -148,26 +177,44 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-700 text-sm md:text-base font-bold mb-1 md:mb-2" dir="rtl">
-                كلمة المرور
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
-                placeholder="أدخل كلمة المرور"
-                disabled={loading}
-              />
-            </div>
+            {mode !== 'reset' && (
+              <div>
+                <label className="block text-gray-700 text-sm md:text-base font-bold mb-1 md:mb-2" dir="rtl">
+                  كلمة المرور
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white"
+                  placeholder="أدخل كلمة المرور"
+                  disabled={loading}
+                />
+              </div>
+            )}
+
+            {mode === 'signin' && (
+              <div className="text-left">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('reset')
+                    setLocalError('')
+                    setSuccessMessage('')
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm underline"
+                >
+                  نسيت كلمة المرور؟
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2 md:py-3 px-4 rounded-lg transition-colors text-sm md:text-base"
             >
-              {loading ? 'جاري التحميل...' : (mode === 'signup' ? 'إنشاء حساب' : 'تسجيل الدخول')}
+              {loading ? 'جاري التحميل...' : (mode === 'signup' ? 'إنشاء حساب' : mode === 'reset' ? 'إرسال رابط إعادة التعيين' : 'تسجيل الدخول')}
             </button>
           </form>
 
@@ -184,18 +231,33 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
           )}
 
           <div className="mt-4 md:mt-6 text-center">
-            {/* Only show toggle if sign-up is enabled OR we're on sign-up mode */}
-            {(signUpEnabled || mode === 'signup') && (
+            {mode === 'reset' ? (
               <button
                 onClick={() => {
-                  setMode(mode === 'signup' ? 'signin' : 'signup')
+                  setMode('signin')
                   setLocalError('')
+                  setSuccessMessage('')
                 }}
                 disabled={loading}
                 className="text-blue-600 hover:text-blue-800 underline text-sm md:text-base"
               >
-                {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب جديد'}
+                الرجوع لتسجيل الدخول
               </button>
+            ) : (
+              /* Only show toggle if sign-up is enabled OR we're on sign-up mode */
+              (signUpEnabled || mode === 'signup') && (
+                <button
+                  onClick={() => {
+                    setMode(mode === 'signup' ? 'signin' : 'signup')
+                    setLocalError('')
+                    setSuccessMessage('')
+                  }}
+                  disabled={loading}
+                  className="text-blue-600 hover:text-blue-800 underline text-sm md:text-base"
+                >
+                  {mode === 'signup' ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب جديد'}
+                </button>
+              )
             )}
           </div>
 
