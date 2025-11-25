@@ -18,6 +18,8 @@ import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { getTextDirection, formatText } from '../utils/textDirection'
+import DrawingService from '../services/drawingService'
+import DrawingCanvas from '../components/DrawingCanvas'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -380,6 +382,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [qrTimeRemaining, setQrTimeRemaining] = useState(60)
   const [qrTimerPaused, setQrTimerPaused] = useState(false)
 
+  // Drawing mini-game state
+  const [drawingSession, setDrawingSession] = useState(null)
+  const [drawingStrokes, setDrawingStrokes] = useState([])
+  const [drawerConnected, setDrawerConnected] = useState(false)
+  const drawingUnsubscribeRef = useRef(null)
+
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
@@ -653,6 +661,87 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     }
     loadGameData()
   }, [currentQuestion?.id]) // Reload when question changes to get fresh settings
+
+  // Initialize and subscribe to drawing session for drawing mini-games
+  useEffect(() => {
+    if (!currentQuestion || !gameData) return
+
+    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+    const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+    const isDrawingMode = isQrMiniGame && miniGameType === 'drawing'
+
+    if (!isDrawingMode) {
+      // Cleanup any existing drawing session if switching away from drawing mode
+      if (drawingUnsubscribeRef.current) {
+        drawingUnsubscribeRef.current()
+        drawingUnsubscribeRef.current = null
+      }
+      setDrawingSession(null)
+      setDrawingStrokes([])
+      setDrawerConnected(false)
+      return
+    }
+
+    // Create drawing session
+    const sessionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!sessionId) return
+
+    const initDrawingSession = async () => {
+      try {
+        // Create session in Firestore
+        await DrawingService.createSession(sessionId, {
+          questionId: sessionId,
+          answer: currentQuestion?.question?.answer || currentQuestion?.answer,
+          word: currentQuestion?.question?.text || currentQuestion?.text,
+          promptImageUrl: currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl,
+          teamTurn: gameState.currentTurn,
+          difficulty: currentQuestion?.difficulty || 'medium',
+          points: currentQuestion?.points || 400
+        })
+
+        devLog('🎨 Drawing session created:', sessionId)
+
+        // Subscribe to session updates
+        const unsubscribe = DrawingService.subscribeToSession(sessionId, (sessionData) => {
+          if (sessionData) {
+            setDrawingSession(sessionData)
+            setDrawingStrokes(sessionData.strokes || [])
+            setDrawerConnected(sessionData.drawerConnected || false)
+
+            // Start QR timer when drawer becomes ready
+            if (sessionData.drawerReady && sessionData.status === 'drawing' && !qrTimerStarted) {
+              setQrTimerStarted(true)
+              setQrTimerPaused(false)
+              // Set initial time based on difficulty
+              const difficulty = currentQuestion?.difficulty || 'medium'
+              const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+              setQrTimeRemaining(timeLimit)
+              devLog('🎨 Drawing started, timer set to:', timeLimit)
+            }
+          }
+        })
+
+        drawingUnsubscribeRef.current = unsubscribe
+      } catch (error) {
+        prodError('Error initializing drawing session:', error)
+      }
+    }
+
+    initDrawingSession()
+
+    // Cleanup on unmount or question change
+    return () => {
+      if (drawingUnsubscribeRef.current) {
+        drawingUnsubscribeRef.current()
+        drawingUnsubscribeRef.current = null
+      }
+    }
+  }, [currentQuestion?.id, gameData, gameState.currentTurn])
 
   const getCategoryById = (categoryId) => {
     if (gameData && gameData.categories) {
@@ -2070,6 +2159,46 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     )
                   }
 
+                  // Check if this is drawing mode and drawer is ready
+                  const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                  const category = gameData?.categories?.find(c => c.id === categoryId)
+                  const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                  const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+                  const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+                  const isDrawingMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) && miniGameType === 'drawing'
+                  const isDrawingActive = isDrawingMode && drawingSession?.drawerReady === true
+
+                  // Show drawing canvas if drawing is active
+                  if (isDrawingActive) {
+                    return (
+                      <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
+                        {/* Drawing Canvas */}
+                        <div className="w-full max-w-full" style={{ maxHeight: styles.imageAreaHeight + 'px' }}>
+                          <DrawingCanvas
+                            strokes={drawingStrokes}
+                            width={1920}
+                            height={1080}
+                            className="shadow-lg"
+                          />
+                        </div>
+
+                        {/* Drawing Status */}
+                        <div className="mt-4 text-center">
+                          {!drawerConnected && (
+                            <p className="text-orange-600 dark:text-orange-400 font-bold animate-pulse" style={{ fontSize: `${styles.questionFontSize * 0.5}px` }}>
+                              ⏳ انتظار المرسوم...
+                            </p>
+                          )}
+                          {drawerConnected && (
+                            <p className="text-green-600 dark:text-green-400 font-bold" style={{ fontSize: `${styles.questionFontSize * 0.5}px` }}>
+                              🎨 {gameState.currentTurn === 'team1' ? (gameState.team1?.name || 'الفريق الأول') : (gameState.team2?.name || 'الفريق الثاني')} يرسم...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+
                   // Show normal question content
                   return (
                     <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
@@ -2243,6 +2372,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
                                 : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px
                               }
+                              mode={category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing' ? 'drawing' : 'answer'}
                             />
                           </div>
 
@@ -2276,7 +2406,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                   fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
                                 }}
                               >
-                                اختر شخص لتمثيل فريقك
+                                {category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing'
+                                  ? 'اختر شخص للرسم من فريقك'
+                                  : 'اختر شخص لتمثيل فريقك'}
                               </p>
                             </div>
 
@@ -2340,7 +2472,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                   fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
                                 }}
                               >
-                                اذا كنت مستعد اضغط جاهز
+                                {category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing'
+                                  ? 'اضغط جاهز وابدأ الرسم'
+                                  : 'اذا كنت مستعد اضغط جاهز'}
                               </p>
                             </div>
                           </div>
