@@ -970,28 +970,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     return () => clearInterval(timer)
   }, [activeTimer.active, activeTimer.timeLeft, activeTimer.paused])
 
-  // Handle QR mini-game countdown timer
+  // Handle QR mini-game countdown timer (independent countdown for both screens)
   useEffect(() => {
     if (!qrTimerStarted || qrTimeRemaining <= 0 || qrTimerPaused) return
 
     const timer = setInterval(() => {
-      setQrTimeRemaining(prev => {
-        const newTime = prev <= 1 ? 0 : prev - 1
-
-        // For drawing mode, sync timer to Firestore ONLY every 3 seconds (reduce writes)
-        if (drawingSession && drawingSession.status === 'drawing' && newTime % 3 === 0) {
-          const sessionId = currentQuestion?.question?.id || currentQuestion?.id
-          if (sessionId && newTime >= 0) {
-            DrawingService.updateTimer(sessionId, newTime)
-          }
-        }
-
-        return newTime
-      })
+      setQrTimeRemaining(prev => (prev <= 1 ? 0 : prev - 1))
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [qrTimerStarted, qrTimeRemaining, qrTimerPaused, drawingSession, currentQuestion])
+  }, [qrTimerStarted, qrTimeRemaining, qrTimerPaused])
 
   // Close burger menu when clicking outside
   useEffect(() => {
