@@ -2508,56 +2508,62 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   const isDrawingModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'drawing'
 
                   if (isQrMiniGame) {
-                    // Drawing Mode Timer - Show countdown timer when drawing is active
-                    if (isDrawingModeForTimer && qrTimerStarted) {
-                      return (
-                        <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
-                             style={{
-                               padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                               maxWidth: `${styles.timerSize}px`
-                             }}>
-                          <div className="flex items-center justify-center p-1">
-                            <span className="text-2xl">⏱️</span>
+                    // Drawing Mode Timer - Show countdown timer ONLY when drawing is active
+                    if (isDrawingModeForTimer) {
+                      // Only show timer when drawing has started
+                      if (qrTimerStarted) {
+                        return (
+                          <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
+                               style={{
+                                 padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
+                                 maxWidth: `${styles.timerSize}px`
+                               }}>
+                            <div className="flex items-center justify-center p-1">
+                              <span className="text-2xl">⏱️</span>
+                            </div>
+
+                            <span className="inline-flex items-center text-white justify-center font-cairo font-bold"
+                                  style={{ fontSize: `${styles.timerFontSize}px` }}>
+                              {qrTimeRemaining} ث
+                            </span>
+
+                            <button type="button" className="flex items-center justify-center p-1"
+                                    onClick={async () => {
+                                      const difficulty = currentQuestion?.difficulty || 'medium'
+                                      const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+                                      setQrTimeRemaining(timeLimit)
+
+                                      // Signal reset to phone via Firestore timestamp
+                                      const sessionId = currentQuestion?.question?.id || currentQuestion?.id
+                                      if (sessionId && drawingSession) {
+                                        await DrawingService.resetTimer(sessionId)
+                                        devLog('🔄 Main screen: Timer reset to', timeLimit)
+                                      }
+                                    }}>
+                              <svg
+                                viewBox="0 0 44 44"
+                                style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                                className="active:scale-110 duration-100"
+                              >
+                                <path
+                                  d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
+                                  fill="#fff"
+                                />
+                                <path
+                                  d="M18 2H26V6H18V2Z"
+                                  fill="#fff"
+                                />
+                              </svg>
+                            </button>
                           </div>
+                        )
+                      }
 
-                          <span className="inline-flex items-center text-white justify-center font-cairo font-bold"
-                                style={{ fontSize: `${styles.timerFontSize}px` }}>
-                            {qrTimeRemaining} ث
-                          </span>
-
-                          <button type="button" className="flex items-center justify-center p-1"
-                                  onClick={async () => {
-                                    const difficulty = currentQuestion?.difficulty || 'medium'
-                                    const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
-                                    setQrTimeRemaining(timeLimit)
-
-                                    // Signal reset to phone via Firestore timestamp
-                                    const sessionId = currentQuestion?.question?.id || currentQuestion?.id
-                                    if (sessionId && drawingSession) {
-                                      await DrawingService.resetTimer(sessionId)
-                                      devLog('🔄 Main screen: Timer reset to', timeLimit)
-                                    }
-                                  }}>
-                            <svg
-                              viewBox="0 0 44 44"
-                              style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
-                              className="active:scale-110 duration-100"
-                            >
-                              <path
-                                d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
-                                fill="#fff"
-                              />
-                              <path
-                                d="M18 2H26V6H18V2Z"
-                                fill="#fff"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      )
+                      // Drawing mode before timer starts - show nothing (QR code in content area handles it)
+                      return null
                     }
 
-                    // QR Mini-Game Timer - Show Ready button only when timer not started
+                    // Charades Mode - Show Ready button when timer not started
                     if (!qrTimerStarted) {
                       return (
                         <button
@@ -2569,7 +2575,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         </button>
                       )
                     }
-                    // When timer is started, return null (circular timer shown in main content area for charades)
+                    // When timer is started for charades, return null (circular timer shown in main content area)
                     return null
                   }
 
