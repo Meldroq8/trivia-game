@@ -162,17 +162,7 @@ function DrawingGame() {
     }
   }
 
-  // Sync strokes to Firestore (batched for performance)
-  const syncStrokes = async () => {
-    if (strokeBufferRef.current.length === 0) return
-
-    try {
-      await DrawingService.addStrokes(sessionId, strokeBufferRef.current)
-      strokeBufferRef.current = []
-    } catch (err) {
-      prodError('Error syncing strokes:', err)
-    }
-  }
+  // Removed syncStrokes - now using direct sync on pen lift only
 
   // Drawing handlers
   const startDrawing = (e) => {
@@ -194,7 +184,7 @@ function DrawingGame() {
     const updatedStroke = [...currentStroke, point]
     setCurrentStroke(updatedStroke)
 
-    // Draw on local canvas immediately (no lag)
+    // Draw on local canvas immediately (instant feedback, no lag)
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
 
@@ -218,22 +208,7 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Accurate batching: 1 second OR 30 points - Prioritize accuracy and completeness
-    // Syncs less frequently but ensures complete strokes without cutoffs
-    const now = Date.now()
-    if (now - lastSyncRef.current > 1000 || updatedStroke.length >= 30) {
-      // Add current stroke to buffer with ALL accumulated points
-      strokeBufferRef.current.push({
-        points: [...updatedStroke],
-        tool: currentTool,
-        timestamp: now
-      })
-
-      // Sync to Firestore
-      syncStrokes()
-      setCurrentStroke([])
-      lastSyncRef.current = now
-    }
+    // NO mid-stroke syncing - wait for pen lift for complete accuracy
   }
 
   const stopDrawing = async () => {
@@ -241,23 +216,20 @@ function DrawingGame() {
 
     setIsDrawing(false)
 
-    // Sync remaining stroke IMMEDIATELY (don't wait for batch)
+    // Sync COMPLETE stroke when pen lifts (perfect accuracy)
     if (currentStroke.length > 0) {
-      const finalStroke = {
-        points: currentStroke,
+      const completeStroke = {
+        points: currentStroke, // All points captured during this stroke
         tool: currentTool,
         timestamp: Date.now()
       }
 
-      // Add any buffered strokes too
-      const allStrokes = [...strokeBufferRef.current, finalStroke]
-      strokeBufferRef.current = []
-
-      // Sync immediately to ensure last stroke isn't lost
+      // Sync immediately - single write per stroke
       try {
-        await DrawingService.addStrokes(sessionId, allStrokes)
+        await DrawingService.addStrokes(sessionId, [completeStroke])
+        devLog('🎨 Complete stroke synced:', completeStroke.points.length, 'points')
       } catch (err) {
-        prodError('Error syncing final stroke:', err)
+        prodError('Error syncing stroke:', err)
       }
 
       setCurrentStroke([])
