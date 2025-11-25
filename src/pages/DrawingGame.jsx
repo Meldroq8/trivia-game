@@ -78,9 +78,10 @@ function DrawingGame() {
     }
   }, [sessionId])
 
-  // Initialize timer when ready, then countdown locally
+  // Initialize timer when ready, then countdown locally (independent of Firestore)
   const timerRunningRef = useRef(false)
   const localTimerRef = useRef(null)
+  const lastResetTimeRef = useRef(null)
 
   useEffect(() => {
     if (!isReady || !session) return
@@ -90,10 +91,12 @@ function DrawingGame() {
       timerRunningRef.current = true
 
       // Set initial time from session
-      const initialTime = session.timeRemaining || session.difficulty === 'easy' ? 90 : session.difficulty === 'hard' ? 45 : 60
+      const difficulty = session.difficulty || 'medium'
+      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
       setTimeRemaining(initialTime)
+      lastResetTimeRef.current = session.timerResetAt
 
-      // Start local countdown
+      // Start local countdown (independent, no Firestore dependency)
       localTimerRef.current = setInterval(() => {
         setTimeRemaining(prev => Math.max(0, prev - 1))
       }, 1000)
@@ -105,15 +108,23 @@ function DrawingGame() {
       }
       timerRunningRef.current = false
     }
-  }, [isReady, session?.timeRemaining])
+  }, [isReady]) // ONLY depend on isReady, not session.timeRemaining
 
-  // Listen for timer reset from main screen
+  // Listen for timer reset from main screen (detect by timerResetAt change)
   useEffect(() => {
     if (!session || !session.timerResetAt) return
 
-    // Reset timer when main screen resets it
-    const initialTime = session.difficulty === 'easy' ? 90 : session.difficulty === 'hard' ? 45 : 60
-    setTimeRemaining(initialTime)
+    // Check if this is a NEW reset (different timestamp)
+    const resetTime = session.timerResetAt
+    if (lastResetTimeRef.current && resetTime !== lastResetTimeRef.current) {
+      console.log('🎨 Timer reset detected from main screen')
+      lastResetTimeRef.current = resetTime
+
+      // Reset timer
+      const difficulty = session.difficulty || 'medium'
+      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+      setTimeRemaining(initialTime)
+    }
   }, [session?.timerResetAt])
 
   // Heartbeat system
