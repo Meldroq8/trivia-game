@@ -38,40 +38,41 @@ function DrawingGame() {
     }
   }, [])
 
-  // Load session data
+  // Subscribe to session data for real-time updates
   useEffect(() => {
-    const loadSession = async () => {
-      try {
-        console.log('🎨 DrawingGame: Loading session:', sessionId)
-        const sessionData = await DrawingService.getSession(sessionId)
-        console.log('🎨 DrawingGame: Session data:', sessionData)
+    console.log('🎨 DrawingGame: Subscribing to session:', sessionId)
 
-        if (!sessionData) {
-          console.error('🎨 DrawingGame: Session not found in Firestore')
-          setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
-          setLoading(false)
-          return
-        }
+    // Subscribe to real-time session updates
+    const unsubscribe = DrawingService.subscribeToSession(sessionId, async (sessionData) => {
+      console.log('🎨 DrawingGame: Session update received:', sessionData)
 
-        if (sessionData.status === 'finished') {
-          setError('انتهت هذه الجلسة')
-          setLoading(false)
-          return
-        }
-
-        setSession(sessionData)
+      if (!sessionData) {
+        console.error('🎨 DrawingGame: Session not found in Firestore')
+        setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
         setLoading(false)
+        return
+      }
 
-        // Mark drawer as connected
+      if (sessionData.status === 'finished') {
+        setError('انتهت هذه الجلسة')
+        setLoading(false)
+        return
+      }
+
+      setSession(sessionData)
+      setLoading(false)
+
+      // Mark drawer as connected (only once when first loaded)
+      if (!session) {
         await DrawingService.connectDrawer(sessionId)
-      } catch (err) {
-        prodError('Error loading drawing session:', err)
-        setError('حدث خطأ في تحميل الجلسة')
-        setLoading(false)
+      }
+    })
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
       }
     }
-
-    loadSession()
   }, [sessionId])
 
   // Listen to timer from Firestore (synced with main screen)
