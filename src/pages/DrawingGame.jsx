@@ -176,9 +176,10 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Optimized batching: 250ms OR 12 points - Balance between accuracy and Firestore limits
+    // Conservative batching: 400ms OR 20 points - Prioritize Firestore stability
+    // Drawing will have slight lag but won't crash
     const now = Date.now()
-    if (now - lastSyncRef.current > 250 || updatedStroke.length >= 12) {
+    if (now - lastSyncRef.current > 400 || updatedStroke.length >= 20) {
       // Add current stroke to buffer with ALL accumulated points
       strokeBufferRef.current.push({
         points: [...updatedStroke],
