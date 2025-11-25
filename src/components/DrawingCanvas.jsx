@@ -39,37 +39,23 @@ function DrawingCanvas({ strokes = [], width = 1920, height = 1080, className = 
         ctx.lineWidth = 3
       }
 
-      // Draw the stroke with interpolation for smooth lines
+      // Draw the stroke (simple lines for reliability)
       if (stroke.points.length === 1) {
         // Single point - draw a dot
         const point = stroke.points[0]
+        ctx.beginPath()
         ctx.arc(point.x * width, point.y * height, 1.5, 0, Math.PI * 2)
         ctx.fill()
       } else {
-        // Multiple points - draw smooth curve
+        // Multiple points - draw connected lines
         const firstPoint = stroke.points[0]
         ctx.moveTo(firstPoint.x * width, firstPoint.y * height)
 
-        // Use quadratic curves for smoother lines
+        // Draw straight lines to each point (simple and reliable)
         for (let i = 1; i < stroke.points.length; i++) {
           const point = stroke.points[i]
-          const prevPoint = stroke.points[i - 1]
-
-          // Calculate control point for smooth curve
-          const cpX = (prevPoint.x + point.x) / 2 * width
-          const cpY = (prevPoint.y + point.y) / 2 * height
-
-          ctx.quadraticCurveTo(
-            prevPoint.x * width,
-            prevPoint.y * height,
-            cpX,
-            cpY
-          )
+          ctx.lineTo(point.x * width, point.y * height)
         }
-
-        // Draw to final point
-        const lastPoint = stroke.points[stroke.points.length - 1]
-        ctx.lineTo(lastPoint.x * width, lastPoint.y * height)
 
         ctx.stroke()
       }

@@ -173,9 +173,9 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Batch sync (every 200ms or every 10 points) - Balanced for smooth drawing + Firestore limits
+    // Batch sync (every 150ms or every 8 points) - Fast enough for smooth, safe for Firestore
     const now = Date.now()
-    if (now - lastSyncRef.current > 200 || currentStroke.length >= 10) {
+    if (now - lastSyncRef.current > 150 || currentStroke.length >= 8) {
       strokeBufferRef.current.push({
         points: [...currentStroke, point],
         tool: currentTool,
