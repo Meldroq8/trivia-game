@@ -176,9 +176,9 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Aggressive batching for accuracy: 100ms OR 5 points (captures more detail)
+    // Optimized batching: 250ms OR 12 points - Balance between accuracy and Firestore limits
     const now = Date.now()
-    if (now - lastSyncRef.current > 100 || updatedStroke.length >= 5) {
+    if (now - lastSyncRef.current > 250 || updatedStroke.length >= 12) {
       // Add current stroke to buffer with ALL accumulated points
       strokeBufferRef.current.push({
         points: [...updatedStroke],
