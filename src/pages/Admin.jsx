@@ -364,6 +364,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             showImageInQuestion: category.showImageInQuestion,
             showImageInAnswer: category.showImageInAnswer,
             enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
+            miniGameType: category.miniGameType || 'charades', // NEW: Save mini-game type
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
@@ -1874,6 +1875,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             showImageInQuestion: category.showImageInQuestion,
             showImageInAnswer: category.showImageInAnswer,
             enableQrMiniGame: category.enableQrMiniGame || false, // Default to false
+            miniGameType: category.miniGameType || 'charades', // NEW: Save mini-game type
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
