@@ -116,7 +116,7 @@ function DrawingGame() {
     if (!session) return
 
     // Only check if timerResetAt exists (now it's a number timestamp)
-    if (session.timerResetAt) {
+    if (session.timerResetAt && session.timerResetAt !== 0) {
       const resetTime = session.timerResetAt
 
       // Detect new reset (timestamp value changed)
@@ -130,10 +130,16 @@ function DrawingGame() {
 
         // Update last reset time
         lastResetRef.current = resetTime
-      } else if (lastResetRef.current === null) {
-        // First time seeing timerResetAt, just store it
+      } else if (lastResetRef.current === null && resetTime !== 0) {
+        // First actual reset (not the initial 0 value)
+        // This IS a reset, so apply it
+        devLog('🔄 First timer reset detected:', resetTime)
+
+        const difficulty = session.difficulty || 'medium'
+        const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+        setTimeRemaining(initialTime)
+
         lastResetRef.current = resetTime
-        devLog('🎨 Initial timerResetAt stored:', resetTime)
       }
     }
   }, [session]) // Depend on full session object, do comparison inside
