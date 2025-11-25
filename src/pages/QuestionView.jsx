@@ -697,6 +697,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       try {
         devLog('🎨 Initializing drawing session with ID:', sessionId)
 
+        // Calculate initial time based on difficulty
+        const difficulty = currentQuestion?.difficulty || 'medium'
+        const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+
         // Create session in Firestore
         await DrawingService.createSession(sessionId, {
           questionId: sessionId,
@@ -705,7 +709,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           promptImageUrl: currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl,
           teamTurn: gameState.currentTurn,
           difficulty: currentQuestion?.difficulty || 'medium',
-          points: currentQuestion?.points || 400
+          points: currentQuestion?.points || 400,
+          timeRemaining: initialTime // Set initial timer value
         })
 
         devLog('🎨 Drawing session created successfully:', sessionId)
