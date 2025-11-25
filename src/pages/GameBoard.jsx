@@ -1827,7 +1827,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 0)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       200
@@ -1838,7 +1838,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 0)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       400
@@ -1849,7 +1849,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-r-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 0)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-bl from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-bl from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       600
@@ -1893,7 +1893,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 200, 1)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       200
@@ -1904,7 +1904,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 400, 1)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       400
@@ -1915,7 +1915,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                       className={`font-bold transition-all duration-200 leading-tight text-[10px] sm:text-lg md:text-xl lg:text-3xl xl:text-7xl 2xl:text-8xl 3xl:text-[7rem] 4xl:text-[9rem] portrait:sm:text-base portrait:md:text-lg portrait:lg:text-2xl portrait:xl:text-5xl portrait:2xl:text-6xl landscape:sm:text-sm landscape:md:text-base landscape:lg:text-xl landscape:xl:text-3xl landscape:2xl:text-4xl py-1 sm:py-2 xl:py-3 4xl:py-4 landscape:max-lg:py-0 px-1 sm:px-3 xl:px-4 4xl:px-6 w-full flex-1 flex items-center justify-center rounded-l-full shadow-md hover:shadow-lg ${
                         isPointValueUsed(categoryId, 600, 1)
                           ? 'bg-gray-300 dark:bg-slate-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-gradient-to-br from-red-500 to-red-700 text-white hover:from-red-600 hover:to-red-800'
+                          : 'bg-gradient-to-br from-red-500 to-red-700 dark:from-red-900 dark:to-red-700 text-white hover:from-red-600 hover:to-red-800 dark:hover:from-red-800 dark:hover:to-red-600'
                       }`}
                     >
                       600

@@ -971,10 +971,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                 {/* Description Expansion Area */}
                 {expandedPerk && (
-                  <div className="mt-4 bg-gray-50 rounded-xl p-4 md:p-6 border-2 border-gray-200 animate-slideDown">
+                  <div className="mt-4 bg-gray-50 dark:bg-slate-700 rounded-xl p-4 md:p-6 border-2 border-gray-200 dark:border-slate-600 animate-slideDown">
                     <button
                       onClick={() => setExpandedPerk(null)}
-                      className="float-left text-gray-500 hover:text-gray-700 font-bold text-xl"
+                      className="float-left text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 font-bold text-xl"
                     >
                       ×
                     </button>
