@@ -147,7 +147,10 @@ function DrawingGame() {
     e.preventDefault() // Prevent scrolling on touch devices
 
     const point = getCanvasPoint(e)
-    setCurrentStroke(prev => [...prev, point])
+
+    // Add point to current stroke
+    const updatedStroke = [...currentStroke, point]
+    setCurrentStroke(updatedStroke)
 
     // Draw on local canvas immediately (no lag)
     const canvas = canvasRef.current
@@ -173,14 +176,17 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Batch sync (every 150ms or every 8 points) - Fast enough for smooth, safe for Firestore
+    // Aggressive batching for accuracy: 100ms OR 5 points (captures more detail)
     const now = Date.now()
-    if (now - lastSyncRef.current > 150 || currentStroke.length >= 8) {
+    if (now - lastSyncRef.current > 100 || updatedStroke.length >= 5) {
+      // Add current stroke to buffer with ALL accumulated points
       strokeBufferRef.current.push({
-        points: [...currentStroke, point],
+        points: [...updatedStroke],
         tool: currentTool,
         timestamp: now
       })
+
+      // Sync to Firestore
       syncStrokes()
       setCurrentStroke([])
       lastSyncRef.current = now
