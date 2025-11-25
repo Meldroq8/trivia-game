@@ -387,6 +387,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [drawingStrokes, setDrawingStrokes] = useState([])
   const [drawerConnected, setDrawerConnected] = useState(false)
   const drawingUnsubscribeRef = useRef(null)
+  const drawingTimerInitializedRef = useRef(false)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -684,6 +685,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       setDrawingSession(null)
       setDrawingStrokes([])
       setDrawerConnected(false)
+      drawingTimerInitializedRef.current = false // Reset timer flag
       return
     }
 
@@ -716,8 +718,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             setDrawingStrokes(sessionData.strokes || [])
             setDrawerConnected(sessionData.drawerConnected || false)
 
-            // Start QR timer when drawer becomes ready
-            if (sessionData.drawerReady && sessionData.status === 'drawing' && !qrTimerStarted) {
+            // Start QR timer when drawer becomes ready (ONLY ONCE using ref)
+            if (sessionData.drawerReady && sessionData.status === 'drawing' && !drawingTimerInitializedRef.current) {
+              drawingTimerInitializedRef.current = true
               setQrTimerStarted(true)
               setQrTimerPaused(false)
               // Set initial time based on difficulty
@@ -743,6 +746,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         drawingUnsubscribeRef.current()
         drawingUnsubscribeRef.current = null
       }
+      drawingTimerInitializedRef.current = false // Reset timer flag on cleanup
     }
   }, [currentQuestion?.id, gameData, gameState.currentTurn])
 
