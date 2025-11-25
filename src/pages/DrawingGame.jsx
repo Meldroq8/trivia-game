@@ -115,9 +115,13 @@ function DrawingGame() {
   useEffect(() => {
     if (!session?.timerResetAt) return
 
-    // Detect new reset (timestamp changed)
-    if (lastResetRef.current && session.timerResetAt !== lastResetRef.current) {
-      devLog('🔄 Timer reset detected from main screen')
+    // Convert Firestore Timestamp to comparable value
+    const resetTime = session.timerResetAt?.seconds || session.timerResetAt?.toMillis?.() || null
+    if (!resetTime) return
+
+    // Detect new reset (timestamp value changed, not object reference)
+    if (lastResetRef.current !== null && resetTime !== lastResetRef.current) {
+      devLog('🔄 Timer reset detected from main screen', resetTime, 'vs', lastResetRef.current)
 
       // Reset timer
       const difficulty = session.difficulty || 'medium'
@@ -125,8 +129,8 @@ function DrawingGame() {
       setTimeRemaining(initialTime)
     }
 
-    lastResetRef.current = session.timerResetAt
-  }, [session?.timerResetAt])
+    lastResetRef.current = resetTime
+  }, [session?.timerResetAt?.seconds, session?.timerResetAt?.nanoseconds])
 
   // Heartbeat system
   useEffect(() => {
