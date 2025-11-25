@@ -978,8 +978,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       setQrTimeRemaining(prev => {
         const newTime = prev <= 1 ? 0 : prev - 1
 
-        // For drawing mode, sync timer to Firestore
-        if (drawingSession && drawingSession.status === 'drawing') {
+        // For drawing mode, sync timer to Firestore ONLY every 3 seconds (reduce writes)
+        if (drawingSession && drawingSession.status === 'drawing' && newTime % 3 === 0) {
           const sessionId = currentQuestion?.question?.id || currentQuestion?.id
           if (sessionId && newTime >= 0) {
             DrawingService.updateTimer(sessionId, newTime)
