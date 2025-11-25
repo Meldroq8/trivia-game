@@ -2160,12 +2160,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   }
 
                   // Check if this is drawing mode and drawer is ready
-                  const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
-                  const category = gameData?.categories?.find(c => c.id === categoryId)
-                  const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
-                  const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
-                  const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
-                  const isDrawingMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) && miniGameType === 'drawing'
+                  // Reuse category variables from below to avoid duplication
+                  const checkCategoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                  const checkCategory = gameData?.categories?.find(c => c.id === checkCategoryId)
+                  const checkQuestionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                  const checkOriginalCategory = checkQuestionOriginalCategory ? gameData?.categories?.find(c => c.id === checkQuestionOriginalCategory) : null
+                  const miniGameType = checkCategory?.miniGameType || checkOriginalCategory?.miniGameType || 'charades'
+                  const isDrawingMode = (checkCategory?.enableQrMiniGame === true || checkOriginalCategory?.enableQrMiniGame === true) && miniGameType === 'drawing'
                   const isDrawingActive = isDrawingMode && drawingSession?.drawerReady === true
 
                   // Show drawing canvas if drawing is active
