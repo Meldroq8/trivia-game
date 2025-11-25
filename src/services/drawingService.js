@@ -145,21 +145,7 @@ export class DrawingService {
   }
 
   /**
-   * Update timer (for syncing between phone and main screen)
-   */
-  static async updateTimer(sessionId, timeRemaining) {
-    try {
-      await updateDoc(doc(db, 'drawingSessions', sessionId), {
-        timeRemaining: timeRemaining,
-        lastHeartbeat: serverTimestamp()
-      })
-    } catch (error) {
-      // Silent fail - timer updates are frequent
-    }
-  }
-
-  /**
-   * Reset timer
+   * Reset timer (no longer need updateTimer - timers run independently)
    */
   static async resetTimer(sessionId, timeLimit) {
     try {
