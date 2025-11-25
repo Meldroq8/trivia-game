@@ -2205,7 +2205,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   // Show drawing canvas if drawing is active
                   if (isDrawingActive) {
                     return (
-                      <div className="flex justify-center items-center w-full flex-col h-full">
+                      <div className="flex justify-center items-center w-full flex-col h-full pt-6 md:pt-8">
                         {/* Drawing Canvas - fits inside question area */}
                         <div className="w-full h-full flex items-center justify-center px-2 py-2">
                           <DrawingCanvas
@@ -2485,10 +2485,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                  padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
                                  maxWidth: `${styles.timerSize}px`
                                }}>
-                            <div className="flex items-center justify-center p-1">
-                              <span className="text-2xl">⏱️</span>
-                            </div>
-
                             <span className="inline-flex items-center text-white justify-center font-cairo font-bold"
                                   style={{ fontSize: `${styles.timerFontSize}px` }}>
                               {qrTimeRemaining} ث
