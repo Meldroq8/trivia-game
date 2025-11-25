@@ -2579,7 +2579,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     return null
                   }
 
-                  // Normal Timer Controls
+                  // Check if this is drawing mode waiting for drawer (hide normal timer)
+                  if (gameData) {
+                    const checkCategoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                    const checkCategory = gameData?.categories?.find(c => c.id === checkCategoryId)
+                    const checkOriginalCat = currentQuestion?.question?.category || currentQuestion?.category
+                    const checkOriginal = checkOriginalCat ? gameData?.categories?.find(c => c.id === checkOriginalCat) : null
+                    const checkMiniGameType = checkCategory?.miniGameType || checkOriginal?.miniGameType
+                    const checkIsDrawing = (checkCategory?.enableQrMiniGame || checkOriginal?.enableQrMiniGame) && checkMiniGameType === 'drawing'
+
+                    // If drawing mode and timer not started yet, don't show normal timer
+                    if (checkIsDrawing && !qrTimerStarted) {
+                      return null
+                    }
+                  }
+
+                  // Normal Timer Controls (only for non-QR questions)
                   return (
                     <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
                          style={{
