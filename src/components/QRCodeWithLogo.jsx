@@ -58,9 +58,6 @@ function QRCodeWithLogo({ questionId, size = 250, mode = 'answer' }) {
                 src={logoUrl}
                 alt="Logo"
                 className="w-full h-full object-contain p-1"
-                style={{
-                  filter: 'brightness(0) invert(1)' // Make logo white
-                }}
               />
             </div>
           )}
