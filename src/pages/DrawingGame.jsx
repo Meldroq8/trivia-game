@@ -95,7 +95,16 @@ function DrawingGame() {
 
       // Start local countdown (independent, no Firestore dependency)
       localTimerRef.current = setInterval(() => {
-        setTimeRemaining(prev => Math.max(0, prev - 1))
+        setTimeRemaining(prev => {
+          const newTime = Math.max(0, prev - 1)
+
+          // Stop drawing when time runs out
+          if (newTime === 0) {
+            devLog('⏱️ Time is up! Drawing stopped.')
+          }
+
+          return newTime
+        })
       }, 1000)
     }
 
@@ -107,6 +116,14 @@ function DrawingGame() {
     }
   }, [isReady]) // ONLY depend on isReady, not session.timeRemaining
 
+  // Sync timer from main screen (every second update from Firestore)
+  useEffect(() => {
+    if (!session || session.timeRemaining === undefined || !isReady) return
+
+    // Update timer to match main screen
+    setTimeRemaining(session.timeRemaining)
+  }, [session?.timeRemaining])
+
   // Listen for timer reset from main screen (detect by timerResetAt change)
   useEffect(() => {
     if (!session || !session.timerResetAt) return
@@ -117,10 +134,22 @@ function DrawingGame() {
       console.log('🎨 Timer reset detected from main screen')
       lastResetTimeRef.current = resetTime
 
+      // Stop local countdown and sync from Firestore
+      if (localTimerRef.current) {
+        clearInterval(localTimerRef.current)
+      }
+      timerRunningRef.current = false
+
       // Reset timer
       const difficulty = session.difficulty || 'medium'
       const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
       setTimeRemaining(initialTime)
+
+      // Restart local countdown
+      timerRunningRef.current = true
+      localTimerRef.current = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1))
+      }, 1000)
     }
   }, [session?.timerResetAt])
 
@@ -163,7 +192,7 @@ function DrawingGame() {
 
   // Drawing handlers
   const startDrawing = (e) => {
-    if (!isReady || !isLandscape) return
+    if (!isReady || !isLandscape || timeRemaining <= 0) return // Stop if time is up
 
     setIsDrawing(true)
     const point = getCanvasPoint(e)
@@ -171,7 +200,7 @@ function DrawingGame() {
   }
 
   const draw = (e) => {
-    if (!isDrawing || !isReady) return
+    if (!isDrawing || !isReady || timeRemaining <= 0) return // Stop if time is up
 
     e.preventDefault() // Prevent scrolling on touch devices
 
