@@ -88,9 +88,17 @@ function DrawingGame() {
     const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
     setTimeRemaining(initialTime)
 
+    devLog('⏱️ Starting phone timer at:', initialTime)
+
     // Countdown locally (main screen does same, stays in sync naturally)
     localTimerRef.current = setInterval(() => {
-      setTimeRemaining(prev => Math.max(0, prev - 1))
+      setTimeRemaining(prev => {
+        const newTime = Math.max(0, prev - 1)
+        if (newTime % 10 === 0) { // Log every 10 seconds for debugging
+          devLog('⏱️ Phone timer:', newTime)
+        }
+        return newTime
+      })
     }, 1000)
 
     return () => {
@@ -98,7 +106,7 @@ function DrawingGame() {
         clearInterval(localTimerRef.current)
       }
     }
-  }, [isReady, session])
+  }, [isReady]) // Only depend on isReady, not session (prevents restarts)
 
   // Listen for reset button press from main screen
   const lastResetRef = useRef(null)
