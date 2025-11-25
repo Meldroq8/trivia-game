@@ -75,18 +75,48 @@ function DrawingGame() {
     }
   }, [sessionId])
 
-  // Sync timer directly from main screen via Firestore (simplest approach)
+  // Start timer when ready (independent countdown - stays in sync naturally)
+  const timerStartedRef = useRef(false)
+  const localTimerRef = useRef(null)
+
   useEffect(() => {
-    if (!session || session.timeRemaining === undefined) return
+    if (!isReady || !session || timerStartedRef.current) return
 
-    // Always sync timer from Firestore (main screen is source of truth)
-    setTimeRemaining(session.timeRemaining)
+    // Start timer ONCE when ready
+    timerStartedRef.current = true
+    const difficulty = session.difficulty || 'medium'
+    const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+    setTimeRemaining(initialTime)
 
-    // Stop drawing when time runs out
-    if (session.timeRemaining === 0) {
-      devLog('⏱️ Time is up! Drawing stopped.')
+    // Countdown locally (main screen does same, stays in sync naturally)
+    localTimerRef.current = setInterval(() => {
+      setTimeRemaining(prev => Math.max(0, prev - 1))
+    }, 1000)
+
+    return () => {
+      if (localTimerRef.current) {
+        clearInterval(localTimerRef.current)
+      }
     }
-  }, [session?.timeRemaining])
+  }, [isReady, session])
+
+  // Listen for reset button press from main screen
+  const lastResetRef = useRef(null)
+  useEffect(() => {
+    if (!session?.timerResetAt) return
+
+    // Detect new reset (timestamp changed)
+    if (lastResetRef.current && session.timerResetAt !== lastResetRef.current) {
+      devLog('🔄 Timer reset detected from main screen')
+
+      // Reset timer
+      const difficulty = session.difficulty || 'medium'
+      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+      setTimeRemaining(initialTime)
+    }
+
+    lastResetRef.current = session.timerResetAt
+  }, [session?.timerResetAt])
 
   // Heartbeat system
   useEffect(() => {
