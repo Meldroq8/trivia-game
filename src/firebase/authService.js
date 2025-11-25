@@ -5,7 +5,10 @@ import {
   signOut,
   updateProfile,
   onAuthStateChanged,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, collection, addDoc, query, where, orderBy, getDocs, updateDoc, deleteDoc, limit } from 'firebase/firestore'
 import { auth, db } from './config'
@@ -105,6 +108,27 @@ export class AuthService {
       devLog('Password reset email sent to:', email)
     } catch (error) {
       prodError('Error sending password reset email:', error)
+      throw error
+    }
+  }
+
+  // Change password (requires current password for security)
+  static async changePassword(currentPassword, newPassword) {
+    try {
+      const user = auth.currentUser
+      if (!user || !user.email) {
+        throw new Error('No user logged in')
+      }
+
+      // Reauthenticate user with current password (Firebase security requirement)
+      const credential = EmailAuthProvider.credential(user.email, currentPassword)
+      await reauthenticateWithCredential(user, credential)
+
+      // Update to new password
+      await updatePassword(user, newPassword)
+      devLog('Password changed successfully for:', user.email)
+    } catch (error) {
+      prodError('Error changing password:', error)
       throw error
     }
   }

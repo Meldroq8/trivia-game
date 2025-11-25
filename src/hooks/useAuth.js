@@ -79,6 +79,16 @@ export const useAuth = () => {
     }
   }
 
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      setError(null)
+      await AuthService.changePassword(currentPassword, newPassword)
+    } catch (error) {
+      setError(error.message)
+      throw error
+    }
+  }
+
   const updateGameStats = async (gameData) => {
     if (user) {
       try {
@@ -121,6 +131,7 @@ export const useAuth = () => {
     signIn,
     signOut,
     resetPassword,
+    changePassword,
     updateGameStats,
     getUserGames,
     deleteGame,
