@@ -2171,29 +2171,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   // Show drawing canvas if drawing is active
                   if (isDrawingActive) {
                     return (
-                      <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
-                        {/* Drawing Canvas */}
-                        <div className="w-full max-w-full" style={{ maxHeight: styles.imageAreaHeight + 'px' }}>
+                      <div className="flex justify-center items-center w-full flex-col h-full">
+                        {/* Drawing Canvas - fits inside question area */}
+                        <div className="w-full h-full flex items-center justify-center px-2 py-2">
                           <DrawingCanvas
                             strokes={drawingStrokes}
                             width={1920}
                             height={1080}
-                            className="shadow-lg"
+                            className="max-w-full max-h-full object-contain"
                           />
-                        </div>
-
-                        {/* Drawing Status */}
-                        <div className="mt-4 text-center">
-                          {!drawerConnected && (
-                            <p className="text-orange-600 dark:text-orange-400 font-bold animate-pulse" style={{ fontSize: `${styles.questionFontSize * 0.5}px` }}>
-                              ⏳ انتظار المرسوم...
-                            </p>
-                          )}
-                          {drawerConnected && (
-                            <p className="text-green-600 dark:text-green-400 font-bold" style={{ fontSize: `${styles.questionFontSize * 0.5}px` }}>
-                              🎨 {gameState.currentTurn === 'team1' ? (gameState.team1?.name || 'الفريق الأول') : (gameState.team2?.name || 'الفريق الثاني')} يرسم...
-                            </p>
-                          )}
                         </div>
                       </div>
                     )
@@ -2514,8 +2500,52 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show QR if current category OR original category has QR enabled
                   const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+                  const miniGameTypeForTimer = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+                  const isDrawingModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'drawing'
 
                   if (isQrMiniGame) {
+                    // Drawing Mode Timer - Show countdown timer when drawing is active
+                    if (isDrawingModeForTimer && qrTimerStarted) {
+                      return (
+                        <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
+                             style={{
+                               padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
+                               maxWidth: `${styles.timerSize}px`
+                             }}>
+                          <div className="flex items-center justify-center p-1">
+                            <span className="text-2xl">⏱️</span>
+                          </div>
+
+                          <span className="inline-flex items-center text-white justify-center font-cairo font-bold"
+                                style={{ fontSize: `${styles.timerFontSize}px` }}>
+                            {qrTimeRemaining} ث
+                          </span>
+
+                          <button type="button" className="flex items-center justify-center p-1"
+                                  onClick={() => {
+                                    const difficulty = currentQuestion?.difficulty || 'medium'
+                                    const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+                                    setQrTimeRemaining(timeLimit)
+                                  }}>
+                            <svg
+                              viewBox="0 0 44 44"
+                              style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                              className="active:scale-110 duration-100"
+                            >
+                              <path
+                                d="M22 4C12.6 4 5 11.6 5 21C5 30.4 12.6 38 22 38C31.4 38 39 30.4 39 21C39 11.6 31.4 4 22 4ZM22 34C14.8 34 9 28.2 9 21C9 13.8 14.8 8 22 8C29.2 8 35 13.8 35 21C35 28.2 29.2 34 22 34ZM23 13H21V22L28.5 26.2L29.5 24.5L23 21V13Z"
+                                fill="#fff"
+                              />
+                              <path
+                                d="M18 2H26V6H18V2Z"
+                                fill="#fff"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      )
+                    }
+
                     // QR Mini-Game Timer - Show Ready button only when timer not started
                     if (!qrTimerStarted) {
                       return (
@@ -2528,7 +2558,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         </button>
                       )
                     }
-                    // When timer is started, return null (circular timer shown in main content area)
+                    // When timer is started, return null (circular timer shown in main content area for charades)
                     return null
                   }
 
