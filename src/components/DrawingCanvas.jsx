@@ -59,11 +59,14 @@ function DrawingCanvas({ strokes = [], width = 1920, height = 1080, className = 
       height={height}
       className={className}
       style={{
-        width: '100%',
+        maxWidth: '100%',
+        maxHeight: '100%',
+        width: 'auto',
         height: 'auto',
         display: 'block',
         backgroundColor: '#FFFFFF',
-        borderRadius: '8px'
+        borderRadius: '8px',
+        objectFit: 'contain'
       }}
     />
   )
