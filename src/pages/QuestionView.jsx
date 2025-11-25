@@ -719,9 +719,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       return
     }
 
-    // Create drawing session
-    const sessionId = currentQuestion?.question?.id || currentQuestion?.id
-    if (!sessionId) return
+    // Create drawing session - include user ID to prevent collisions between different games
+    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!questionId || !user?.uid) return
+    const sessionId = `${questionId}_${user.uid}`
 
     const initDrawingSession = async () => {
       try {
@@ -783,7 +784,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       }
       drawingTimerInitializedRef.current = false // Reset timer flag on cleanup
     }
-  }, [currentQuestion?.id, gameData, gameState.currentTurn])
+  }, [currentQuestion?.id, gameData, gameState.currentTurn, user?.uid])
 
   const getCategoryById = (categoryId) => {
     if (gameData && gameData.categories) {
@@ -2364,8 +2365,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     // Show QR if current category OR original category has QR enabled
                     const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
                     const questionId = currentQuestion?.question?.id || currentQuestion?.id
+                    // Use unique session ID (questionId + userId) to prevent collisions between different games
+                    const sessionId = questionId && user?.uid ? `${questionId}_${user.uid}` : questionId
 
-                    if (!isQrMiniGame || !questionId) return null
+                    if (!isQrMiniGame || !sessionId) return null
 
                     return (
                       <div
@@ -2387,7 +2390,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             }}
                           >
                             <QRCodeWithLogo
-                              questionId={questionId}
+                              questionId={sessionId}
                               size={styles.isPC
                                 ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
                                 : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px
@@ -2497,7 +2500,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                       setQrTimeRemaining(timeLimit)
 
                                       // Signal reset to phone via Firestore timestamp
-                                      const sessionId = currentQuestion?.question?.id || currentQuestion?.id
+                                      const questionId = currentQuestion?.question?.id || currentQuestion?.id
+                                      const sessionId = questionId && user?.uid ? `${questionId}_${user.uid}` : null
                                       if (sessionId && drawingSession) {
                                         await DrawingService.resetTimer(sessionId)
                                         devLog('🔄 Main screen: Timer reset to', timeLimit)
