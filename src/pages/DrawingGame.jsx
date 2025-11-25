@@ -16,9 +16,11 @@ function DrawingGame() {
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentStroke, setCurrentStroke] = useState([])
   const [isLandscape, setIsLandscape] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState(0)
   const strokeBufferRef = useRef([])
   const lastSyncRef = useRef(0)
   const heartbeatIntervalRef = useRef(null)
+  const timerIntervalRef = useRef(null)
 
   // Check orientation
   useEffect(() => {
@@ -71,6 +73,34 @@ function DrawingGame() {
 
     loadSession()
   }, [sessionId])
+
+  // Timer countdown system
+  useEffect(() => {
+    if (!isReady || !session) return
+
+    // Set initial time based on difficulty
+    const difficulty = session.difficulty || 'medium'
+    const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+    setTimeRemaining(timeLimit)
+
+    // Start countdown timer
+    timerIntervalRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          // Time's up
+          clearInterval(timerIntervalRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+      }
+    }
+  }, [isReady, session])
 
   // Heartbeat system
   useEffect(() => {
@@ -330,8 +360,14 @@ function DrawingGame() {
       {/* Header */}
       <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-2 px-4 flex items-center justify-between flex-shrink-0">
         <LogoDisplay />
-        <div className="text-center flex-1">
+        <div className="text-center flex-1 flex items-center justify-center gap-4">
           <p className="text-sm font-bold">{session?.answer || session?.word}</p>
+          {/* Timer Display */}
+          <div className="flex items-center gap-2 bg-white/20 rounded-full px-3 py-1">
+            <span className="text-2xl">⏱️</span>
+            <span className="text-xl font-bold">{timeRemaining}</span>
+            <span className="text-sm">ث</span>
+          </div>
         </div>
         <button
           onClick={() => {
