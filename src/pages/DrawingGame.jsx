@@ -181,7 +181,7 @@ function DrawingGame() {
   const draw = (e) => {
     if (!isDrawing || !isReady || timeRemaining <= 0) return // Stop if time is up
 
-    e.preventDefault() // Prevent scrolling on touch devices
+    // Note: preventDefault removed - using CSS touch-action instead
 
     const point = getCanvasPoint(e)
 
@@ -416,11 +416,12 @@ function DrawingGame() {
           onTouchStart={startDrawing}
           onTouchMove={draw}
           onTouchEnd={stopDrawing}
-          className="w-full h-full touch-none"
+          className="w-full h-full"
           style={{
             backgroundColor: '#FFFFFF',
             cursor: currentTool === 'eraser' ? 'crosshair' : 'crosshair',
-            borderRadius: '8px'
+            borderRadius: '8px',
+            touchAction: 'none' // Prevents scrolling/zooming during drawing
           }}
         />
       </div>
