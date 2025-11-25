@@ -40,10 +40,13 @@ function DrawingGame() {
   useEffect(() => {
     const loadSession = async () => {
       try {
+        console.log('🎨 DrawingGame: Loading session:', sessionId)
         const sessionData = await DrawingService.getSession(sessionId)
+        console.log('🎨 DrawingGame: Session data:', sessionData)
 
         if (!sessionData) {
-          setError('الجلسة غير موجودة')
+          console.error('🎨 DrawingGame: Session not found in Firestore')
+          setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
           setLoading(false)
           return
         }

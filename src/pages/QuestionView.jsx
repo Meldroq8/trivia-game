@@ -693,6 +693,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     const initDrawingSession = async () => {
       try {
+        devLog('🎨 Initializing drawing session with ID:', sessionId)
+
         // Create session in Firestore
         await DrawingService.createSession(sessionId, {
           questionId: sessionId,
@@ -704,7 +706,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           points: currentQuestion?.points || 400
         })
 
-        devLog('🎨 Drawing session created:', sessionId)
+        devLog('🎨 Drawing session created successfully:', sessionId)
+        devLog('🎨 QR Code URL should be:', `${window.location.origin}/draw/${sessionId}`)
 
         // Subscribe to session updates
         const unsubscribe = DrawingService.subscribeToSession(sessionId, (sessionData) => {
