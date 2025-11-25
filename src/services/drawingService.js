@@ -20,6 +20,7 @@ export class DrawingService {
         drawerConnected: false,
         drawerReady: false,
         strokes: [],
+        timerResetAt: 0, // Initialize with 0 so first real reset is detected
         createdAt: serverTimestamp(),
         lastHeartbeat: serverTimestamp()
       })
