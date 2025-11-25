@@ -4731,6 +4731,21 @@ function SettingsManager() {
 
   const [signUpEnabled, setSignUpEnabled] = useState(true)
 
+  // Mini game rules state
+  const [miniGameRules, setMiniGameRules] = useState({
+    drawing: [
+      'اختر شخص للرسم من فريقك',
+      'شخص واحد مسموح له يصور الباركود',
+      'اضغط جاهز وابدأ الرسم'
+    ],
+    other: [
+      'اختر شخص لتمثيل فريقك',
+      'شخص واحد مسموح له يصور الباركود',
+      'اذا كنت مستعد اضغط جاهز'
+    ]
+  })
+  const [savingRules, setSavingRules] = useState(false)
+
   const { getAppSettings, saveAppSettings } = useAuth()
 
   // Load saved logo and size from Firebase on component mount
@@ -4761,6 +4776,9 @@ function SettingsManager() {
         }
         if (settings?.signUpEnabled !== undefined) {
           setSignUpEnabled(settings.signUpEnabled)
+        }
+        if (settings?.miniGameRules) {
+          setMiniGameRules(settings.miniGameRules)
         }
       } catch (error) {
         prodError('Error loading settings:', error)
@@ -5051,6 +5069,46 @@ function SettingsManager() {
     } catch (error) {
       prodError('Error toggling sign-up:', error)
       alert('حدث خطأ أثناء حفظ الإعداد')
+    }
+  }
+
+  // Mini game rules handlers
+  const handleRuleChange = (gameType, index, value) => {
+    setMiniGameRules(prev => ({
+      ...prev,
+      [gameType]: prev[gameType].map((rule, i) => i === index ? value : rule)
+    }))
+  }
+
+  const handleAddRule = (gameType) => {
+    setMiniGameRules(prev => ({
+      ...prev,
+      [gameType]: [...prev[gameType], '']
+    }))
+  }
+
+  const handleRemoveRule = (gameType, index) => {
+    if (miniGameRules[gameType].length <= 1) return // Keep at least 1 rule
+    setMiniGameRules(prev => ({
+      ...prev,
+      [gameType]: prev[gameType].filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleSaveMiniGameRules = async () => {
+    setSavingRules(true)
+    try {
+      const success = await saveAppSettings({ miniGameRules })
+      if (success) {
+        alert('تم حفظ قواعد الألعاب المصغرة بنجاح!')
+      } else {
+        alert('حدث خطأ أثناء حفظ القواعد')
+      }
+    } catch (error) {
+      prodError('Error saving mini game rules:', error)
+      alert('حدث خطأ أثناء حفظ القواعد')
+    } finally {
+      setSavingRules(false)
     }
   }
 
@@ -5383,6 +5441,105 @@ function SettingsManager() {
             <strong>ملاحظة:</strong> إيقاف التسجيل لا يؤثر على المستخدمين الحاليين - يمكنهم تسجيل الدخول في أي وقت.
           </p>
         </div>
+      </div>
+
+      {/* Mini Game Rules Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md border">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">قواعد الألعاب المصغرة (QR Code)</h3>
+        <p className="text-gray-900 mb-6">
+          يمكنك تعديل القواعد التي تظهر للاعبين عند بدء الألعاب المصغرة مثل الرسم والتمثيل.
+        </p>
+
+        {/* Drawing Game Rules */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h4 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
+            <span>🎨</span>
+            قواعد لعبة الرسم
+          </h4>
+          <div className="space-y-3">
+            {miniGameRules.drawing.map((rule, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <div className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {index + 1}
+                </div>
+                <input
+                  type="text"
+                  value={rule}
+                  onChange={(e) => handleRuleChange('drawing', index, e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-right text-gray-900 font-medium"
+                  dir="rtl"
+                  placeholder={`القاعدة ${index + 1}`}
+                />
+                {miniGameRules.drawing.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveRule('drawing', index)}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-lg flex-shrink-0 transition-colors"
+                    title="حذف القاعدة"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => handleAddRule('drawing')}
+            className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>+</span>
+            إضافة قاعدة جديدة
+          </button>
+        </div>
+
+        {/* Other Games Rules (Acting, etc.) */}
+        <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+          <h4 className="font-bold text-purple-800 mb-3 flex items-center gap-2">
+            <span>🎭</span>
+            قواعد الألعاب الأخرى (التمثيل وغيرها)
+          </h4>
+          <div className="space-y-3">
+            {miniGameRules.other.map((rule, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <div className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {index + 1}
+                </div>
+                <input
+                  type="text"
+                  value={rule}
+                  onChange={(e) => handleRuleChange('other', index, e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right text-gray-900 font-medium"
+                  dir="rtl"
+                  placeholder={`القاعدة ${index + 1}`}
+                />
+                {miniGameRules.other.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveRule('other', index)}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-lg flex-shrink-0 transition-colors"
+                    title="حذف القاعدة"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => handleAddRule('other')}
+            className="mt-3 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>+</span>
+            إضافة قاعدة جديدة
+          </button>
+        </div>
+
+        {/* Save Button */}
+        <button
+          onClick={handleSaveMiniGameRules}
+          disabled={savingRules}
+          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors"
+        >
+          {savingRules ? 'جاري الحفظ...' : 'حفظ قواعد الألعاب المصغرة'}
+        </button>
       </div>
     </div>
   )

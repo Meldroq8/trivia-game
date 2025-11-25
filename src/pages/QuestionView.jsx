@@ -394,7 +394,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
   const [activeTimer, setActiveTimer] = useState({ active: false, type: null, team: null, timeLeft: 0, paused: false })
   const [burgerMenuOpen, setBurgerMenuOpen] = useState(false)
-  const { isAuthenticated, loading, user, saveGameState } = useAuth()
+  const { isAuthenticated, loading, user, saveGameState, getAppSettings } = useAuth()
+
+  // Mini game rules state
+  const [miniGameRules, setMiniGameRules] = useState({
+    drawing: [
+      'اختر شخص للرسم من فريقك',
+      'شخص واحد مسموح له يصور الباركود',
+      'اضغط جاهز وابدأ الرسم'
+    ],
+    other: [
+      'اختر شخص لتمثيل فريقك',
+      'شخص واحد مسموح له يصور الباركود',
+      'اذا كنت مستعد اضغط جاهز'
+    ]
+  })
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
@@ -404,6 +418,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   useEffect(() => {
     document.title = 'لمّه - سؤال'
   }, [])
+
+  // Load mini game rules from settings
+  useEffect(() => {
+    const loadMiniGameRules = async () => {
+      try {
+        const settings = await getAppSettings()
+        if (settings?.miniGameRules) {
+          setMiniGameRules(settings.miniGameRules)
+        }
+      } catch (error) {
+        // Use default rules if loading fails
+        devLog('Using default mini game rules')
+      }
+    }
+    loadMiniGameRules()
+  }, [getAppSettings])
 
   // Report modal state
   const [showReportModal, setShowReportModal] = useState(false)
@@ -2368,105 +2398,42 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                           {/* Instructions */}
                           <div className="flex flex-col portrait:gap-1.5 landscape:gap-2.5 portrait:scale-90">
-                            {/* Instruction 1 */}
-                            <div
-                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
-                              style={{
-                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
-                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
-                              }}
-                            >
+                            {((category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
+                              ? miniGameRules.drawing
+                              : miniGameRules.other
+                            ).map((rule, index) => (
                               <div
-                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
+                                key={index}
+                                className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
                                 style={{
-                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
-                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
+                                  padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
+                                  gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
                                 }}
                               >
-                                <span
-                                  className="text-red-600 font-bold"
+                                <div
+                                  className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
                                   style={{
-                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                    width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
+                                    height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
                                   }}
-                                >1</span>
-                              </div>
-                              <p
-                                className="text-white font-semibold leading-tight"
-                                style={{
-                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
-                                }}
-                              >
-                                {category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing'
-                                  ? 'اختر شخص للرسم من فريقك'
-                                  : 'اختر شخص لتمثيل فريقك'}
-                              </p>
-                            </div>
-
-                            {/* Instruction 2 */}
-                            <div
-                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
-                              style={{
-                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
-                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
-                              }}
-                            >
-                              <div
-                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{
-                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
-                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
-                                }}
-                              >
-                                <span
-                                  className="text-red-600 font-bold"
+                                >
+                                  <span
+                                    className="text-red-600 font-bold"
+                                    style={{
+                                      fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                    }}
+                                  >{index + 1}</span>
+                                </div>
+                                <p
+                                  className="text-white font-semibold leading-tight"
                                   style={{
-                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
+                                    fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
                                   }}
-                                >2</span>
+                                >
+                                  {rule}
+                                </p>
                               </div>
-                              <p
-                                className="text-white font-semibold leading-tight"
-                                style={{
-                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
-                                }}
-                              >
-                                شخص واحد مسموح له يصور الباركود
-                              </p>
-                            </div>
-
-                            {/* Instruction 3 */}
-                            <div
-                              className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"
-                              style={{
-                                padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px ${Math.max(8, styles.imageAreaHeight * 0.028)}px`,
-                                gap: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
-                              }}
-                            >
-                              <div
-                                className="bg-[#f7f2e6] dark:bg-slate-700 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{
-                                  width: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`,
-                                  height: `${Math.max(18, styles.imageAreaHeight * 0.065)}px`
-                                }}
-                              >
-                                <span
-                                  className="text-red-600 font-bold"
-                                  style={{
-                                    fontSize: `${Math.max(9, styles.imageAreaHeight * 0.035)}px`
-                                  }}
-                                >3</span>
-                              </div>
-                              <p
-                                className="text-white font-semibold leading-tight"
-                                style={{
-                                  fontSize: `${Math.max(8, styles.imageAreaHeight * 0.03)}px`
-                                }}
-                              >
-                                {category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing'
-                                  ? 'اضغط جاهز وابدأ الرسم'
-                                  : 'اذا كنت مستعد اضغط جاهز'}
-                              </p>
-                            </div>
+                            ))}
                           </div>
                         </div>
                       </div>
