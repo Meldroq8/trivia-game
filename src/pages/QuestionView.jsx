@@ -2531,10 +2531,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                     const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
                                     setQrTimeRemaining(timeLimit)
 
-                                    // Reset timer in Firestore for phone sync
+                                    // Signal reset to phone via Firestore timestamp
                                     const sessionId = currentQuestion?.question?.id || currentQuestion?.id
                                     if (sessionId && drawingSession) {
-                                      await DrawingService.resetTimer(sessionId, timeLimit)
+                                      await DrawingService.resetTimer(sessionId)
+                                      devLog('🔄 Main screen: Timer reset to', timeLimit)
                                     }
                                   }}>
                             <svg
