@@ -75,83 +75,18 @@ function DrawingGame() {
     }
   }, [sessionId])
 
-  // Initialize timer when ready, then countdown locally (independent of Firestore)
-  const timerRunningRef = useRef(false)
-  const localTimerRef = useRef(null)
-  const lastResetTimeRef = useRef(null)
-
+  // Sync timer directly from main screen via Firestore (simplest approach)
   useEffect(() => {
-    if (!isReady || !session) return
+    if (!session || session.timeRemaining === undefined) return
 
-    // Start local timer only once
-    if (!timerRunningRef.current) {
-      timerRunningRef.current = true
-
-      // Set initial time from session
-      const difficulty = session.difficulty || 'medium'
-      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
-      setTimeRemaining(initialTime)
-      lastResetTimeRef.current = session.timerResetAt
-
-      // Start local countdown (independent, no Firestore dependency)
-      localTimerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          const newTime = Math.max(0, prev - 1)
-
-          // Stop drawing when time runs out
-          if (newTime === 0) {
-            devLog('⏱️ Time is up! Drawing stopped.')
-          }
-
-          return newTime
-        })
-      }, 1000)
-    }
-
-    return () => {
-      if (localTimerRef.current) {
-        clearInterval(localTimerRef.current)
-      }
-      timerRunningRef.current = false
-    }
-  }, [isReady]) // ONLY depend on isReady, not session.timeRemaining
-
-  // Sync timer from main screen (every second update from Firestore)
-  useEffect(() => {
-    if (!session || session.timeRemaining === undefined || !isReady) return
-
-    // Update timer to match main screen
+    // Always sync timer from Firestore (main screen is source of truth)
     setTimeRemaining(session.timeRemaining)
-  }, [session?.timeRemaining])
 
-  // Listen for timer reset from main screen (detect by timerResetAt change)
-  useEffect(() => {
-    if (!session || !session.timerResetAt) return
-
-    // Check if this is a NEW reset (different timestamp)
-    const resetTime = session.timerResetAt
-    if (lastResetTimeRef.current && resetTime !== lastResetTimeRef.current) {
-      console.log('🎨 Timer reset detected from main screen')
-      lastResetTimeRef.current = resetTime
-
-      // Stop local countdown and sync from Firestore
-      if (localTimerRef.current) {
-        clearInterval(localTimerRef.current)
-      }
-      timerRunningRef.current = false
-
-      // Reset timer
-      const difficulty = session.difficulty || 'medium'
-      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
-      setTimeRemaining(initialTime)
-
-      // Restart local countdown
-      timerRunningRef.current = true
-      localTimerRef.current = setInterval(() => {
-        setTimeRemaining(prev => Math.max(0, prev - 1))
-      }, 1000)
+    // Stop drawing when time runs out
+    if (session.timeRemaining === 0) {
+      devLog('⏱️ Time is up! Drawing stopped.')
     }
-  }, [session?.timerResetAt])
+  }, [session?.timeRemaining])
 
   // Heartbeat system
   useEffect(() => {
