@@ -115,13 +115,11 @@ function DrawingGame() {
   useEffect(() => {
     if (!session) return
 
-    // Only check if timerResetAt exists
+    // Only check if timerResetAt exists (now it's a number timestamp)
     if (session.timerResetAt) {
-      // Convert Firestore Timestamp to comparable value
-      const resetTime = session.timerResetAt.seconds || session.timerResetAt.toMillis?.() || null
-      if (!resetTime) return
+      const resetTime = session.timerResetAt
 
-      // Detect new reset (timestamp value changed, not object reference)
+      // Detect new reset (timestamp value changed)
       if (lastResetRef.current !== null && resetTime !== lastResetRef.current) {
         devLog('🔄 Timer reset detected from main screen', resetTime, 'vs', lastResetRef.current)
 
@@ -135,6 +133,7 @@ function DrawingGame() {
       } else if (lastResetRef.current === null) {
         // First time seeing timerResetAt, just store it
         lastResetRef.current = resetTime
+        devLog('🎨 Initial timerResetAt stored:', resetTime)
       }
     }
   }, [session]) // Depend on full session object, do comparison inside

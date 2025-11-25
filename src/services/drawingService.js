@@ -145,14 +145,16 @@ export class DrawingService {
   }
 
   /**
-   * Reset timer - only updates the timerResetAt timestamp to signal phones to reset
+   * Reset timer - updates timerResetAt timestamp to signal phones to reset
    */
-  static async resetTimer(sessionId, timeLimit) {
+  static async resetTimer(sessionId) {
     try {
+      // Use current timestamp instead of serverTimestamp for immediate detection
+      const now = Date.now()
       await updateDoc(doc(db, 'drawingSessions', sessionId), {
-        timerResetAt: serverTimestamp()
+        timerResetAt: now // Use milliseconds timestamp for easy comparison
       })
-      devLog('🎨 Timer reset signal sent')
+      devLog('🎨 Timer reset signal sent at:', now)
     } catch (error) {
       prodError('Error resetting timer:', error)
       throw error
