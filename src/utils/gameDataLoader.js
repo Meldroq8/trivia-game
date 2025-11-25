@@ -108,6 +108,7 @@ export class GameDataLoader {
       showImageInQuestion: cat.showImageInQuestion !== false, // Default to true
       showImageInAnswer: cat.showImageInAnswer !== false,     // Default to true
       enableQrMiniGame: cat.enableQrMiniGame || false,        // QR mini-game setting
+      miniGameType: cat.miniGameType || 'charades',           // Mini-game type (charades or drawing)
       isMergedCategory: cat.isMergedCategory || false,        // Merged category flag
       sourceCategoryIds: cat.sourceCategoryIds || [],         // Source category references
       masterCategoryId: cat.masterCategoryId || 'general',    // Master category for grouping
