@@ -2,7 +2,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useAuth } from '../hooks/useAuth'
 import { useState, useEffect } from 'react'
 
-function QRCodeWithLogo({ questionId, size = 250 }) {
+function QRCodeWithLogo({ questionId, size = 250, mode = 'answer' }) {
   const [logoUrl, setLogoUrl] = useState(null)
   const { getAppSettings } = useAuth()
 
@@ -21,7 +21,12 @@ function QRCodeWithLogo({ questionId, size = 250 }) {
     loadLogo()
   }, [getAppSettings])
 
-  const answerViewUrl = `${window.location.origin}/answer-view/${questionId}`
+  // Generate URL based on mode
+  const qrUrl = mode === 'drawing'
+    ? `${window.location.origin}/draw/${questionId}`
+    : `${window.location.origin}/answer-view/${questionId}`
+
+  const answerViewUrl = qrUrl
 
   return (
     <div className="flex flex-col items-center">
