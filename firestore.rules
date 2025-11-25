@@ -247,6 +247,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
+    // ===== DRAWING SESSIONS =====
+    // Real-time drawing sessions for drawing mini-game
+    match /drawingSessions/{sessionId} {
+      // Allow authenticated users to read and write drawing sessions
+      // This enables real-time collaboration for the drawing game
+      allow read, write: if request.auth != null;
+    }
+
     // ===== DEFAULT DENY =====
     // Deny access to any other documents
     match /{document=**} {
