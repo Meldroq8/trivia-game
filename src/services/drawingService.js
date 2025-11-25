@@ -14,8 +14,13 @@ export class DrawingService {
    */
   static async createSession(sessionId, data) {
     try {
+      // Filter out undefined values - Firebase doesn't accept undefined
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, value]) => value !== undefined)
+      )
+
       await setDoc(doc(db, 'drawingSessions', sessionId), {
-        ...data,
+        ...cleanData,
         status: 'waiting', // 'waiting', 'drawing', 'finished'
         drawerConnected: false,
         drawerReady: false,

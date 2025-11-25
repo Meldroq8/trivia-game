@@ -437,8 +437,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
         devLog(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
 
-        // Divide by 3 for the 3 difficulties to get average per difficulty
-        counts[categoryId] = Math.round(availableQuestions.length / 3)
+        // Divide by 6 for the 6 question slots per category
+        counts[categoryId] = Math.round(availableQuestions.length / 6)
       } catch (error) {
         prodError('Error calculating question count for category:', categoryId, error)
         counts[categoryId] = 0
