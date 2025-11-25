@@ -2580,6 +2580,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   }
 
                   // Check if this is drawing mode waiting for drawer (hide normal timer)
+                  // Primary check: Use drawingSession state (more immediate)
+                  if (drawingSession && !qrTimerStarted) {
+                    // Drawing session exists but not started - hide timer
+                    return null
+                  }
+
+                  // Secondary check: Use gameData
                   if (gameData) {
                     const checkCategoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
                     const checkCategory = gameData?.categories?.find(c => c.id === checkCategoryId)
