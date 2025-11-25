@@ -38,14 +38,15 @@ function DrawingGame() {
     }
   }, [])
 
+  // Track if drawer already connected to prevent infinite loop
+  const drawerConnectedRef = useRef(false)
+
   // Subscribe to session data for real-time updates
   useEffect(() => {
     console.log('🎨 DrawingGame: Subscribing to session:', sessionId)
 
     // Subscribe to real-time session updates
     const unsubscribe = DrawingService.subscribeToSession(sessionId, async (sessionData) => {
-      console.log('🎨 DrawingGame: Session update received:', sessionData)
-
       if (!sessionData) {
         console.error('🎨 DrawingGame: Session not found in Firestore')
         setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
@@ -62,8 +63,9 @@ function DrawingGame() {
       setSession(sessionData)
       setLoading(false)
 
-      // Mark drawer as connected (only once when first loaded)
-      if (!session) {
+      // Mark drawer as connected ONLY ONCE using ref
+      if (!drawerConnectedRef.current) {
+        drawerConnectedRef.current = true
         await DrawingService.connectDrawer(sessionId)
       }
     })
@@ -72,18 +74,47 @@ function DrawingGame() {
       if (unsubscribe) {
         unsubscribe()
       }
+      drawerConnectedRef.current = false
     }
   }, [sessionId])
 
-  // Listen to timer from Firestore (synced with main screen)
-  useEffect(() => {
-    if (!session) return
+  // Initialize timer when ready, then countdown locally
+  const timerRunningRef = useRef(false)
+  const localTimerRef = useRef(null)
 
-    // Update local timer when Firestore session updates
-    if (session.timeRemaining !== undefined && session.timeRemaining !== null) {
-      setTimeRemaining(session.timeRemaining)
+  useEffect(() => {
+    if (!isReady || !session) return
+
+    // Start local timer only once
+    if (!timerRunningRef.current) {
+      timerRunningRef.current = true
+
+      // Set initial time from session
+      const initialTime = session.timeRemaining || session.difficulty === 'easy' ? 90 : session.difficulty === 'hard' ? 45 : 60
+      setTimeRemaining(initialTime)
+
+      // Start local countdown
+      localTimerRef.current = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1))
+      }, 1000)
     }
-  }, [session?.timeRemaining, session?.timerResetAt])
+
+    return () => {
+      if (localTimerRef.current) {
+        clearInterval(localTimerRef.current)
+      }
+      timerRunningRef.current = false
+    }
+  }, [isReady, session?.timeRemaining])
+
+  // Listen for timer reset from main screen
+  useEffect(() => {
+    if (!session || !session.timerResetAt) return
+
+    // Reset timer when main screen resets it
+    const initialTime = session.difficulty === 'easy' ? 90 : session.difficulty === 'hard' ? 45 : 60
+    setTimeRemaining(initialTime)
+  }, [session?.timerResetAt])
 
   // Heartbeat system
   useEffect(() => {
