@@ -77,36 +77,38 @@ function DrawingGame() {
 
   // Start timer when ready (independent countdown - stays in sync naturally)
   const timerStartedRef = useRef(false)
-  const localTimerRef = useRef(null)
 
   useEffect(() => {
-    if (!isReady || !session || timerStartedRef.current) return
+    if (!isReady || timerStartedRef.current) return
+
+    // Get initial time from session or use default
+    const difficulty = session?.difficulty || 'medium'
+    const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
 
     // Start timer ONCE when ready
     timerStartedRef.current = true
-    const difficulty = session.difficulty || 'medium'
-    const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
     setTimeRemaining(initialTime)
 
-    devLog('⏱️ Starting phone timer at:', initialTime)
+    devLog('⏱️ Starting phone timer at:', initialTime, 'difficulty:', difficulty)
 
     // Countdown locally (main screen does same, stays in sync naturally)
-    localTimerRef.current = setInterval(() => {
+    const timer = setInterval(() => {
       setTimeRemaining(prev => {
         const newTime = Math.max(0, prev - 1)
-        if (newTime % 10 === 0) { // Log every 10 seconds for debugging
+        if (newTime % 10 === 0 || newTime <= 5) { // Log every 10 seconds + last 5 seconds
           devLog('⏱️ Phone timer:', newTime)
         }
         return newTime
       })
     }, 1000)
 
+    // Cleanup function
     return () => {
-      if (localTimerRef.current) {
-        clearInterval(localTimerRef.current)
-      }
+      devLog('⏱️ Cleaning up phone timer')
+      clearInterval(timer)
+      timerStartedRef.current = false // Reset ref so it can restart if needed
     }
-  }, [isReady]) // Only depend on isReady, not session (prevents restarts)
+  }, [isReady]) // Only isReady dependency
 
   // Listen for reset button press from main screen
   const lastResetRef = useRef(null)
