@@ -143,6 +143,8 @@ function DrawingGame() {
   const draw = (e) => {
     if (!isDrawing || !isReady) return
 
+    e.preventDefault() // Prevent scrolling on touch devices
+
     const point = getCanvasPoint(e)
     setCurrentStroke(prev => [...prev, point])
 
