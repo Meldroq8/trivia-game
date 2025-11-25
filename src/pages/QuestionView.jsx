@@ -1955,9 +1955,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show QR if current category OR original category has QR enabled
                   const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+                  const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+                  const isCharadesMode = isQrMiniGame && miniGameType === 'charades'
 
-                  // Show circular timer if QR mini-game and timer has started
-                  if (isQrMiniGame && qrTimerStarted) {
+                  // Show circular timer ONLY for charades mode (not drawing mode - canvas has its own timer)
+                  if (isCharadesMode && qrTimerStarted) {
                     const maxTime = getQrTimerDuration(currentQuestion?.points)
                     const progress = (qrTimeRemaining / maxTime) * 100
 
