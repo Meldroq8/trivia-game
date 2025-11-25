@@ -113,24 +113,31 @@ function DrawingGame() {
   // Listen for reset button press from main screen
   const lastResetRef = useRef(null)
   useEffect(() => {
-    if (!session?.timerResetAt) return
+    if (!session) return
 
-    // Convert Firestore Timestamp to comparable value
-    const resetTime = session.timerResetAt?.seconds || session.timerResetAt?.toMillis?.() || null
-    if (!resetTime) return
+    // Only check if timerResetAt exists
+    if (session.timerResetAt) {
+      // Convert Firestore Timestamp to comparable value
+      const resetTime = session.timerResetAt.seconds || session.timerResetAt.toMillis?.() || null
+      if (!resetTime) return
 
-    // Detect new reset (timestamp value changed, not object reference)
-    if (lastResetRef.current !== null && resetTime !== lastResetRef.current) {
-      devLog('🔄 Timer reset detected from main screen', resetTime, 'vs', lastResetRef.current)
+      // Detect new reset (timestamp value changed, not object reference)
+      if (lastResetRef.current !== null && resetTime !== lastResetRef.current) {
+        devLog('🔄 Timer reset detected from main screen', resetTime, 'vs', lastResetRef.current)
 
-      // Reset timer
-      const difficulty = session.difficulty || 'medium'
-      const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
-      setTimeRemaining(initialTime)
+        // Reset timer
+        const difficulty = session.difficulty || 'medium'
+        const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
+        setTimeRemaining(initialTime)
+
+        // Update last reset time
+        lastResetRef.current = resetTime
+      } else if (lastResetRef.current === null) {
+        // First time seeing timerResetAt, just store it
+        lastResetRef.current = resetTime
+      }
     }
-
-    lastResetRef.current = resetTime
-  }, [session?.timerResetAt?.seconds, session?.timerResetAt?.nanoseconds])
+  }, [session]) // Depend on full session object, do comparison inside
 
   // Heartbeat system
   useEffect(() => {
