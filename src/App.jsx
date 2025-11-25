@@ -15,6 +15,7 @@ import Results from './pages/Results'
 import AnswerViewPage from './pages/AnswerViewPage'
 import PasswordReset from './pages/PasswordReset'
 import AuthAction from './pages/AuthAction'
+import DrawingGame from './pages/DrawingGame'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -581,6 +582,10 @@ function App() {
             <Route
               path="/__/auth/action"
               element={<AuthAction />}
+            />
+            <Route
+              path="/draw/:sessionId"
+              element={<DrawingGame />}
             />
             <Route
               path="/loader/:inviteCode"

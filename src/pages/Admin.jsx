@@ -495,7 +495,9 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
     const updatedCategories = categories.map(cat =>
       cat.id === categoryId ? {
         ...cat,
-        enableQrMiniGame: newValue
+        enableQrMiniGame: newValue,
+        // Default to charades if enabling for first time
+        miniGameType: newValue && !cat.miniGameType ? 'charades' : cat.miniGameType
       } : cat
     )
     saveCategories(updatedCategories)
@@ -504,6 +506,16 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       ? 'تم تفعيل وضع اللعبة المصغرة بالكود لهذه الفئة'
       : 'تم إلغاء وضع اللعبة المصغرة بالكود لهذه الفئة'
     )
+  }
+
+  const handleMiniGameTypeChange = (categoryId, type) => {
+    const updatedCategories = categories.map(cat =>
+      cat.id === categoryId ? {
+        ...cat,
+        miniGameType: type
+      } : cat
+    )
+    saveCategories(updatedCategories)
   }
 
   const handleMasterCategoryChange = (categoryId, masterCategoryId) => {
@@ -1143,6 +1155,29 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   <div className="text-xs text-blue-700 mt-1">
                     عند التفعيل، سيظهر كود QR بدلاً من الإجابة المباشرة. شخص واحد يمسح الكود ويرى الإجابة، ثم يشرحها للفريق بطريقة إبداعية (تمثيل، رسم، شرح)
                   </div>
+
+                  {/* Mini-Game Type Dropdown */}
+                  {category.enableQrMiniGame && (
+                    <div className="mt-3">
+                      <label className="block text-sm font-bold text-blue-900 mb-2">
+                        نوع اللعبة المصغرة:
+                      </label>
+                      <select
+                        value={category.miniGameType || 'charades'}
+                        onChange={(e) => handleMiniGameTypeChange(category.id, e.target.value)}
+                        className="w-full p-2 border border-blue-300 rounded-lg text-sm text-gray-900 bg-white"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="charades">🎭 تمثيل (Charades)</option>
+                        <option value="drawing">🎨 رسم (Drawing)</option>
+                      </select>
+                      <div className="text-xs text-blue-600 mt-1">
+                        {category.miniGameType === 'drawing'
+                          ? '🎨 سيرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية'
+                          : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </label>
             </div>
