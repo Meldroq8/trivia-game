@@ -971,15 +971,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     const timer = setInterval(() => {
       setQrTimeRemaining(prev => {
-        if (prev <= 1) {
-          return 0
+        const newTime = prev <= 1 ? 0 : prev - 1
+
+        // For drawing mode, sync timer to Firestore
+        if (drawingSession && drawingSession.status === 'drawing') {
+          const sessionId = currentQuestion?.question?.id || currentQuestion?.id
+          if (sessionId && newTime >= 0) {
+            DrawingService.updateTimer(sessionId, newTime)
+          }
         }
-        return prev - 1
+
+        return newTime
       })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [qrTimerStarted, qrTimeRemaining, qrTimerPaused])
+  }, [qrTimerStarted, qrTimeRemaining, qrTimerPaused, drawingSession, currentQuestion])
 
   // Close burger menu when clicking outside
   useEffect(() => {
@@ -2526,10 +2533,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           </span>
 
                           <button type="button" className="flex items-center justify-center p-1"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     const difficulty = currentQuestion?.difficulty || 'medium'
                                     const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
                                     setQrTimeRemaining(timeLimit)
+
+                                    // Reset timer in Firestore for phone sync
+                                    const sessionId = currentQuestion?.question?.id || currentQuestion?.id
+                                    if (sessionId && drawingSession) {
+                                      await DrawingService.resetTimer(sessionId, timeLimit)
+                                    }
                                   }}>
                             <svg
                               viewBox="0 0 44 44"
