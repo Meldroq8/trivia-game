@@ -207,6 +207,7 @@ function DrawingGame() {
 
     if (currentTool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)' // Need full alpha for eraser to work
       ctx.lineWidth = 20
     } else {
       ctx.globalCompositeOperation = 'source-over'
