@@ -17,10 +17,7 @@ function DrawingGame() {
   const [currentStroke, setCurrentStroke] = useState([])
   const [isLandscape, setIsLandscape] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
-  const strokeBufferRef = useRef([])
-  const lastSyncRef = useRef(0)
   const heartbeatIntervalRef = useRef(null)
-  const timerIntervalRef = useRef(null)
 
   // Check orientation
   useEffect(() => {
