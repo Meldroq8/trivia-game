@@ -12,11 +12,20 @@ function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [resetting, setResetting] = useState(false)
   const navigate = useNavigate()
-  const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, changePassword } = useAuth()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [headerHeight, setHeaderHeight] = useState(0)
+
+  // Password change state
+  const [showPasswordChange, setShowPasswordChange] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false)
+  const [passwordChangeError, setPasswordChangeError] = useState('')
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
 
   // Set page title
   useEffect(() => {
@@ -88,6 +97,62 @@ function ProfilePage() {
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
+
+  // Handle password change
+  const handlePasswordChange = async (e) => {
+    e.preventDefault()
+    setPasswordChangeError('')
+    setPasswordChangeSuccess(false)
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordChangeError('يرجى ملء جميع الحقول')
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordChangeError('كلمة المرور الجديدة يجب أن تحتوي على 6 أحرف على الأقل')
+      return
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordChangeError('كلمتا المرور الجديدة غير متطابقتين')
+      return
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordChangeError('كلمة المرور الجديدة يجب أن تكون مختلفة عن القديمة')
+      return
+    }
+
+    setPasswordChangeLoading(true)
+
+    try {
+      await changePassword(currentPassword, newPassword)
+      setPasswordChangeSuccess(true)
+      // Clear form
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmNewPassword('')
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setPasswordChangeSuccess(false)
+        setShowPasswordChange(false)
+      }, 3000)
+    } catch (error) {
+      if (error.message.includes('wrong-password') || error.message.includes('invalid-credential')) {
+        setPasswordChangeError('كلمة المرور الحالية غير صحيحة')
+      } else if (error.message.includes('weak-password')) {
+        setPasswordChangeError('كلمة المرور الجديدة ضعيفة جداً')
+      } else if (error.message.includes('requires-recent-login')) {
+        setPasswordChangeError('يرجى تسجيل الخروج ثم الدخول مرة أخرى قبل تغيير كلمة المرور')
+      } else {
+        setPasswordChangeError('حدث خطأ. يرجى المحاولة مرة أخرى')
+      }
+    } finally {
+      setPasswordChangeLoading(false)
+    }
+  }
 
   // Handle reset questions
   const handleResetQuestions = async () => {
@@ -376,6 +441,108 @@ function ProfilePage() {
               </div>
             </div>
           )}
+
+          {/* Change Password Card */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                تغيير كلمة المرور
+              </h2>
+              {!showPasswordChange && (
+                <button
+                  onClick={() => setShowPasswordChange(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+                >
+                  تغيير
+                </button>
+              )}
+            </div>
+
+            {showPasswordChange && (
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                {passwordChangeError && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    {passwordChangeError}
+                  </div>
+                )}
+
+                {passwordChangeSuccess && (
+                  <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                    ✅ تم تغيير كلمة المرور بنجاح!
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2 text-right">
+                    كلمة المرور الحالية
+                  </label>
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-700"
+                    placeholder="أدخل كلمة المرور الحالية"
+                    disabled={passwordChangeLoading}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2 text-right">
+                    كلمة المرور الجديدة
+                  </label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-700"
+                    placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)"
+                    disabled={passwordChangeLoading}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2 text-right">
+                    تأكيد كلمة المرور الجديدة
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-100 bg-white dark:bg-slate-700"
+                    placeholder="أعد إدخال كلمة المرور الجديدة"
+                    disabled={passwordChangeLoading}
+                    dir="rtl"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordChange(false)
+                      setCurrentPassword('')
+                      setNewPassword('')
+                      setConfirmNewPassword('')
+                      setPasswordChangeError('')
+                    }}
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    disabled={passwordChangeLoading}
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+                    disabled={passwordChangeLoading}
+                  >
+                    {passwordChangeLoading ? 'جاري الحفظ...' : 'حفظ كلمة المرور'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
 
           {/* Reset Button */}
           <div className="text-center">
