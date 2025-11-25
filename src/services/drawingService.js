@@ -145,6 +145,36 @@ export class DrawingService {
   }
 
   /**
+   * Update timer (for syncing between phone and main screen)
+   */
+  static async updateTimer(sessionId, timeRemaining) {
+    try {
+      await updateDoc(doc(db, 'drawingSessions', sessionId), {
+        timeRemaining: timeRemaining,
+        lastHeartbeat: serverTimestamp()
+      })
+    } catch (error) {
+      // Silent fail - timer updates are frequent
+    }
+  }
+
+  /**
+   * Reset timer
+   */
+  static async resetTimer(sessionId, timeLimit) {
+    try {
+      await updateDoc(doc(db, 'drawingSessions', sessionId), {
+        timeRemaining: timeLimit,
+        timerResetAt: serverTimestamp()
+      })
+      devLog('🎨 Timer reset to:', timeLimit)
+    } catch (error) {
+      prodError('Error resetting timer:', error)
+      throw error
+    }
+  }
+
+  /**
    * Mark session as finished
    */
   static async finishSession(sessionId) {

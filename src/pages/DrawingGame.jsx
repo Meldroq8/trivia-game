@@ -74,33 +74,15 @@ function DrawingGame() {
     loadSession()
   }, [sessionId])
 
-  // Timer countdown system
+  // Listen to timer from Firestore (synced with main screen)
   useEffect(() => {
-    if (!isReady || !session) return
+    if (!session) return
 
-    // Set initial time based on difficulty
-    const difficulty = session.difficulty || 'medium'
-    const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
-    setTimeRemaining(timeLimit)
-
-    // Start countdown timer
-    timerIntervalRef.current = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          // Time's up
-          clearInterval(timerIntervalRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current)
-      }
+    // Update local timer when Firestore session updates
+    if (session.timeRemaining !== undefined && session.timeRemaining !== null) {
+      setTimeRemaining(session.timeRemaining)
     }
-  }, [isReady, session])
+  }, [session?.timeRemaining, session?.timerResetAt])
 
   // Heartbeat system
   useEffect(() => {
@@ -188,9 +170,9 @@ function DrawingGame() {
       ctx.stroke()
     }
 
-    // Batch sync (every 300ms or every 15 points) - OPTIMIZED to prevent Firestore overload
+    // Batch sync (every 200ms or every 10 points) - Balanced for smooth drawing + Firestore limits
     const now = Date.now()
-    if (now - lastSyncRef.current > 300 || currentStroke.length >= 15) {
+    if (now - lastSyncRef.current > 200 || currentStroke.length >= 10) {
       strokeBufferRef.current.push({
         points: [...currentStroke, point],
         tool: currentTool,
@@ -202,19 +184,30 @@ function DrawingGame() {
     }
   }
 
-  const stopDrawing = () => {
+  const stopDrawing = async () => {
     if (!isDrawing) return
 
     setIsDrawing(false)
 
-    // Sync remaining stroke
+    // Sync remaining stroke IMMEDIATELY (don't wait for batch)
     if (currentStroke.length > 0) {
-      strokeBufferRef.current.push({
+      const finalStroke = {
         points: currentStroke,
         tool: currentTool,
         timestamp: Date.now()
-      })
-      syncStrokes()
+      }
+
+      // Add any buffered strokes too
+      const allStrokes = [...strokeBufferRef.current, finalStroke]
+      strokeBufferRef.current = []
+
+      // Sync immediately to ensure last stroke isn't lost
+      try {
+        await DrawingService.addStrokes(sessionId, allStrokes)
+      } catch (err) {
+        prodError('Error syncing final stroke:', err)
+      }
+
       setCurrentStroke([])
     }
   }
