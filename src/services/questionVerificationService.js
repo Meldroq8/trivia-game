@@ -8,7 +8,7 @@ import { devLog, prodError } from '../utils/devLog'
  */
 class QuestionVerificationService {
   constructor() {
-    this.apiKey = "AIzaSyDa6TNyHp7Q33qLMuHKBT1FjE30FK65Ifs"
+    this.apiKey = import.meta.env.VITE_GEMINI_API_KEY
     this.ai = null
     this.model = "gemini-2.0-flash" // Using stable model, can upgrade to gemini-3-pro-preview when available
   }
