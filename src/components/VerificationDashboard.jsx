@@ -324,7 +324,7 @@ function VerificationDashboard({ userId }) {
         {
           grammarIssues: result.grammarIssues || [],
           factualAccuracy: result.factualAccuracy || 'unknown',
-          correctAnswer: result.correctAnswer || null,
+          suggestedQuestion: result.suggestedQuestion || null,
           suggestedCorrection: result.suggestedCorrection || '',
           notes: result.notes || '',
           sources: result.sources || []
@@ -342,7 +342,7 @@ function VerificationDashboard({ userId }) {
           aiNotes: {
             grammarIssues: result.grammarIssues || [],
             factualAccuracy: result.factualAccuracy || 'unknown',
-            correctAnswer: result.correctAnswer || null,
+            suggestedQuestion: result.suggestedQuestion || null,
             suggestedCorrection: result.suggestedCorrection || '',
             notes: result.notes || '',
             sources: result.sources || []
