@@ -33,9 +33,9 @@ function DrawingCanvas({ strokes = [], width = 1920, height = 1080, className = 
         ctx.globalCompositeOperation = 'destination-out'
         ctx.lineWidth = 20
       } else {
-        // Pen mode - draws black
+        // Pen mode - draws with color (default black for backwards compatibility)
         ctx.globalCompositeOperation = 'source-over'
-        ctx.strokeStyle = '#000000'
+        ctx.strokeStyle = stroke.color || '#000000'
         ctx.lineWidth = 3
       }
 

@@ -25,6 +25,7 @@ import aiService from '../services/aiServiceSecure'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import VerificationDashboard from '../components/VerificationDashboard'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
@@ -252,6 +253,18 @@ function Admin() {
           )}
           {isAdmin && (
             <button
+              onClick={() => changeTab('verification')}
+              className={`flex-1 py-4 px-6 font-bold ${
+                activeTab === 'verification'
+                  ? 'bg-purple-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              التحقق بالذكاء
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => changeTab('settings')}
               className={`flex-1 py-4 px-6 font-bold ${
                 activeTab === 'settings'
@@ -274,6 +287,7 @@ function Admin() {
           {activeTab === 'userMessages' && isAdmin && <UserMessagesManager isAdmin={isAdmin} />}
           {activeTab === 'invites' && isAdmin && <InviteCodesManager user={user} />}
           {activeTab === 'media' && isAdminOrModerator && <MediaUploadManager />}
+          {activeTab === 'verification' && isAdmin && <VerificationDashboard userId={user?.uid} />}
           {activeTab === 'settings' && isAdmin && <SettingsManager isAdmin={isAdmin} isModerator={isModerator} />}
         </div>
       </div>
@@ -4010,13 +4024,15 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                 </div>
 
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => distributeDifficultiesEvenly(category.id)}
-                    className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm font-bold transition-colors flex items-center gap-1"
-                    title="توزيع الصعوبات بالتساوي"
-                  >
-                    ⚖️ توزيع متساوي
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => distributeDifficultiesEvenly(category.id)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm font-bold transition-colors flex items-center gap-1"
+                      title="توزيع الصعوبات بالتساوي"
+                    >
+                      ⚖️ توزيع متساوي
+                    </button>
+                  )}
                   <button
                     onClick={() => toggleCategoryCollapse(category.id)}
                     className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-lg text-sm font-bold transition-colors"
