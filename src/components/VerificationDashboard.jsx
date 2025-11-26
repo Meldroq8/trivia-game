@@ -439,12 +439,12 @@ function VerificationDashboard({ userId }) {
         <div className="flex flex-wrap items-center gap-4">
           {/* Category selector */}
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 dark:text-gray-300">الفئة:</label>
+            <label className="text-sm text-gray-700 dark:text-gray-300">الفئة:</label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               disabled={isVerifying}
-              className="border rounded-lg px-3 py-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white min-w-[150px]"
+              className="border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white min-w-[150px]"
             >
               <option value="">كل الفئات</option>
               {categories.map(cat => (
@@ -457,12 +457,12 @@ function VerificationDashboard({ userId }) {
 
           {/* Batch size selector */}
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 dark:text-gray-300">عدد الأسئلة:</label>
+            <label className="text-sm text-gray-700 dark:text-gray-300">عدد الأسئلة:</label>
             <select
               value={batchSize}
               onChange={(e) => setBatchSize(Number(e.target.value))}
               disabled={isVerifying}
-              className="border rounded-lg px-3 py-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+              className="border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
