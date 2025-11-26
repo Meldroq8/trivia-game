@@ -4,6 +4,7 @@ import { usePresentationMode } from './hooks/usePresentationMode'
 import { useAuth } from './hooks/useAuth'
 import componentPreloader from './utils/componentPreloader'
 import ConfirmExitModal from './components/ConfirmExitModal'
+import InstallPrompt from './components/InstallPrompt'
 
 import { devLog, devWarn, prodError } from "./utils/devLog"
 // Core game flow components - loaded immediately for instant navigation
@@ -593,6 +594,8 @@ function App() {
             />
           </Routes>
         </div>
+        {/* PWA Install Prompt */}
+        <InstallPrompt />
       </Router>
     </>
   )
