@@ -163,6 +163,16 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
         )}
       </div>
 
+      {/* Suggested question - always visible when present (important!) */}
+      {aiNotes?.suggestedQuestion && (
+        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+          <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">💡 سؤال مقترح: </span>
+          <span className="text-blue-900 dark:text-blue-100 font-medium" dir={getTextDirection(aiNotes.suggestedQuestion)}>
+            {aiNotes.suggestedQuestion}
+          </span>
+        </div>
+      )}
+
       {/* AI Notes (expanded view) */}
       {expanded && aiNotes && Object.keys(aiNotes).length > 0 && (
         <div className="mt-4 p-3 bg-gray-100 dark:bg-slate-700 rounded-lg space-y-2">
@@ -173,16 +183,6 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
             <div className="text-sm">
               <span className="text-red-600 dark:text-red-400 font-medium">مشاكل القواعد: </span>
               <span className="text-gray-700 dark:text-gray-300">{aiNotes.grammarIssues.join(', ')}</span>
-            </div>
-          )}
-
-          {/* Suggested question (when answer is wrong for current question) */}
-          {aiNotes.suggestedQuestion && (
-            <div className="text-sm">
-              <span className="text-blue-600 dark:text-blue-400 font-medium">سؤال مقترح للإجابة: </span>
-              <span className="text-gray-700 dark:text-gray-300" dir={getTextDirection(aiNotes.suggestedQuestion)}>
-                {aiNotes.suggestedQuestion}
-              </span>
             </div>
           )}
 
