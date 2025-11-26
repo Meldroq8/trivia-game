@@ -10,7 +10,7 @@ class QuestionVerificationService {
   constructor() {
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY
     this.ai = null
-    this.model = "gemini-2.0-flash" // Using stable model, can upgrade to gemini-3-pro-preview when available
+    this.model = "gemini-3-pro-preview"
   }
 
   /**
