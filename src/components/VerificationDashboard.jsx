@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { questionVerificationService } from '../services/questionVerificationService'
 import { devLog, prodError } from '../utils/devLog'
@@ -26,6 +26,7 @@ function VerificationDashboard({ userId }) {
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationProgress, setVerificationProgress] = useState({ current: 0, total: 0, skipped: 0 })
   const [currentVerifying, setCurrentVerifying] = useState(null)
+  const shouldStopRef = useRef(false) // Ref to signal cancellation
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -143,6 +144,9 @@ function VerificationDashboard({ userId }) {
 
   // Start batch verification
   const startBatchVerification = async () => {
+    // Reset stop flag
+    shouldStopRef.current = false
+
     try {
       setIsVerifying(true)
       setError(null)
@@ -170,12 +174,34 @@ function VerificationDashboard({ userId }) {
 
       let skippedCount = 0
 
-      // Progress callback
-      const onProgress = async (current, total, result) => {
+      // Run verification loop with cancellation check
+      for (let i = 0; i < unverified.length; i++) {
+        // Check if we should stop
+        if (shouldStopRef.current) {
+          devLog('Verification stopped by user')
+          break
+        }
+
+        const question = unverified[i]
+        let result
+
+        try {
+          result = await questionVerificationService.verifyQuestion(question)
+        } catch (err) {
+          prodError('Error verifying question:', err)
+          result = { questionId: question.id, status: 'error', error: err.message }
+        }
+
+        // Check again after async operation
+        if (shouldStopRef.current) {
+          devLog('Verification stopped by user')
+          break
+        }
+
         // Handle skipped questions (instruction questions)
         if (result.status === 'skip' || result.skipped) {
           skippedCount++
-          setVerificationProgress({ current, total, skipped: skippedCount })
+          setVerificationProgress({ current: i + 1, total: unverified.length, skipped: skippedCount })
           setCurrentVerifying({ ...result, statusIcon: '⏭️' })
 
           // Auto-approve skipped questions
@@ -194,40 +220,39 @@ function VerificationDashboard({ userId }) {
           } catch (err) {
             prodError('Error auto-approving skipped question:', err)
           }
-          return
+        } else {
+          setVerificationProgress({ current: i + 1, total: unverified.length, skipped: skippedCount })
+          setCurrentVerifying({
+            ...result,
+            statusIcon: result.status === 'pass' ? '✅' : '⚠️'
+          })
+
+          // Save result to Firebase
+          try {
+            const status = result.status === 'pass' ? 'ai_reviewed' : 'flagged'
+            await FirebaseQuestionsService.updateVerificationStatus(
+              result.questionId,
+              status,
+              {
+                grammarIssues: result.grammarIssues || [],
+                factualAccuracy: result.factualAccuracy || 'unknown',
+                suggestedQuestion: result.suggestedQuestion || null,
+                suggestedCorrection: result.suggestedCorrection || '',
+                notes: result.notes || '',
+                sources: result.sources || []
+              }
+            )
+            updateStatsLocally('unverified', status)
+          } catch (err) {
+            prodError('Error saving verification result:', err)
+          }
         }
 
-        setVerificationProgress({ current, total, skipped: skippedCount })
-        setCurrentVerifying({
-          ...result,
-          statusIcon: result.status === 'pass' ? '✅' : '⚠️'
-        })
-
-        // Save result to Firebase
-        try {
-          const status = result.status === 'pass' ? 'ai_reviewed' : 'flagged'
-          await FirebaseQuestionsService.updateVerificationStatus(
-            result.questionId,
-            status,
-            {
-              grammarIssues: result.grammarIssues || [],
-              factualAccuracy: result.factualAccuracy || 'unknown',
-              suggestedQuestion: result.suggestedQuestion || null,
-              suggestedCorrection: result.suggestedCorrection || '',
-              notes: result.notes || '',
-              sources: result.sources || []
-            }
-          )
-          updateStatsLocally('unverified', status)
-        } catch (err) {
-          prodError('Error saving verification result:', err)
+        // Rate limiting delay (except for last item or if stopped)
+        if (i < unverified.length - 1 && !shouldStopRef.current) {
+          await new Promise(r => setTimeout(r, 600))
         }
       }
-
-      // Run batch verification
-      await questionVerificationService.verifyBatch(unverified, onProgress, {
-        delayMs: 600 // Rate limiting
-      })
 
       // Reload data to sync with server
       await loadData()
@@ -244,6 +269,7 @@ function VerificationDashboard({ userId }) {
 
   // Stop verification
   const stopVerification = () => {
+    shouldStopRef.current = true
     setIsVerifying(false)
   }
 
