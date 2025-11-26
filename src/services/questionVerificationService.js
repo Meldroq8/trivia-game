@@ -43,10 +43,11 @@ class QuestionVerificationService {
    * Get language context for the prompt
    */
   getLanguageContext(question) {
+    const answerText = Array.isArray(question.answer) ? question.answer[0] : (question.answer || '')
     const hasArabicQuestion = this.containsArabic(question.text || '')
     const hasEnglishQuestion = this.containsEnglish(question.text || '')
-    const hasArabicAnswer = this.containsArabic(question.answer || '')
-    const hasEnglishAnswer = this.containsEnglish(question.answer || '')
+    const hasArabicAnswer = this.containsArabic(answerText)
+    const hasEnglishAnswer = this.containsEnglish(answerText)
 
     const languages = []
     if (hasArabicQuestion || hasArabicAnswer) languages.push('Arabic')
@@ -65,8 +66,10 @@ class QuestionVerificationService {
    * These are not real trivia questions but game instructions
    */
   isInstructionQuestion(question) {
-    const text = (question.text || '').toLowerCase()
-    const answer = (question.answer || '').toLowerCase()
+    const text = String(question.text || '').toLowerCase()
+    // Handle answer that might be an array or object
+    const rawAnswer = question.answer
+    const answer = String(Array.isArray(rawAnswer) ? rawAnswer[0] : (rawAnswer || '')).toLowerCase()
 
     // Patterns that indicate instruction questions
     const instructionPatterns = [
@@ -128,11 +131,13 @@ class QuestionVerificationService {
 
       const langContext = this.getLanguageContext(question)
       const categoryName = question.categoryName || question.categoryId || 'عام'
+      // Handle answer that might be an array
+      const answerText = Array.isArray(question.answer) ? question.answer[0] : (question.answer || '')
 
       const prompt = `أنت مدقق أسئلة تريفيا محترف ودقيق جداً. مهمتك مراجعة السؤال والإجابة بدقة عالية.
 
 السؤال: ${question.text}
-الإجابة: ${question.answer}
+الإجابة: ${answerText}
 ${question.options?.length ? `الخيارات: ${question.options.join('، ')}` : ''}
 الفئة/التصنيف: ${categoryName}
 
