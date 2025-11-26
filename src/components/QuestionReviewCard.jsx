@@ -207,17 +207,38 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
             <div className="text-sm">
               <span className="text-gray-600 dark:text-gray-400 font-medium">المصادر: </span>
               <div className="flex flex-wrap gap-1 mt-1">
-                {aiNotes.sources.map((source, idx) => (
-                  <a
-                    key={idx}
-                    href={source}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded"
-                  >
-                    {new URL(source).hostname}
-                  </a>
-                ))}
+                {aiNotes.sources.map((source, idx) => {
+                  // Safely get hostname or display source as-is
+                  let displayText = source
+                  let isValidUrl = false
+                  try {
+                    if (source && (source.startsWith('http://') || source.startsWith('https://'))) {
+                      displayText = new URL(source).hostname
+                      isValidUrl = true
+                    }
+                  } catch {
+                    // Not a valid URL, use source as-is
+                  }
+
+                  return isValidUrl ? (
+                    <a
+                      key={idx}
+                      href={source}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded"
+                    >
+                      {displayText}
+                    </a>
+                  ) : (
+                    <span
+                      key={idx}
+                      className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded"
+                    >
+                      {displayText}
+                    </span>
+                  )
+                })}
               </div>
             </div>
           )}
