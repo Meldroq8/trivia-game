@@ -187,11 +187,18 @@ suggestedQuestion يجب أن يكون: "ما أشهر معدن ثمين في ا
    * Parse the AI response
    */
   parseResponse(response, question) {
-    try {
-      let text = response.text || ''
+    let text = response.text || ''
+    devLog('Raw AI response:', text.substring(0, 500))
 
+    try {
       // Clean up the response - remove markdown code blocks if present
       text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+      // Try to find JSON object in the text
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        text = jsonMatch[0]
+      }
 
       // Try to parse as JSON
       const parsed = JSON.parse(text)
@@ -211,22 +218,30 @@ suggestedQuestion يجب أن يكون: "ما أشهر معدن ثمين في ا
         verifiedAt: new Date().toISOString()
       }
     } catch (parseError) {
-      devLog('Failed to parse AI response, using fallback:', parseError)
+      devLog('Failed to parse AI response:', parseError.message, 'Text:', text.substring(0, 300))
 
-      // Fallback - try to extract meaning from raw text
-      const text = response.text || ''
-      const isPass = text.toLowerCase().includes('"status": "pass"') ||
-                     text.toLowerCase().includes("'status': 'pass'")
+      // Fallback - try to extract fields using regex
+      const extractField = (fieldName) => {
+        const regex = new RegExp(`"${fieldName}"\\s*:\\s*"([^"]*)"`)
+        const match = text.match(regex)
+        return match ? match[1] : null
+      }
+
+      const status = extractField('status') || (text.includes('pass') ? 'pass' : 'flag')
+      const factualAccuracy = extractField('factualAccuracy') || 'uncertain'
+      const suggestedQuestion = extractField('suggestedQuestion')
+      const notes = extractField('notes') || 'تعذر تحليل الاستجابة'
 
       return {
         questionId: question.id,
         questionText: question.text,
         answer: question.answer,
-        status: isPass ? 'pass' : 'flag',
+        status: status,
         grammarIssues: [],
-        factualAccuracy: 'uncertain',
-        notes: 'تعذر تحليل استجابة الذكاء الاصطناعي بشكل كامل',
-        rawResponse: text.substring(0, 500),
+        factualAccuracy: factualAccuracy,
+        suggestedQuestion: suggestedQuestion,
+        notes: notes,
+        sources: [],
         verifiedAt: new Date().toISOString()
       }
     }
