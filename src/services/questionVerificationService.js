@@ -159,7 +159,10 @@ ${question.options?.length ? `الخيارات: ${question.options.join('، ')}`
 - ابحث عن السؤال والإجابة في مصادر موثوقة
 - إذا كان السؤال عن فيلم/مسلسل/لعبة من فئة "${categoryName}"، ابحث عن معلومات هذا العمل
 - لا تقل "uncertain" إلا إذا بحثت ولم تجد أي معلومات على الإطلاق
-- إذا وجدت أن الإجابة خاطئة، اكتب الإجابة الصحيحة
+
+مهم جداً: إذا كانت الإجابة خاطئة للسؤال الحالي:
+- لا تقترح إجابة جديدة (لأن الإجابة مرتبطة بصورة)
+- بدلاً من ذلك، اقترح سؤالاً جديداً تكون الإجابة الحالية صحيحة له
 
 ═══════════════════════════════════════════════════
 
@@ -168,9 +171,9 @@ ${question.options?.length ? `الخيارات: ${question.options.join('، ')}`
   "status": "pass" أو "flag",
   "grammarIssues": ["خطأ قصير ومباشر - مثال: 'الصحيح: كلمة'"],
   "factualAccuracy": "verified" أو "incorrect" أو "uncertain",
-  "correctAnswer": "الإجابة الصحيحة فقط (كلمات قليلة)",
+  "suggestedQuestion": "سؤال جديد يناسب الإجابة الحالية (إذا كانت الإجابة خاطئة)",
   "clarityScore": 1-5,
-  "suggestedCorrection": "التصحيح المختصر فقط",
+  "suggestedCorrection": "تصحيح صياغة السؤال فقط (ليس الإجابة)",
   "notes": "جملة واحدة قصيرة فقط",
   "sources": ["روابط"]
 }
@@ -183,7 +186,7 @@ ${question.options?.length ? `الخيارات: ${question.options.join('، ')}`
 
 تذكر:
 - إذا وجدت أي مشكلة في القواعد أو الصياغة، status = "flag"
-- إذا كانت الإجابة خاطئة، status = "flag"
+- إذا كانت الإجابة خاطئة للسؤال، status = "flag" واقترح سؤالاً بديلاً
 - فقط إذا كان كل شيء صحيح، status = "pass"`
 
       const response = await this.ai.models.generateContent({
@@ -231,7 +234,7 @@ ${question.options?.length ? `الخيارات: ${question.options.join('، ')}`
         status: parsed.status || 'flag',
         grammarIssues: parsed.grammarIssues || [],
         factualAccuracy: parsed.factualAccuracy || 'uncertain',
-        correctAnswer: parsed.correctAnswer || null,
+        suggestedQuestion: parsed.suggestedQuestion || null,
         clarityScore: parsed.clarityScore || 3,
         suggestedCorrection: parsed.suggestedCorrection || '',
         notes: parsed.notes || '',

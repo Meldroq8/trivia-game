@@ -176,11 +176,13 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
             </div>
           )}
 
-          {/* Correct answer suggestion */}
-          {aiNotes.correctAnswer && aiNotes.correctAnswer !== question.answer && (
+          {/* Suggested question (when answer is wrong for current question) */}
+          {aiNotes.suggestedQuestion && (
             <div className="text-sm">
-              <span className="text-blue-600 dark:text-blue-400 font-medium">الإجابة الصحيحة: </span>
-              <span className="text-gray-700 dark:text-gray-300">{aiNotes.correctAnswer}</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">سؤال مقترح للإجابة: </span>
+              <span className="text-gray-700 dark:text-gray-300" dir={getTextDirection(aiNotes.suggestedQuestion)}>
+                {aiNotes.suggestedQuestion}
+              </span>
             </div>
           )}
 
@@ -318,16 +320,16 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           حذف
         </button>
 
-        {/* Quick apply AI suggestion */}
-        {aiNotes.correctAnswer && aiNotes.correctAnswer !== question.answer && !isEditing && (
+        {/* Quick apply AI suggested question */}
+        {aiNotes.suggestedQuestion && !isEditing && (
           <button
             onClick={() => {
-              setEditedAnswer(aiNotes.correctAnswer)
+              setEditedText(aiNotes.suggestedQuestion)
               setIsEditing(true)
             }}
             className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-1.5 px-4 rounded-lg"
           >
-            تطبيق التصحيح
+            تطبيق السؤال المقترح
           </button>
         )}
       </div>
