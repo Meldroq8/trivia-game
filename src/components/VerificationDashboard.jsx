@@ -32,18 +32,21 @@ function VerificationDashboard({ userId }) {
   const [error, setError] = useState(null)
   const [batchSize, setBatchSize] = useState(50)
   const [categoryMap, setCategoryMap] = useState({}) // Map of categoryId -> categoryName
+  const [categories, setCategories] = useState([]) // List of all categories
+  const [selectedCategory, setSelectedCategory] = useState('') // Selected category for verification
   const [categoriesLoaded, setCategoriesLoaded] = useState(false)
 
   // Load categories once on mount
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const categories = await FirebaseQuestionsService.getAllCategories()
+        const allCategories = await FirebaseQuestionsService.getAllCategories()
         const map = {}
-        categories.forEach(cat => {
+        allCategories.forEach(cat => {
           map[cat.id] = cat.name || cat.id
         })
         setCategoryMap(map)
+        setCategories(allCategories)
         setCategoriesLoaded(true)
         devLog('Loaded category map:', Object.keys(map).length, 'categories')
       } catch (err) {
@@ -144,12 +147,21 @@ function VerificationDashboard({ userId }) {
       setIsVerifying(true)
       setError(null)
 
-      // Get unverified questions and map category names
-      let unverified = await FirebaseQuestionsService.getUnverifiedQuestions(batchSize)
+      // Get unverified questions - filter by category if selected
+      let unverified
+      if (selectedCategory) {
+        // Get all questions from selected category, then filter unverified
+        const categoryQuestions = await FirebaseQuestionsService.getQuestionsByCategory(selectedCategory)
+        unverified = categoryQuestions.filter(q =>
+          !q.verificationStatus || q.verificationStatus === 'unverified'
+        ).slice(0, batchSize)
+      } else {
+        unverified = await FirebaseQuestionsService.getUnverifiedQuestions(batchSize)
+      }
       unverified = mapCategoryNames(unverified, categoryMap)
 
       if (unverified.length === 0) {
-        setError('لا توجد أسئلة تحتاج للتحقق')
+        setError(selectedCategory ? 'لا توجد أسئلة تحتاج للتحقق في هذه الفئة' : 'لا توجد أسئلة تحتاج للتحقق')
         setIsVerifying(false)
         return
       }
@@ -425,6 +437,24 @@ function VerificationDashboard({ userId }) {
       {/* Actions */}
       <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md">
         <div className="flex flex-wrap items-center gap-4">
+          {/* Category selector */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-300">الفئة:</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              disabled={isVerifying}
+              className="border rounded-lg px-3 py-2 dark:bg-slate-700 dark:border-slate-600 dark:text-white min-w-[150px]"
+            >
+              <option value="">كل الفئات</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name || cat.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Batch size selector */}
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600 dark:text-gray-300">عدد الأسئلة:</label>
@@ -447,13 +477,12 @@ function VerificationDashboard({ userId }) {
           {!isVerifying ? (
             <button
               onClick={startBatchVerification}
-              disabled={stats.unverified === 0}
               className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white font-bold py-2 px-6 rounded-lg flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              بدء التحقق التلقائي
+              {selectedCategory ? `تحقق من ${categoryMap[selectedCategory] || 'الفئة'}` : 'بدء التحقق التلقائي'}
             </button>
           ) : (
             <button
