@@ -1,6 +1,16 @@
-// Service Worker for Firebase Storage Image Caching
-const CACHE_NAME = 'firebase-images-v1'
+// Service Worker for PWA and Firebase Storage Image Caching
+const STATIC_CACHE_NAME = 'lamma-static-v1'
+const IMAGE_CACHE_NAME = 'firebase-images-v1'
 const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+// Static assets to cache for offline support
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icons/icon-192.svg',
+  '/icons/icon-512.svg'
+]
 
 // Helper function to check if URL is video or audio (avoid CORS issues)
 function isVideoOrAudio(url) {
@@ -8,7 +18,6 @@ function isVideoOrAudio(url) {
   const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac']
   const allExtensions = [...videoExtensions, ...audioExtensions]
 
-  // Check if URL contains video/audio file patterns
   return allExtensions.some(ext => url.toLowerCase().includes(ext)) ||
          url.includes('question_video_') ||
          url.includes('answer_video_') ||
@@ -16,20 +25,50 @@ function isVideoOrAudio(url) {
          url.includes('answer_audio_')
 }
 
-self.addEventListener('fetch', (event) => {
-  // Only cache Firebase Storage images (exclude video/audio to avoid CORS issues)
-  if (event.request.url.includes('firebasestorage.googleapis.com') &&
-      event.request.method === 'GET' &&
-      !isVideoOrAudio(event.request.url)) {
+// Install event - cache static assets
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(STATIC_CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS)
+    })
+  )
+  // Activate immediately
+  self.skipWaiting()
+})
 
+// Activate event - clean up old caches
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          // Keep current caches, delete old versions
+          if (cacheName !== STATIC_CACHE_NAME && cacheName !== IMAGE_CACHE_NAME) {
+            return caches.delete(cacheName)
+          }
+        })
+      )
+    })
+  )
+  // Take control of all pages immediately
+  self.clients.claim()
+})
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url)
+
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return
+
+  // Handle Firebase Storage images (exclude video/audio to avoid CORS issues)
+  if (event.request.url.includes('firebasestorage.googleapis.com') && !isVideoOrAudio(event.request.url)) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(cache => {
+      caches.open(IMAGE_CACHE_NAME).then(cache => {
         return cache.match(event.request).then(response => {
           // Check if cached version exists and is not expired
           if (response) {
             const cachedDate = new Date(response.headers.get('sw-cached-date'))
             if (Date.now() - cachedDate.getTime() < CACHE_EXPIRY) {
-              console.log('🚀 Loading from Service Worker cache:', event.request.url.split('/').pop())
               return response
             }
           }
@@ -50,32 +89,47 @@ self.addEventListener('fetch', (event) => {
               })
 
               cache.put(event.request, cachedResponse)
-              console.log('💾 Cached Firebase image to Service Worker:', event.request.url.split('/').pop())
             }
 
             return networkResponse
-          }).catch(error => {
-            console.warn('⚠️ Service Worker fetch failed (non-critical):', error)
-            // Let the browser handle the request normally
-            return fetch(event.request)
+          }).catch(() => {
+            // Return cached version if network fails
+            return response
           })
         })
       })
     )
+    return
   }
-})
 
-// Clean up old caches
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName)
-          }
+  // Handle same-origin requests for PWA offline support
+  if (url.origin === location.origin) {
+    // Skip hot module replacement and dev server stuff
+    if (url.pathname.startsWith('/__') || url.pathname.includes('hot-update')) return
+
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache successful responses
+          const responseToCache = response.clone()
+          caches.open(STATIC_CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache)
+          })
+          return response
         })
-      )
-    })
-  )
+        .catch(() => {
+          // Network failed, try cache
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse
+            }
+            // Return offline fallback for navigation requests
+            if (event.request.mode === 'navigate') {
+              return caches.match('/index.html')
+            }
+            return new Response('Offline', { status: 503 })
+          })
+        })
+    )
+  }
 })

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#DC2626"/>
+      <stop offset="100%" stop-color="#991B1B"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="102" fill="url(#bgGrad)"/>
+  <!-- Shine effect -->
+  <rect width="512" height="512" rx="102" fill="url(#shine)"/>
+  <!-- App name لمّه -->
+  <text x="256" y="310" font-family="Tajawal, Cairo, Arial" font-size="180" font-weight="800" fill="white" text-anchor="middle">لمّه</text>
+</svg>
