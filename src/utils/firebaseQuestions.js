@@ -1260,4 +1260,262 @@ export class FirebaseQuestionsService {
       throw error
     }
   }
+
+  // ===== QUESTION VERIFICATION METHODS =====
+
+  /**
+   * Get questions by verification status
+   * @param {string} status - 'unverified', 'ai_reviewed', 'flagged', 'approved'
+   * @returns {Promise<Array>} Array of questions
+   */
+  static async getQuestionsByVerificationStatus(status) {
+    try {
+      const questionsRef = collection(db, this.COLLECTIONS.QUESTIONS)
+      let q
+
+      if (status === 'unverified') {
+        // Questions without verificationStatus field or with 'unverified' value
+        q = query(questionsRef, where('verificationStatus', '==', 'unverified'))
+      } else {
+        q = query(questionsRef, where('verificationStatus', '==', status))
+      }
+
+      const snapshot = await getDocs(q)
+      const questions = []
+      snapshot.forEach(doc => {
+        questions.push({
+          id: doc.id,
+          ...doc.data()
+        })
+      })
+
+      devLog(`✅ Loaded ${questions.length} questions with status: ${status}`)
+      return questions
+    } catch (error) {
+      prodError('Error getting questions by verification status:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get unverified questions (no verificationStatus field)
+   * @param {number} limit - Maximum number of questions to return
+   * @returns {Promise<Array>} Array of unverified questions
+   */
+  static async getUnverifiedQuestions(limitCount = 100) {
+    try {
+      // Get all questions and filter those without verificationStatus
+      const allQuestions = await this.getAllQuestions()
+      const unverified = allQuestions.filter(q =>
+        !q.verificationStatus || q.verificationStatus === 'unverified'
+      )
+
+      devLog(`✅ Found ${unverified.length} unverified questions`)
+      return unverified.slice(0, limitCount)
+    } catch (error) {
+      prodError('Error getting unverified questions:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get flagged questions that need review
+   * @returns {Promise<Array>} Array of flagged questions
+   */
+  static async getFlaggedQuestions() {
+    try {
+      const questionsRef = collection(db, this.COLLECTIONS.QUESTIONS)
+      const q = query(questionsRef, where('verificationStatus', '==', 'flagged'))
+
+      const snapshot = await getDocs(q)
+      const questions = []
+      snapshot.forEach(doc => {
+        questions.push({
+          id: doc.id,
+          ...doc.data()
+        })
+      })
+
+      devLog(`✅ Loaded ${questions.length} flagged questions`)
+      return questions
+    } catch (error) {
+      prodError('Error getting flagged questions:', error)
+      return []
+    }
+  }
+
+  /**
+   * Update question verification status
+   * @param {string} questionId - Question ID
+   * @param {string} status - New status: 'ai_reviewed', 'flagged', 'approved'
+   * @param {Object} aiNotes - AI verification notes
+   * @returns {Promise<void>}
+   */
+  static async updateVerificationStatus(questionId, status, aiNotes = null) {
+    try {
+      const updateData = {
+        verificationStatus: status,
+        updatedAt: serverTimestamp()
+      }
+
+      if (status === 'ai_reviewed' || status === 'flagged') {
+        updateData.aiReviewedAt = serverTimestamp()
+        if (aiNotes) {
+          updateData.aiNotes = aiNotes
+        }
+      }
+
+      if (status === 'approved') {
+        updateData.approvedAt = serverTimestamp()
+      }
+
+      const questionRef = doc(db, this.COLLECTIONS.QUESTIONS, questionId)
+      await updateDoc(questionRef, updateData)
+
+      devLog(`✅ Question ${questionId} verification status updated to: ${status}`)
+    } catch (error) {
+      prodError('Error updating verification status:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Batch update verification status for multiple questions
+   * @param {Array} updates - Array of {questionId, status, aiNotes}
+   * @returns {Promise<Object>} Results
+   */
+  static async batchUpdateVerificationStatus(updates) {
+    try {
+      devLog(`🔄 Batch updating verification status for ${updates.length} questions...`)
+
+      const results = {
+        total: updates.length,
+        success: 0,
+        errors: []
+      }
+
+      const BATCH_SIZE = 500
+      const batches = []
+
+      for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+        batches.push(updates.slice(i, i + BATCH_SIZE))
+      }
+
+      for (const batchUpdates of batches) {
+        const batch = writeBatch(db)
+
+        for (const update of batchUpdates) {
+          try {
+            const questionRef = doc(db, this.COLLECTIONS.QUESTIONS, update.questionId)
+
+            const updateData = {
+              verificationStatus: update.status,
+              updatedAt: serverTimestamp()
+            }
+
+            if (update.status === 'ai_reviewed' || update.status === 'flagged') {
+              updateData.aiReviewedAt = serverTimestamp()
+              if (update.aiNotes) {
+                updateData.aiNotes = update.aiNotes
+              }
+            }
+
+            batch.update(questionRef, updateData)
+            results.success++
+          } catch (error) {
+            results.errors.push({
+              questionId: update.questionId,
+              error: error.message
+            })
+          }
+        }
+
+        await batch.commit()
+      }
+
+      devLog(`✅ Batch verification update complete: ${results.success} updated, ${results.errors.length} errors`)
+      return results
+    } catch (error) {
+      prodError('Error in batch verification update:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Approve a flagged question after review
+   * @param {string} questionId - Question ID
+   * @param {string} adminId - Admin user ID who approved
+   * @param {Object} corrections - Any corrections made {text, answer}
+   * @returns {Promise<void>}
+   */
+  static async approveVerifiedQuestion(questionId, adminId, corrections = null) {
+    try {
+      const updateData = {
+        verificationStatus: 'approved',
+        approvedAt: serverTimestamp(),
+        approvedBy: adminId,
+        updatedAt: serverTimestamp()
+      }
+
+      // Apply corrections if provided
+      if (corrections) {
+        if (corrections.text) updateData.text = corrections.text
+        if (corrections.answer) updateData.answer = corrections.answer
+      }
+
+      const questionRef = doc(db, this.COLLECTIONS.QUESTIONS, questionId)
+      await updateDoc(questionRef, updateData)
+
+      devLog(`✅ Question ${questionId} approved by ${adminId}`)
+    } catch (error) {
+      prodError('Error approving verified question:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get verification statistics
+   * @returns {Promise<Object>} Statistics object
+   */
+  static async getVerificationStats() {
+    try {
+      const allQuestions = await this.getAllQuestions()
+
+      const stats = {
+        total: allQuestions.length,
+        unverified: 0,
+        aiReviewed: 0,
+        flagged: 0,
+        approved: 0
+      }
+
+      allQuestions.forEach(q => {
+        const status = q.verificationStatus || 'unverified'
+        switch (status) {
+          case 'ai_reviewed':
+            stats.aiReviewed++
+            break
+          case 'flagged':
+            stats.flagged++
+            break
+          case 'approved':
+            stats.approved++
+            break
+          default:
+            stats.unverified++
+        }
+      })
+
+      return stats
+    } catch (error) {
+      prodError('Error getting verification stats:', error)
+      return {
+        total: 0,
+        unverified: 0,
+        aiReviewed: 0,
+        flagged: 0,
+        approved: 0
+      }
+    }
+  }
 }

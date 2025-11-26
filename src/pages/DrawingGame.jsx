@@ -13,8 +13,21 @@ function DrawingGame() {
   const [error, setError] = useState('')
   const [isReady, setIsReady] = useState(false)
   const [currentTool, setCurrentTool] = useState('pen')
+  const [currentColor, setCurrentColor] = useState('#000000')
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentStroke, setCurrentStroke] = useState([])
+
+  // Available colors for drawing
+  const colors = [
+    '#000000', // Black
+    '#EF4444', // Red
+    '#F97316', // Orange
+    '#EAB308', // Yellow
+    '#22C55E', // Green
+    '#3B82F6', // Blue
+    '#8B5CF6', // Purple
+    '#EC4899', // Pink
+  ]
   const [isLandscape, setIsLandscape] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const heartbeatIntervalRef = useRef(null)
@@ -211,7 +224,7 @@ function DrawingGame() {
       ctx.lineWidth = 20
     } else {
       ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = '#000000'
+      ctx.strokeStyle = currentColor
       ctx.lineWidth = 3
     }
 
@@ -239,6 +252,7 @@ function DrawingGame() {
       const completeStroke = {
         points: currentStroke, // All points captured during this stroke
         tool: currentTool,
+        color: currentTool === 'pen' ? currentColor : null, // Only save color for pen strokes
         timestamp: Date.now()
       }
 
@@ -439,22 +453,42 @@ function DrawingGame() {
         />
       </div>
 
+      {/* Color Picker */}
+      <div className="bg-gray-50 dark:bg-slate-900 py-2 px-4 flex gap-2 justify-center items-center flex-shrink-0">
+        {colors.map((color) => (
+          <button
+            key={color}
+            onClick={() => {
+              setCurrentColor(color)
+              setCurrentTool('pen') // Switch to pen when selecting a color
+            }}
+            className={`w-8 h-8 rounded-full transition-all border-2 ${
+              currentColor === color && currentTool === 'pen'
+                ? 'scale-125 border-white shadow-lg ring-2 ring-offset-1 ring-blue-500'
+                : 'border-gray-300 dark:border-slate-600 hover:scale-110'
+            }`}
+            style={{ backgroundColor: color }}
+          />
+        ))}
+      </div>
+
       {/* Drawing Tools */}
       <div className="bg-gray-100 dark:bg-slate-800 py-3 px-4 flex gap-3 justify-center items-center flex-shrink-0">
         <button
           onClick={() => setCurrentTool('pen')}
-          className={`flex-1 max-w-[150px] py-3 px-4 rounded-lg font-bold transition-all ${
+          className={`flex-1 max-w-[120px] py-2 px-3 rounded-lg font-bold transition-all text-sm ${
             currentTool === 'pen'
-              ? 'bg-blue-600 text-white shadow-lg scale-105'
+              ? 'text-white shadow-lg scale-105'
               : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-600'
           }`}
+          style={currentTool === 'pen' ? { backgroundColor: currentColor } : {}}
         >
           ✏️ قلم
         </button>
 
         <button
           onClick={() => setCurrentTool('eraser')}
-          className={`flex-1 max-w-[150px] py-3 px-4 rounded-lg font-bold transition-all ${
+          className={`flex-1 max-w-[120px] py-2 px-3 rounded-lg font-bold transition-all text-sm ${
             currentTool === 'eraser'
               ? 'bg-orange-600 text-white shadow-lg scale-105'
               : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 hover:bg-orange-50 dark:hover:bg-slate-600'
@@ -465,9 +499,9 @@ function DrawingGame() {
 
         <button
           onClick={handleClearCanvas}
-          className="flex-1 max-w-[150px] bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors"
+          className="flex-1 max-w-[120px] bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
         >
-          🗑️ مسح الكل
+          🗑️ مسح
         </button>
       </div>
     </div>
