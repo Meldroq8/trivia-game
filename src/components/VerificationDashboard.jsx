@@ -32,6 +32,7 @@ function VerificationDashboard({ userId }) {
   const [error, setError] = useState(null)
   const [batchSize, setBatchSize] = useState(50)
   const [categoryMap, setCategoryMap] = useState({}) // Map of categoryId -> categoryName
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false)
 
   // Load categories once on mount
   useEffect(() => {
@@ -43,24 +44,29 @@ function VerificationDashboard({ userId }) {
           map[cat.id] = cat.name || cat.id
         })
         setCategoryMap(map)
+        setCategoriesLoaded(true)
         devLog('Loaded category map:', Object.keys(map).length, 'categories')
       } catch (err) {
         prodError('Error loading categories:', err)
+        setCategoriesLoaded(true) // Still allow loading even if categories fail
       }
     }
     loadCategories()
   }, [])
 
-  // Map category names to questions
-  const mapCategoryNames = (questions) => {
+  // Map category names to questions - takes map as parameter to avoid stale closure
+  const mapCategoryNames = useCallback((questions, map) => {
     return questions.map(q => ({
       ...q,
-      categoryName: q.categoryName || categoryMap[q.categoryId] || q.categoryId || 'غير محدد'
+      categoryName: q.categoryName || map[q.categoryId] || q.categoryId || 'غير محدد'
     }))
-  }
+  }, [])
 
   // Load stats and questions
   const loadData = useCallback(async () => {
+    // Wait until categories are loaded
+    if (!categoriesLoaded) return
+
     try {
       setLoading(true)
       setError(null)
@@ -81,8 +87,8 @@ function VerificationDashboard({ userId }) {
         loadedQuestions = await FirebaseQuestionsService.getQuestionsByVerificationStatus(filter)
       }
 
-      // Map category names
-      loadedQuestions = mapCategoryNames(loadedQuestions)
+      // Map category names - pass categoryMap as parameter
+      loadedQuestions = mapCategoryNames(loadedQuestions, categoryMap)
 
       setQuestions(loadedQuestions)
       devLog(`Loaded ${loadedQuestions.length} questions with filter: ${filter}`)
@@ -93,7 +99,7 @@ function VerificationDashboard({ userId }) {
     } finally {
       setLoading(false)
     }
-  }, [filter, categoryMap])
+  }, [filter, categoryMap, categoriesLoaded, mapCategoryNames])
 
   useEffect(() => {
     loadData()
@@ -140,7 +146,7 @@ function VerificationDashboard({ userId }) {
 
       // Get unverified questions and map category names
       let unverified = await FirebaseQuestionsService.getUnverifiedQuestions(batchSize)
-      unverified = mapCategoryNames(unverified)
+      unverified = mapCategoryNames(unverified, categoryMap)
 
       if (unverified.length === 0) {
         setError('لا توجد أسئلة تحتاج للتحقق')
@@ -194,7 +200,7 @@ function VerificationDashboard({ userId }) {
             {
               grammarIssues: result.grammarIssues || [],
               factualAccuracy: result.factualAccuracy || 'unknown',
-              correctAnswer: result.correctAnswer || null,
+              suggestedQuestion: result.suggestedQuestion || null,
               suggestedCorrection: result.suggestedCorrection || '',
               notes: result.notes || '',
               sources: result.sources || []
