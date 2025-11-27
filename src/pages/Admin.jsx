@@ -1,5 +1,6 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebase, importBulkQuestionsToFirebaseForced } from '../utils/importQuestions'
 import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
@@ -1608,6 +1609,16 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
   const [uploadingMedia, setUploadingMedia] = useState({})
   const [savedScrollPosition, setSavedScrollPosition] = useState(null)
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [editingSearchQuestion, setEditingSearchQuestion] = useState(null)
+  const [editingSearchData, setEditingSearchData] = useState({})
+
+  // Image zoom state
+  const [zoomedImage, setZoomedImage] = useState(null)
+
   const loadData = async () => {
     devLog('🔄 Admin loadData called')
     try {
@@ -1699,10 +1710,212 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     loadData()
   }, [])
 
+  // Unique tab ID to avoid reacting to own broadcasts
+  const tabIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+
+  // Cross-tab sync using BroadcastChannel
+  useEffect(() => {
+    const channel = new BroadcastChannel('question-sync')
+
+    const handleMessage = (event) => {
+      // Ignore messages from this same tab
+      if (event.data.senderId === tabIdRef.current) return
+
+      if (event.data.type === 'QUESTION_UPDATED') {
+        devLog('📡 Received cross-tab update, reloading data...')
+        loadData()
+      }
+    }
+
+    channel.addEventListener('message', handleMessage)
+
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [])
+
+  // Helper function to broadcast question update to other tabs
+  const broadcastQuestionUpdate = () => {
+    try {
+      const channel = new BroadcastChannel('question-sync')
+      channel.postMessage({ type: 'QUESTION_UPDATED', senderId: tabIdRef.current, timestamp: Date.now() })
+      channel.close()
+      devLog('📡 Broadcasted question update to other tabs')
+    } catch (err) {
+      devLog('BroadcastChannel not supported:', err)
+    }
+  }
+
   // Helper function to get category name from ID
   const getCategoryName = (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId)
     return category ? category.name : 'فئة غير معروفة'
+  }
+
+  // Search function - searches questions by text, answer, or category
+  const handleSearch = (query) => {
+    setSearchQuery(query)
+
+    if (!query || query.trim().length < 2) {
+      setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    const normalizedQuery = query.toLowerCase().trim()
+    const results = []
+
+    // Search through all questions
+    Object.entries(questions).forEach(([categoryId, categoryQuestions]) => {
+      if (!categoryQuestions) return
+
+      categoryQuestions.forEach((question, index) => {
+        const textMatch = question.text?.toLowerCase().includes(normalizedQuery)
+        // Handle answer that might be an array, object, or other type
+        let answerText = question.answer
+        if (Array.isArray(answerText)) {
+          answerText = answerText[0]
+        }
+        if (typeof answerText !== 'string') {
+          answerText = String(answerText || '')
+        }
+        const answerMatch = answerText.toLowerCase().includes(normalizedQuery)
+        const categoryName = getCategoryName(categoryId)
+        const categoryMatch = categoryName.toLowerCase().includes(normalizedQuery)
+
+        if (textMatch || answerMatch || categoryMatch) {
+          results.push({
+            ...question,
+            // Normalize answer to string for display
+            answer: answerText,
+            categoryId,
+            categoryName,
+            originalIndex: index
+          })
+        }
+      })
+    })
+
+    setSearchResults(results)
+    setIsSearching(false)
+  }
+
+  // Start editing a search result question
+  const startEditingSearchQuestion = (question) => {
+    setEditingSearchQuestion(`${question.categoryId}-${question.originalIndex}`)
+    setEditingSearchData({ ...question })
+  }
+
+  // Save edited search question
+  const saveSearchQuestionEdit = async () => {
+    if (!editingSearchQuestion || !editingSearchData) return
+
+    const [categoryId, indexStr] = editingSearchQuestion.split('-')
+    const questionIndex = parseInt(indexStr)
+
+    try {
+      setSavingEdit(true)
+
+      // Get the original question to check if content changed
+      const originalQuestion = questions[categoryId]?.[questionIndex]
+      const contentChanged = originalQuestion && (
+        originalQuestion.text !== editingSearchData.text ||
+        originalQuestion.answer !== editingSearchData.answer
+      )
+
+      // Build update object
+      const updateData = {
+        text: editingSearchData.text,
+        answer: editingSearchData.answer,
+        difficulty: editingSearchData.difficulty,
+        points: editingSearchData.points,
+        imageUrl: editingSearchData.imageUrl || null,
+        audioUrl: editingSearchData.audioUrl || null,
+        videoUrl: editingSearchData.videoUrl || null,
+        answerImageUrl: editingSearchData.answerImageUrl || null,
+        answerAudioUrl: editingSearchData.answerAudioUrl || null,
+        answerVideoUrl: editingSearchData.answerVideoUrl || null,
+        toleranceHint: editingSearchData.toleranceHint || null
+      }
+
+      // Reset verification status if content changed
+      if (contentChanged) {
+        updateData.verificationStatus = 'unverified'
+        updateData.aiNotes = null
+        devLog('🔄 Search question content changed - resetting verification status')
+      }
+
+      // Update in Firebase
+      if (editingSearchData.id) {
+        await FirebaseQuestionsService.updateQuestion(editingSearchData.id, updateData)
+      }
+
+      // Update local state (include verification reset if content changed)
+      const localUpdateData = contentChanged
+        ? { ...editingSearchData, verificationStatus: 'unverified', aiNotes: null }
+        : editingSearchData
+
+      const newQuestions = { ...questions }
+      if (newQuestions[categoryId] && newQuestions[categoryId][questionIndex]) {
+        newQuestions[categoryId][questionIndex] = {
+          ...newQuestions[categoryId][questionIndex],
+          ...localUpdateData
+        }
+        setQuestions(newQuestions)
+      }
+
+      // Update search results
+      setSearchResults(prev => prev.map(q =>
+        q.categoryId === categoryId && q.originalIndex === questionIndex
+          ? { ...q, ...localUpdateData }
+          : q
+      ))
+
+      setEditingSearchQuestion(null)
+      setEditingSearchData({})
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
+
+      alert('تم حفظ التعديلات بنجاح!')
+    } catch (error) {
+      prodError('Error saving search question edit:', error)
+      alert('حدث خطأ أثناء حفظ التعديلات')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  // Delete a search result question
+  const deleteSearchQuestion = async (question) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا السؤال؟')) return
+
+    try {
+      if (question.id) {
+        await FirebaseQuestionsService.deleteQuestion(question.id)
+      }
+
+      // Update local state
+      const newQuestions = { ...questions }
+      if (newQuestions[question.categoryId]) {
+        newQuestions[question.categoryId] = newQuestions[question.categoryId].filter(
+          (_, idx) => idx !== question.originalIndex
+        )
+        setQuestions(newQuestions)
+      }
+
+      // Remove from search results
+      setSearchResults(prev => prev.filter(q =>
+        !(q.categoryId === question.categoryId && q.originalIndex === question.originalIndex)
+      ))
+
+      alert('تم حذف السؤال بنجاح!')
+    } catch (error) {
+      prodError('Error deleting search question:', error)
+      alert('حدث خطأ أثناء حذف السؤال')
+    }
   }
 
 
@@ -2458,6 +2671,16 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         firebaseUpdate.options = deleteField()
       }
 
+      // Reset verification status when question content changes
+      // This ensures the question needs to be re-verified by AI
+      if (question.text !== editingData.text || question.answer !== editingData.answer) {
+        firebaseUpdate.verificationStatus = 'unverified'
+        firebaseUpdate.aiNotes = deleteField()
+        updatedQuestion.verificationStatus = 'unverified'
+        delete updatedQuestion.aiNotes
+        devLog('🔄 Question content changed - resetting verification status to unverified')
+      }
+
       // Update in Firebase if question has ID
       if (question.id) {
         devLog(`💾 Updating question in Firebase: ${question.id}`)
@@ -2525,6 +2748,9 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       }
 
       // Don't clear lastEditedCategory - keep category expanded permanently after save
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
 
       devLog('✅ Question updated successfully')
     } catch (error) {
@@ -2608,6 +2834,13 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
       // Update local state immediately
       setQuestions(updatedQuestions)
+
+      // Also update search results if this question is in them
+      setSearchResults(prev => prev.map(q =>
+        q.categoryId === categoryId && q.originalIndex === questionIndex
+          ? { ...q, difficulty: newDifficulty, points: question.points }
+          : q
+      ))
 
       // Clear cache to ensure fresh data on next reload
       GameDataLoader.clearCache()
@@ -3162,6 +3395,34 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
   return (
     <div>
+      {/* Image Zoom Modal - Using Portal to render outside component tree */}
+      {zoomedImage && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <SmartImage
+              src={zoomedImage}
+              alt="صورة مكبرة"
+              size="full"
+              context="preview"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl bg-white"
+            />
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute -top-3 -right-3 bg-white hover:bg-gray-100 text-gray-800 rounded-full p-2 shadow-lg transition-colors"
+              title="إغلاق"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">إدارة الأسئلة</h2>
@@ -3958,6 +4219,462 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         )}
       </div>
 
+      {/* Search Section - Sticky/Floating */}
+      <div className="sticky top-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 mb-8">
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-lg font-bold text-gray-800 dark:text-gray-100">🔍</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="ابحث عن سؤال أو إجابة..."
+            className="w-80 p-2 border rounded-lg text-gray-900 dark:text-white bg-white dark:bg-slate-700 dark:border-slate-600 text-sm"
+            dir="rtl"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setSearchResults([])
+              }}
+              className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm"
+            >
+              مسح
+            </button>
+          )}
+        </div>
+
+        {/* Search Results */}
+        {searchQuery && searchQuery.length >= 2 && (
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-gray-600 dark:text-gray-400">
+                {isSearching ? 'جاري البحث...' : `تم العثور على ${searchResults.length} نتيجة`}
+              </span>
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                {searchResults.map((question, idx) => (
+                  <div
+                    key={`search-${question.categoryId}-${question.originalIndex}-${idx}`}
+                    className="border rounded-lg p-4 bg-gray-50 dark:bg-slate-700"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        {/* Question Image */}
+                        {question.imageUrl && (
+                          <div className="mb-3">
+                            <SmartImage
+                              src={question.imageUrl}
+                              alt="صورة السؤال"
+                              size="thumb"
+                              context="thumbnail"
+                              className="max-w-32 max-h-32 rounded-lg object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => setZoomedImage(question.imageUrl)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Question Audio */}
+                        {question.audioUrl && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-bold mb-1 text-gray-900 dark:text-gray-300">
+                              {question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov')
+                                ? 'فيديو السؤال:'
+                                : 'صوت السؤال:'}
+                            </label>
+                            <LazyMediaPlayer
+                              src={question.audioUrl}
+                              type={question.audioUrl.includes('.mp4') || question.audioUrl.includes('.webm') || question.audioUrl.includes('.mov') ? 'video' : 'audio'}
+                              className="w-full max-w-xs"
+                            />
+                          </div>
+                        )}
+
+                        {/* Question Video */}
+                        {question.videoUrl && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-bold mb-1 text-gray-900 dark:text-gray-300">فيديو السؤال:</label>
+                            <LazyMediaPlayer
+                              src={question.videoUrl}
+                              type="video"
+                              className="w-full max-w-xs"
+                            />
+                          </div>
+                        )}
+
+                        {/* Answer Image */}
+                        {question.answerImageUrl && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-bold mb-1 text-gray-900 dark:text-gray-300">صورة الإجابة:</label>
+                            <img
+                              src={question.answerImageUrl}
+                              alt="صورة الإجابة"
+                              className="max-w-32 max-h-32 rounded-lg object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => setZoomedImage(question.answerImageUrl)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Answer Audio */}
+                        {question.answerAudioUrl && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-bold mb-1 text-gray-900 dark:text-gray-300">صوت الإجابة:</label>
+                            <LazyMediaPlayer
+                              src={question.answerAudioUrl}
+                              type="audio"
+                              className="w-full max-w-xs"
+                            />
+                          </div>
+                        )}
+
+                        {/* Answer Video */}
+                        {question.answerVideoUrl && (
+                          <div className="mb-3">
+                            <label className="block text-xs font-bold mb-1 text-gray-900 dark:text-gray-300">فيديو الإجابة:</label>
+                            <LazyMediaPlayer
+                              src={question.answerVideoUrl}
+                              type="video"
+                              className="w-full max-w-xs"
+                            />
+                          </div>
+                        )}
+
+                        {/* Editing Mode */}
+                        {editingSearchQuestion === `${question.categoryId}-${question.originalIndex}` ? (
+                          <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-300 dark:border-yellow-600 rounded-lg">
+                            <label className="block text-sm font-bold text-yellow-800 dark:text-yellow-400 mb-2">نص السؤال:</label>
+                            <textarea
+                              value={formatText(editingSearchData.text || '')}
+                              onChange={(e) => setEditingSearchData(prev => ({ ...prev, text: e.target.value }))}
+                              className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white dark:bg-slate-700 dark:text-white text-right"
+                              rows="3"
+                              placeholder="اكتب نص السؤال هنا..."
+                              style={{ unicodeBidi: 'plaintext' }}
+                            />
+
+                            <label className="block text-sm font-bold mb-2 text-yellow-800 dark:text-yellow-400">الإجابة الصحيحة:</label>
+                            <input
+                              type="text"
+                              value={formatText(editingSearchData.answer || '')}
+                              onChange={(e) => setEditingSearchData(prev => ({ ...prev, answer: e.target.value }))}
+                              className="w-full p-2 border rounded-lg text-sm mb-3 text-gray-900 bg-white dark:bg-slate-700 dark:text-white text-right"
+                              placeholder="الإجابة الصحيحة..."
+                              style={{ unicodeBidi: 'plaintext' }}
+                            />
+
+                            <div className="grid grid-cols-2 gap-4 mb-3">
+                              <div>
+                                <label className="block text-sm font-bold mb-2 text-yellow-800 dark:text-yellow-400">مستوى الصعوبة:</label>
+                                <select
+                                  value={editingSearchData.difficulty || 'easy'}
+                                  onChange={(e) => {
+                                    const difficulty = e.target.value
+                                    const points = difficulty === 'easy' ? 200 : difficulty === 'medium' ? 400 : 600
+                                    setEditingSearchData(prev => ({ ...prev, difficulty, points }))
+                                  }}
+                                  className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                >
+                                  <option value="easy">سهل (200 نقطة)</option>
+                                  <option value="medium">متوسط (400 نقطة)</option>
+                                  <option value="hard">صعب (600 نقطة)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold mb-2 text-yellow-800 dark:text-yellow-400">النقاط:</label>
+                                <input
+                                  type="number"
+                                  value={editingSearchData.points || 200}
+                                  onChange={(e) => setEditingSearchData(prev => ({ ...prev, points: parseInt(e.target.value) }))}
+                                  className="w-full p-2 border rounded-lg text-sm text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                  min="100"
+                                  max="1000"
+                                  step="100"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Question Media Section */}
+                            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                              <h4 className="text-sm font-bold mb-3 text-blue-800 dark:text-blue-400">🎯 وسائط السؤال</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-blue-700 dark:text-blue-400">صورة السؤال:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.imageUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط الصورة"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-blue-700 dark:text-blue-400">صوت السؤال:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.audioUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, audioUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط الصوت"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-blue-700 dark:text-blue-400">فيديو السؤال:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.videoUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, videoUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط الفيديو"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Answer Media Section */}
+                            <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                              <h4 className="text-sm font-bold mb-3 text-green-800 dark:text-green-400">✅ وسائط الإجابة</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-green-700 dark:text-green-400">صورة الإجابة:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.answerImageUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, answerImageUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط صورة الإجابة"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-green-700 dark:text-green-400">صوت الإجابة:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.answerAudioUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, answerAudioUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط صوت الإجابة"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold mb-1 text-green-700 dark:text-green-400">فيديو الإجابة:</label>
+                                  <input
+                                    type="text"
+                                    value={editingSearchData.answerVideoUrl || ''}
+                                    onChange={(e) => setEditingSearchData(prev => ({ ...prev, answerVideoUrl: e.target.value }))}
+                                    className="w-full p-2 border rounded text-xs text-gray-900 bg-white dark:bg-slate-700 dark:text-white"
+                                    placeholder="رابط فيديو الإجابة"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 flex-wrap">
+                              <button
+                                onClick={saveSearchQuestionEdit}
+                                disabled={savingEdit}
+                                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg text-sm"
+                              >
+                                {savingEdit ? 'جاري الحفظ...' : '💾 حفظ التعديلات'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingSearchQuestion(null)
+                                  setEditingSearchData({})
+                                }}
+                                className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-sm"
+                              >
+                                إلغاء
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Display Mode - Same style as category questions */
+                          <>
+                            <div className="text-right">
+                              <p
+                                className="font-bold text-lg mb-2 text-black dark:text-white cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 p-2 rounded transition-colors inline-block"
+                                onDoubleClick={() => startEditingSearchQuestion(question)}
+                                title="انقر مرتين للتعديل"
+                                style={{ unicodeBidi: 'plaintext' }}
+                              >
+                                {formatText(question.text)}
+                              </p>
+                            </div>
+
+                            <div className="text-right">
+                              <p className="text-green-600 dark:text-green-400 mb-2 inline-block" style={{ unicodeBidi: 'plaintext' }}>
+                                ✓ {formatText(question.answer)}
+                              </p>
+                            </div>
+
+                            {/* Multiple Choice Options */}
+                            {question.options && question.options.length > 1 && (
+                              <div className="mb-2">
+                                <p className="text-sm font-bold text-gray-900 dark:text-gray-300 mb-1">الخيارات:</p>
+                                <div className="grid grid-cols-2 gap-1 text-sm">
+                                  {question.options.map((option, optIdx) => (
+                                    <span
+                                      key={optIdx}
+                                      className={`px-2 py-1 rounded text-xs ${
+                                        option === question.answer
+                                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 font-bold'
+                                          : 'bg-gray-100 text-gray-700 dark:bg-slate-600 dark:text-gray-300'
+                                      }`}
+                                    >
+                                      {option}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Badges row - same style as categories with difficulty dropdown */}
+                            <div className="flex gap-2 text-sm flex-wrap">
+                              <div className="relative difficulty-dropdown">
+                                <button
+                                  onClick={() => toggleDifficultyDropdown(question.categoryId, question.originalIndex)}
+                                  className={`px-2 py-1 rounded cursor-pointer hover:opacity-80 ${
+                                    question.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
+                                    question.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-red-100 text-red-800'
+                                  }`}
+                                >
+                                  {question.difficulty === 'easy' ? 'سهل' :
+                                   question.difficulty === 'medium' ? 'متوسط' : 'صعب'} ▼
+                                </button>
+
+                                {difficultyDropdowns[`${question.categoryId}-${question.originalIndex}`] && (
+                                  <div className="absolute top-full left-0 z-10 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 min-w-max">
+                                    <button
+                                      onClick={() => changeDifficulty(question.categoryId, question.originalIndex, 'easy')}
+                                      className="block w-full px-3 py-2 text-left hover:bg-green-50 text-green-800 text-sm"
+                                    >
+                                      سهل (200 نقطة)
+                                    </button>
+                                    <button
+                                      onClick={() => changeDifficulty(question.categoryId, question.originalIndex, 'medium')}
+                                      className="block w-full px-3 py-2 text-left hover:bg-yellow-50 text-yellow-800 text-sm"
+                                    >
+                                      متوسط (400 نقطة)
+                                    </button>
+                                    <button
+                                      onClick={() => changeDifficulty(question.categoryId, question.originalIndex, 'hard')}
+                                      className="block w-full px-3 py-2 text-left hover:bg-red-50 text-red-800 text-sm"
+                                    >
+                                      صعب (600 نقطة)
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                                {question.points} نقطة
+                              </span>
+                              <span className="px-2 py-1 bg-red-100 text-red-800 rounded">
+                                {question.type === 'multiple_choice' ? 'متعدد الخيارات' : 'نصي'}
+                              </span>
+                              <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded">
+                                {question.categoryName}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Right side - Action Buttons (same as categories) */}
+                      {editingSearchQuestion !== `${question.categoryId}-${question.originalIndex}` && (
+                        <div className="flex gap-2 mr-4 flex-col">
+                          <button
+                            onClick={() => {
+                              // Navigate to exact question - expand category, clear filters, scroll
+                              // Expand the category if collapsed (remove from collapsed set)
+                              setCollapsedCategories(prev => {
+                                const newSet = new Set(prev)
+                                newSet.delete(question.categoryId)
+                                return newSet
+                              })
+                              // Clear difficulty filter to show all questions
+                              setDifficultyFilter(prev => ({
+                                ...prev,
+                                [question.categoryId]: null
+                              }))
+                              // Clear search to show categories
+                              setSearchQuery('')
+                              setSearchResults([])
+                              // Scroll to exact question after a brief delay to allow DOM update
+                              setTimeout(() => {
+                                const questionElement = document.getElementById(`question-${question.categoryId}-${question.originalIndex}`)
+                                if (questionElement) {
+                                  questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                  // Highlight the question briefly
+                                  questionElement.classList.add('ring-4', 'ring-orange-400', 'ring-opacity-75')
+                                  setTimeout(() => {
+                                    questionElement.classList.remove('ring-4', 'ring-orange-400', 'ring-opacity-75')
+                                  }, 2000)
+                                }
+                              }, 150)
+                            }}
+                            className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm font-bold"
+                            title="الذهاب للسؤال"
+                          >
+                            📍 اذهب
+                          </button>
+                          <button
+                            onClick={() => {
+                              const categoryName = question.categoryName
+
+                              // Store preview data in localStorage
+                              const previewData = {
+                                previewMode: true,
+                                question: {
+                                  ...question,
+                                  category: categoryName,
+                                  categoryId: question.categoryId
+                                },
+                                gameData: {
+                                  team1: { name: 'الفريق 1', score: 0 },
+                                  team2: { name: 'الفريق 2', score: 0 },
+                                  currentTeam: 'team1',
+                                  currentTurn: 'team1',
+                                  gameName: 'معاينة السؤال',
+                                  selectedCategories: [question.categoryId],
+                                  usedQuestions: [],
+                                  usedPointValues: [],
+                                  gameStarted: true
+                                }
+                              }
+
+                              localStorage.setItem('questionPreview', JSON.stringify(previewData))
+                              window.open('/question', '_blank')
+                            }}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-bold"
+                            title="معاينة السؤال"
+                          >
+                            👁️ معاينة
+                          </button>
+                          <button
+                            onClick={() => deleteSearchQuestion(question)}
+                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {searchResults.length === 0 && !isSearching && (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                لم يتم العثور على نتائج
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
 
       {/* Questions Display */}
       <div className="space-y-6">
@@ -3968,7 +4685,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
           const activeDifficulty = difficultyFilter[category.id]
 
           return (
-            <div key={category.id} className="bg-white rounded-xl shadow-lg p-6">
+            <div key={category.id} id={`category-${category.id}`} className="bg-white rounded-xl shadow-lg p-6 scroll-mt-20">
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -4069,7 +4786,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                       const uniqueKey = `${category.id}-${originalIndex}-${filteredIndex}`
 
                       return (
-                    <div key={uniqueKey} className="border rounded-lg p-4 bg-gray-50">
+                    <div key={uniqueKey} id={`question-${category.id}-${originalIndex}`} className="border rounded-lg p-4 bg-gray-50 scroll-mt-24">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           {question.imageUrl && (
@@ -4079,7 +4796,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 alt="صورة السؤال"
                                 size="thumb"
                                 context="thumbnail"
-                                className="max-w-32 max-h-32 rounded-lg object-cover border"
+                                className="max-w-32 max-h-32 rounded-lg object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setZoomedImage(question.imageUrl)}
                               />
                             </div>
                           )}
@@ -4119,7 +4837,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                               <img
                                 src={question.answerImageUrl}
                                 alt="صورة الإجابة"
-                                className="max-w-32 max-h-32 rounded-lg object-cover border"
+                                className="max-w-32 max-h-32 rounded-lg object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setZoomedImage(question.answerImageUrl)}
                               />
                             </div>
                           )}
@@ -5750,6 +6469,7 @@ function PendingQuestionsManager() {
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState({})
+  const [zoomedImage, setZoomedImage] = useState(null)
 
   useEffect(() => {
     loadPendingQuestions()
@@ -5970,6 +6690,34 @@ function PendingQuestionsManager() {
 
   return (
     <div className="space-y-6">
+      {/* Image Zoom Modal - Using Portal to render outside component tree */}
+      {zoomedImage && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <SmartImage
+              src={zoomedImage}
+              alt="صورة مكبرة"
+              size="full"
+              context="preview"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl bg-white"
+            />
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute -top-3 -right-3 bg-white hover:bg-gray-100 text-gray-800 rounded-full p-2 shadow-lg transition-colors"
+              title="إغلاق"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">مراجعة الأسئلة المرسلة</h2>
         <button
@@ -6092,7 +6840,8 @@ function PendingQuestionsManager() {
                           alt="صورة السؤال"
                           size="thumb"
                           context="thumbnail"
-                          className="mt-2 w-32 h-32 object-cover rounded-lg border"
+                          className="mt-2 w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setZoomedImage(question.imageUrl)}
                         />
                       </div>
                     )}
@@ -6139,7 +6888,8 @@ function PendingQuestionsManager() {
                         <img
                           src={question.answerImageUrl}
                           alt="صورة الإجابة"
-                          className="mt-2 w-32 h-32 object-cover rounded-lg border"
+                          className="mt-2 w-32 h-32 object-cover rounded-lg border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setZoomedImage(question.answerImageUrl)}
                         />
                       </div>
                     )}
@@ -6259,16 +7009,29 @@ function UserMessagesManager({ isAdmin }) {
     }
   }
 
-  const handleMarkResolved = async (reportId) => {
+  const handleMarkResolved = async (report) => {
     if (!window.confirm('هل أنت متأكد من وضع علامة "تم الحل" على هذا التقرير؟')) {
       return
     }
 
     try {
-      setProcessingId(reportId)
-      await FirebaseQuestionsService.updateReportStatus(reportId, 'resolved')
+      setProcessingId(report.id)
+      await FirebaseQuestionsService.updateReportStatus(report.id, 'resolved')
+
+      // Send notification to the user who submitted the report
+      if (report.userId) {
+        await FirebaseQuestionsService.createNotification({
+          userId: report.userId,
+          type: 'report_resolved',
+          title: 'تم حل مشكلتك',
+          message: `تم مراجعة وحل البلاغ الخاص بالسؤال: "${report.questionText?.substring(0, 50)}..."`,
+          relatedId: report.questionId
+        })
+        devLog('✅ Notification sent to user:', report.userId)
+      }
+
       await loadReports()
-      alert('تم وضع علامة "تم الحل" على التقرير')
+      alert('تم وضع علامة "تم الحل" على التقرير وإرسال إشعار للمستخدم')
     } catch (error) {
       prodError('Error marking report as resolved:', error)
       alert('فشل في تحديث حالة التقرير: ' + error.message)
@@ -6404,7 +7167,7 @@ function UserMessagesManager({ isAdmin }) {
                   </a>
                   {report.status === 'pending' && (
                     <button
-                      onClick={() => handleMarkResolved(report.id)}
+                      onClick={() => handleMarkResolved(report)}
                       disabled={processingId === report.id}
                       className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50"
                     >

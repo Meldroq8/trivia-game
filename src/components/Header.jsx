@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useDarkMode } from '../hooks/useDarkMode'
 import LogoDisplay from './LogoDisplay'
 import HeaderAuth from './HeaderAuth'
+import NotificationBell from './NotificationBell'
 
 /**
  * Unified responsive header component for all pages
@@ -192,8 +193,23 @@ function Header({
 
         {/* Right Section: Auth & Menu/Back Button */}
         <div className="flex items-center mobile-menu-container" style={{ gap: `${styles.baseGap}px` }}>
+          {/* Dark Mode Toggle - always visible */}
+          <button
+            onClick={toggleDarkMode}
+            className="text-white hover:text-blue-200 transition-colors p-2 rounded-lg hover:bg-white/10"
+            title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+            style={{ fontSize: `${styles.headerFontSize}px` }}
+          >
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+
+          {/* Notification Bell - always visible for authenticated users */}
+          {isAuthenticated && (
+            <NotificationBell fontSize={styles.headerFontSize} />
+          )}
+
           {/* Show hamburger menu in portrait/mobile mode ONLY if authenticated */}
-          {styles.showHamburger && isAuthenticated ? (
+          {styles.showHamburger && isAuthenticated && (
             <div className="relative">
               <button
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -220,10 +236,8 @@ function Header({
                     <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} inMobileMenu={true} />
                   </div>
 
-                  <hr className="my-2 border-gray-200" />
-
                   {showBackButton && (
-                    <>
+                    <div>
                       <button
                         onClick={() => {
                           handleBackClick()
@@ -235,7 +249,7 @@ function Header({
                         <span>الرجوع</span>
                       </button>
                       <hr className="my-2 border-gray-200" />
-                    </>
+                    </div>
                   )}
 
                   {menuItems.map((item) => (
@@ -268,19 +282,11 @@ function Header({
                 </div>
               )}
             </div>
-          ) : (
-            /* Desktop mode OR not authenticated: Show dark mode toggle, auth and back button separately */
-            <>
-              {/* Dark Mode Toggle */}
-              <button
-                onClick={toggleDarkMode}
-                className="text-white hover:text-blue-200 transition-colors p-2 rounded-lg hover:bg-white/10"
-                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
-                style={{ fontSize: `${styles.headerFontSize}px` }}
-              >
-                {isDarkMode ? '☀️' : '🌙'}
-              </button>
+          )}
 
+          {/* Desktop mode OR not authenticated: Show auth and back button separately */}
+          {(!styles.showHamburger || !isAuthenticated) && (
+            <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
               <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} />
               {showBackButton && (
                 <button
@@ -293,7 +299,7 @@ function Header({
                   الرجوع ←
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
