@@ -109,6 +109,43 @@ function VerificationDashboard({ userId }) {
     loadData()
   }, [loadData])
 
+  // Unique tab ID to avoid reacting to own broadcasts
+  const tabIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+
+  // Cross-tab sync using BroadcastChannel
+  useEffect(() => {
+    const channel = new BroadcastChannel('question-sync')
+
+    const handleMessage = (event) => {
+      // Ignore messages from this same tab
+      if (event.data.senderId === tabIdRef.current) return
+
+      if (event.data.type === 'QUESTION_UPDATED') {
+        devLog('📡 VerificationDashboard: Received cross-tab update, reloading data...')
+        loadData()
+      }
+    }
+
+    channel.addEventListener('message', handleMessage)
+
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [loadData])
+
+  // Helper function to broadcast question update to other tabs
+  const broadcastQuestionUpdate = () => {
+    try {
+      const channel = new BroadcastChannel('question-sync')
+      channel.postMessage({ type: 'QUESTION_UPDATED', senderId: tabIdRef.current, timestamp: Date.now() })
+      channel.close()
+      devLog('📡 Broadcasted question update to other tabs')
+    } catch (err) {
+      devLog('BroadcastChannel not supported:', err)
+    }
+  }
+
   // Update stats locally without full reload
   const updateStatsLocally = (fromStatus, toStatus) => {
     setStats(prev => {
@@ -142,7 +179,9 @@ function VerificationDashboard({ userId }) {
     ))
   }
 
-  // Start batch verification
+  // Start batch verification - processes 5 questions per API call
+  const BATCH_SIZE_PER_CALL = 5
+
   const startBatchVerification = async () => {
     // Reset stop flag
     shouldStopRef.current = false
@@ -154,7 +193,6 @@ function VerificationDashboard({ userId }) {
       // Get unverified questions - filter by category if selected
       let unverified
       if (selectedCategory) {
-        // Get all questions from selected category, then filter unverified
         const categoryQuestions = await FirebaseQuestionsService.getQuestionsByCategory(selectedCategory)
         unverified = categoryQuestions.filter(q =>
           !q.verificationStatus || q.verificationStatus === 'unverified'
@@ -172,24 +210,35 @@ function VerificationDashboard({ userId }) {
 
       setVerificationProgress({ current: 0, total: unverified.length, skipped: 0 })
 
+      let processedCount = 0
       let skippedCount = 0
 
-      // Run verification loop with cancellation check
-      for (let i = 0; i < unverified.length; i++) {
+      // Process in batches of 5 questions per API call
+      for (let batchStart = 0; batchStart < unverified.length; batchStart += BATCH_SIZE_PER_CALL) {
         // Check if we should stop
         if (shouldStopRef.current) {
           devLog('Verification stopped by user')
           break
         }
 
-        const question = unverified[i]
-        let result
+        const batchQuestions = unverified.slice(batchStart, batchStart + BATCH_SIZE_PER_CALL)
+        devLog(`🔄 Processing batch ${Math.floor(batchStart / BATCH_SIZE_PER_CALL) + 1}: ${batchQuestions.length} questions`)
 
+        setCurrentVerifying({
+          questionText: `جاري التحقق من ${batchQuestions.length} أسئلة...`,
+          statusIcon: '🔄'
+        })
+
+        let results
         try {
-          result = await questionVerificationService.verifyQuestion(question)
+          results = await questionVerificationService.verifyQuestionsBatch(batchQuestions)
         } catch (err) {
-          prodError('Error verifying question:', err)
-          result = { questionId: question.id, status: 'error', error: err.message }
+          prodError('Error in batch verification:', err)
+          results = batchQuestions.map(q => ({
+            questionId: q.id,
+            status: 'error',
+            error: err.message
+          }))
         }
 
         // Check again after async operation
@@ -198,64 +247,75 @@ function VerificationDashboard({ userId }) {
           break
         }
 
-        // Handle skipped questions (instruction questions)
-        if (result.status === 'skip' || result.skipped) {
-          skippedCount++
-          setVerificationProgress({ current: i + 1, total: unverified.length, skipped: skippedCount })
-          setCurrentVerifying({ ...result, statusIcon: '⏭️' })
-
-          // Auto-approve skipped questions
-          try {
-            await FirebaseQuestionsService.updateVerificationStatus(
-              result.questionId,
-              'approved',
-              {
-                grammarIssues: [],
-                factualAccuracy: 'not_applicable',
-                notes: 'سؤال تعليمات - تم تخطيه تلقائياً',
-                sources: []
-              }
-            )
-            updateStatsLocally('unverified', 'approved')
-          } catch (err) {
-            prodError('Error auto-approving skipped question:', err)
-          }
-        } else {
-          setVerificationProgress({ current: i + 1, total: unverified.length, skipped: skippedCount })
-          setCurrentVerifying({
-            ...result,
-            statusIcon: result.status === 'pass' ? '✅' : '⚠️'
-          })
-
-          // Save result to Firebase
-          try {
+        // Process each result in the batch
+        for (const result of results) {
+          if (result.status === 'skip' || result.skipped) {
+            skippedCount++
+            try {
+              await FirebaseQuestionsService.updateVerificationStatus(
+                result.questionId,
+                'approved',
+                {
+                  grammarIssues: [],
+                  factualAccuracy: 'not_applicable',
+                  notes: 'سؤال تعليمات - تم تخطيه تلقائياً',
+                  sources: []
+                }
+              )
+              updateStatsLocally('unverified', 'approved')
+            } catch (err) {
+              prodError('Error auto-approving skipped question:', err)
+            }
+          } else if (result.status !== 'error') {
             const status = result.status === 'pass' ? 'ai_reviewed' : 'flagged'
-            await FirebaseQuestionsService.updateVerificationStatus(
-              result.questionId,
-              status,
-              {
-                grammarIssues: result.grammarIssues || [],
-                factualAccuracy: result.factualAccuracy || 'unknown',
-                suggestedQuestion: result.suggestedQuestion || null,
-                suggestedCorrection: result.suggestedCorrection || '',
-                notes: result.notes || '',
-                sources: result.sources || []
-              }
-            )
-            updateStatsLocally('unverified', status)
-          } catch (err) {
-            prodError('Error saving verification result:', err)
+            try {
+              await FirebaseQuestionsService.updateVerificationStatus(
+                result.questionId,
+                status,
+                {
+                  grammarIssues: result.grammarIssues || [],
+                  factualAccuracy: result.factualAccuracy || 'unknown',
+                  suggestedQuestion: result.suggestedQuestion || null,
+                  suggestedAnswer: result.suggestedAnswer || null,
+                  suggestedCorrection: result.suggestedCorrection || '',
+                  notes: result.notes || '',
+                  sources: result.sources || []
+                }
+              )
+              updateStatsLocally('unverified', status)
+            } catch (err) {
+              prodError('Error saving verification result:', err)
+            }
           }
+          processedCount++
         }
 
-        // Rate limiting delay (except for last item or if stopped)
-        if (i < unverified.length - 1 && !shouldStopRef.current) {
-          await new Promise(r => setTimeout(r, 600))
+        setVerificationProgress({
+          current: processedCount,
+          total: unverified.length,
+          skipped: skippedCount
+        })
+
+        // Show last result from batch
+        const lastResult = results[results.length - 1]
+        if (lastResult) {
+          setCurrentVerifying({
+            ...lastResult,
+            statusIcon: lastResult.status === 'pass' ? '✅' : lastResult.status === 'skip' ? '⏭️' : '⚠️'
+          })
+        }
+
+        // Rate limiting delay between batches (except for last batch)
+        if (batchStart + BATCH_SIZE_PER_CALL < unverified.length && !shouldStopRef.current) {
+          await new Promise(r => setTimeout(r, 1000))
         }
       }
 
       // Reload data to sync with server
       await loadData()
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
 
     } catch (err) {
       prodError('Batch verification error:', err)
@@ -287,6 +347,9 @@ function VerificationDashboard({ userId }) {
       // Then save to Firebase
       await FirebaseQuestionsService.approveVerifiedQuestion(questionId, userId, corrections)
 
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
+
     } catch (err) {
       prodError('Error approving question:', err)
       setError('فشل في الموافقة على السؤال')
@@ -316,6 +379,9 @@ function VerificationDashboard({ userId }) {
 
       // Then delete from Firebase
       await FirebaseQuestionsService.deleteQuestion(questionId)
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
 
     } catch (err) {
       prodError('Error deleting question:', err)
@@ -363,6 +429,7 @@ function VerificationDashboard({ userId }) {
           grammarIssues: result.grammarIssues || [],
           factualAccuracy: result.factualAccuracy || 'unknown',
           suggestedQuestion: result.suggestedQuestion || null,
+          suggestedAnswer: result.suggestedAnswer || null,
           suggestedCorrection: result.suggestedCorrection || '',
           notes: result.notes || '',
           sources: result.sources || []
@@ -381,6 +448,7 @@ function VerificationDashboard({ userId }) {
             grammarIssues: result.grammarIssues || [],
             factualAccuracy: result.factualAccuracy || 'unknown',
             suggestedQuestion: result.suggestedQuestion || null,
+            suggestedAnswer: result.suggestedAnswer || null,
             suggestedCorrection: result.suggestedCorrection || '',
             notes: result.notes || '',
             sources: result.sources || []
@@ -391,10 +459,151 @@ function VerificationDashboard({ userId }) {
 
       updateStatsLocally(oldStatus, newStatus)
 
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
+
     } catch (err) {
       prodError('Error re-verifying question:', err)
       setError('فشل في إعادة التحقق')
       updateQuestionLocally(question.id, { isVerifying: false })
+    }
+  }
+
+  // Retry all questions in current tab - uses batch verification (5 per API call)
+  const retryAllInCurrentTab = async () => {
+    if (questions.length === 0) return
+    if (!window.confirm(`هل تريد إعادة التحقق من ${questions.length} سؤال؟`)) return
+
+    // Reset stop flag
+    shouldStopRef.current = false
+
+    try {
+      setIsVerifying(true)
+      setError(null)
+      setVerificationProgress({ current: 0, total: questions.length, skipped: 0 })
+
+      let processedCount = 0
+      let skippedCount = 0
+      const questionsToVerify = [...questions]
+
+      // Process in batches of 5
+      for (let batchStart = 0; batchStart < questionsToVerify.length; batchStart += BATCH_SIZE_PER_CALL) {
+        if (shouldStopRef.current) {
+          devLog('Retry all stopped by user')
+          break
+        }
+
+        const batchQuestions = questionsToVerify.slice(batchStart, batchStart + BATCH_SIZE_PER_CALL)
+        devLog(`🔄 Retrying batch: ${batchQuestions.length} questions`)
+
+        setCurrentVerifying({
+          questionText: `جاري إعادة التحقق من ${batchQuestions.length} أسئلة...`,
+          statusIcon: '🔄'
+        })
+
+        let results
+        try {
+          results = await questionVerificationService.verifyQuestionsBatch(batchQuestions)
+        } catch (err) {
+          prodError('Error in batch retry:', err)
+          results = batchQuestions.map(q => ({
+            questionId: q.id,
+            status: 'error',
+            error: err.message
+          }))
+        }
+
+        if (shouldStopRef.current) break
+
+        // Process results
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i]
+          const question = batchQuestions[i]
+          const oldStatus = question.verificationStatus || 'unverified'
+
+          if (result.status === 'skip' || result.skipped) {
+            skippedCount++
+            try {
+              await FirebaseQuestionsService.updateVerificationStatus(
+                result.questionId,
+                'approved',
+                {
+                  grammarIssues: [],
+                  factualAccuracy: 'not_applicable',
+                  notes: 'سؤال تعليمات - تم تخطيه تلقائياً',
+                  sources: []
+                }
+              )
+              updateStatsLocally(oldStatus, 'approved')
+              removeQuestionLocally(question.id)
+            } catch (err) {
+              prodError('Error auto-approving skipped question:', err)
+            }
+          } else if (result.status !== 'error') {
+            const newStatus = result.status === 'pass' ? 'ai_reviewed' : 'flagged'
+            try {
+              await FirebaseQuestionsService.updateVerificationStatus(
+                question.id,
+                newStatus,
+                {
+                  grammarIssues: result.grammarIssues || [],
+                  factualAccuracy: result.factualAccuracy || 'unknown',
+                  suggestedQuestion: result.suggestedQuestion || null,
+                  suggestedAnswer: result.suggestedAnswer || null,
+                  suggestedCorrection: result.suggestedCorrection || '',
+                  notes: result.notes || '',
+                  sources: result.sources || []
+                }
+              )
+
+              if (newStatus !== filter && filter !== 'all') {
+                removeQuestionLocally(question.id)
+              } else {
+                updateQuestionLocally(question.id, {
+                  verificationStatus: newStatus,
+                  aiNotes: {
+                    grammarIssues: result.grammarIssues || [],
+                    factualAccuracy: result.factualAccuracy || 'unknown',
+                    suggestedQuestion: result.suggestedQuestion || null,
+                    suggestedAnswer: result.suggestedAnswer || null,
+                    suggestedCorrection: result.suggestedCorrection || '',
+                    notes: result.notes || '',
+                    sources: result.sources || []
+                  }
+                })
+              }
+              updateStatsLocally(oldStatus, newStatus)
+            } catch (err) {
+              prodError('Error saving verification result:', err)
+            }
+          }
+          processedCount++
+        }
+
+        setVerificationProgress({
+          current: processedCount,
+          total: questionsToVerify.length,
+          skipped: skippedCount
+        })
+
+        // Rate limiting between batches
+        if (batchStart + BATCH_SIZE_PER_CALL < questionsToVerify.length && !shouldStopRef.current) {
+          await new Promise(r => setTimeout(r, 1000))
+        }
+      }
+
+      await loadData()
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
+
+    } catch (err) {
+      prodError('Retry all error:', err)
+      setError(`خطأ في إعادة التحقق: ${err.message}`)
+    } finally {
+      setIsVerifying(false)
+      setCurrentVerifying(null)
+      setVerificationProgress({ current: 0, total: 0, skipped: 0 })
     }
   }
 
@@ -420,6 +629,9 @@ function VerificationDashboard({ userId }) {
       if (filter === 'ai_reviewed') {
         setQuestions([])
       }
+
+      // Broadcast update to other tabs
+      broadcastQuestionUpdate()
 
     } catch (err) {
       prodError('Error bulk approving:', err)
@@ -596,6 +808,22 @@ function VerificationDashboard({ userId }) {
             </button>
           ))}
         </div>
+
+        {/* Retry All button for current tab */}
+        {questions.length > 0 && filter !== 'approved' && (
+          <div className="px-4 pt-4 border-b dark:border-slate-700 pb-4">
+            <button
+              onClick={retryAllInCurrentTab}
+              disabled={isVerifying || loading}
+              className="bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              إعادة التحقق من الكل ({questions.length})
+            </button>
+          </div>
+        )}
 
         {/* Questions list */}
         <div className="p-4">

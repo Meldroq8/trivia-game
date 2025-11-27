@@ -12,6 +12,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   writeBatch,
   arrayUnion,
   serverTimestamp
@@ -25,7 +26,8 @@ export class FirebaseQuestionsService {
     CATEGORIES: 'categories',
     PENDING_QUESTIONS: 'pending-questions',
     MASTER_CATEGORIES: 'masterCategories',
-    QUESTION_REPORTS: 'questionReports'
+    QUESTION_REPORTS: 'questionReports',
+    NOTIFICATIONS: 'notifications'
   }
 
   /**
@@ -1257,6 +1259,147 @@ export class FirebaseQuestionsService {
       devLog(`✅ Report ${reportId} deleted`)
     } catch (error) {
       prodError('Error deleting report:', error)
+      throw error
+    }
+  }
+
+  // ===== USER NOTIFICATIONS METHODS =====
+
+  /**
+   * Create a notification for a user
+   * @param {Object} notificationData - Notification data
+   * @returns {Promise<string>} Notification ID
+   */
+  static async createNotification(notificationData) {
+    try {
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.NOTIFICATIONS), {
+        userId: notificationData.userId,
+        type: notificationData.type, // 'report_resolved', 'report_deleted', etc.
+        title: notificationData.title,
+        message: notificationData.message,
+        relatedId: notificationData.relatedId || null, // questionId, reportId, etc.
+        read: false,
+        createdAt: serverTimestamp()
+      })
+      devLog(`✅ Notification created for user ${notificationData.userId}: ${docRef.id}`)
+      return docRef.id
+    } catch (error) {
+      prodError('Error creating notification:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get notifications for a user
+   * @param {string} userId - User ID
+   * @param {number} limit - Max notifications to return (default 20)
+   * @returns {Promise<Array>} Array of notifications
+   */
+  static async getUserNotifications(userId, limitCount = 20) {
+    try {
+      const notifRef = collection(db, this.COLLECTIONS.NOTIFICATIONS)
+      const q = query(
+        notifRef,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(limitCount)
+      )
+      const snapshot = await getDocs(q)
+
+      const notifications = []
+      snapshot.forEach(doc => {
+        const data = doc.data()
+        notifications.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date()
+        })
+      })
+
+      devLog(`✅ Loaded ${notifications.length} notifications for user ${userId}`)
+      return notifications
+    } catch (error) {
+      prodError('Error getting user notifications:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get unread notification count for a user
+   * @param {string} userId - User ID
+   * @returns {Promise<number>} Unread count
+   */
+  static async getUnreadNotificationCount(userId) {
+    try {
+      const notifRef = collection(db, this.COLLECTIONS.NOTIFICATIONS)
+      const q = query(
+        notifRef,
+        where('userId', '==', userId),
+        where('read', '==', false)
+      )
+      const snapshot = await getDocs(q)
+      return snapshot.size
+    } catch (error) {
+      prodError('Error getting unread count:', error)
+      return 0
+    }
+  }
+
+  /**
+   * Mark a notification as read
+   * @param {string} notificationId - Notification ID
+   * @returns {Promise<void>}
+   */
+  static async markNotificationAsRead(notificationId) {
+    try {
+      const notifRef = doc(db, this.COLLECTIONS.NOTIFICATIONS, notificationId)
+      await updateDoc(notifRef, { read: true })
+      devLog(`✅ Notification ${notificationId} marked as read`)
+    } catch (error) {
+      prodError('Error marking notification as read:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Mark all notifications as read for a user
+   * @param {string} userId - User ID
+   * @returns {Promise<void>}
+   */
+  static async markAllNotificationsAsRead(userId) {
+    try {
+      const notifRef = collection(db, this.COLLECTIONS.NOTIFICATIONS)
+      const q = query(
+        notifRef,
+        where('userId', '==', userId),
+        where('read', '==', false)
+      )
+      const snapshot = await getDocs(q)
+
+      const batch = writeBatch(db)
+      snapshot.forEach(docSnap => {
+        batch.update(docSnap.ref, { read: true })
+      })
+      await batch.commit()
+
+      devLog(`✅ Marked ${snapshot.size} notifications as read for user ${userId}`)
+    } catch (error) {
+      prodError('Error marking all notifications as read:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a notification
+   * @param {string} notificationId - Notification ID
+   * @returns {Promise<void>}
+   */
+  static async deleteNotification(notificationId) {
+    try {
+      await deleteDoc(doc(db, this.COLLECTIONS.NOTIFICATIONS, notificationId))
+      devLog(`✅ Notification ${notificationId} deleted`)
+    } catch (error) {
+      prodError('Error deleting notification:', error)
       throw error
     }
   }

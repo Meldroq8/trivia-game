@@ -256,6 +256,23 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ===== NOTIFICATIONS =====
+    // User notifications for report resolutions, etc.
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if request.auth != null &&
+                    resource.data.userId == request.auth.uid;
+      // Users can update their own notifications (mark as read)
+      allow update: if request.auth != null &&
+                      resource.data.userId == request.auth.uid;
+      // Only admins can create notifications
+      allow create: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      // Only admins can delete notifications
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
     // ===== DEFAULT DENY =====
     // Deny access to any other documents
     match /{document=**} {

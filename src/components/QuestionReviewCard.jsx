@@ -140,8 +140,8 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
                 type="text"
                 value={editedAnswer}
                 onChange={(e) => setEditedAnswer(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg p-2 mt-1 bg-white text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                dir={getTextDirection(editedAnswer)}
+                className="w-full border border-gray-300 rounded-lg p-2 mt-1 bg-white text-gray-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-right"
+                dir="rtl"
               />
             </div>
           </>
@@ -169,6 +169,16 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">💡 سؤال مقترح: </span>
           <span className="text-blue-900 dark:text-blue-100 font-medium" dir={getTextDirection(aiNotes.suggestedQuestion)}>
             {aiNotes.suggestedQuestion}
+          </span>
+        </div>
+      )}
+
+      {/* Suggested answer - always visible when present */}
+      {aiNotes?.suggestedAnswer && (
+        <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg">
+          <span className="text-green-700 dark:text-green-300 font-bold text-sm">💡 إجابة مقترحة: </span>
+          <span className="text-green-900 dark:text-green-100 font-medium" dir={getTextDirection(aiNotes.suggestedAnswer)}>
+            {aiNotes.suggestedAnswer}
           </span>
         </div>
       )}
@@ -210,36 +220,39 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
               <span className="text-gray-600 dark:text-gray-400 font-medium">المصادر: </span>
               <div className="flex flex-wrap gap-1 mt-1">
                 {aiNotes.sources.map((source, idx) => {
-                  // Safely get hostname or display source as-is
-                  let displayText = source
+                  // Handle both string and object {url, name} formats
+                  let sourceUrl = typeof source === 'object' ? source?.url : source
+                  let sourceName = typeof source === 'object' ? source?.name : null
+                  let displayText = sourceName || sourceUrl
                   let isValidUrl = false
+
                   try {
-                    if (source && (source.startsWith('http://') || source.startsWith('https://'))) {
-                      displayText = new URL(source).hostname
+                    if (sourceUrl && typeof sourceUrl === 'string' && (sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://'))) {
+                      displayText = sourceName || new URL(sourceUrl).hostname
                       isValidUrl = true
                     }
                   } catch {
-                    // Not a valid URL, use source as-is
+                    // Not a valid URL, use as-is
                   }
 
                   return isValidUrl ? (
                     <a
                       key={idx}
-                      href={source}
+                      href={sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded"
                     >
                       {displayText}
                     </a>
-                  ) : (
+                  ) : displayText ? (
                     <span
                       key={idx}
                       className="text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded"
                     >
                       {displayText}
                     </span>
-                  )
+                  ) : null
                 })}
               </div>
             </div>
@@ -320,16 +333,21 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           حذف
         </button>
 
-        {/* Quick apply AI suggested question */}
-        {aiNotes.suggestedQuestion && !isEditing && (
+        {/* Quick apply AI suggestions */}
+        {(aiNotes.suggestedQuestion || aiNotes.suggestedAnswer) && !isEditing && (
           <button
             onClick={() => {
-              setEditedText(aiNotes.suggestedQuestion)
+              if (aiNotes.suggestedQuestion) setEditedText(aiNotes.suggestedQuestion)
+              if (aiNotes.suggestedAnswer) setEditedAnswer(aiNotes.suggestedAnswer)
               setIsEditing(true)
             }}
             className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-1.5 px-4 rounded-lg"
           >
-            تطبيق السؤال المقترح
+            {aiNotes.suggestedQuestion && aiNotes.suggestedAnswer
+              ? 'تطبيق المقترحات'
+              : aiNotes.suggestedQuestion
+              ? 'تطبيق السؤال المقترح'
+              : 'تطبيق الإجابة المقترحة'}
           </button>
         )}
       </div>
