@@ -30,7 +30,11 @@ function DrawingGame() {
   ]
   const [isLandscape, setIsLandscape] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
+  const [isMaximized, setIsMaximized] = useState(false) // For iOS pseudo-fullscreen
   const heartbeatIntervalRef = useRef(null)
+
+  // Check if iOS device
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
 
   // Check orientation
   useEffect(() => {
@@ -405,6 +409,13 @@ function DrawingGame() {
 
   // Fullscreen toggle handler
   const toggleFullscreen = async () => {
+    // For iOS, use pseudo-fullscreen (hide header to maximize space)
+    if (isIOS) {
+      setIsMaximized(prev => !prev)
+      return
+    }
+
+    // For other devices, use native fullscreen API
     try {
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen()
@@ -412,47 +423,70 @@ function DrawingGame() {
         await document.exitFullscreen()
       }
     } catch (err) {
-      prodError('Fullscreen error:', err)
+      // Fallback to pseudo-fullscreen if native fails
+      prodError('Fullscreen error, using fallback:', err)
+      setIsMaximized(prev => !prev)
     }
   }
 
   // Drawing interface (landscape)
   return (
     <div className="fixed inset-0 bg-[#f7f2e6] dark:bg-slate-900 flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-1 px-2 flex items-center justify-between flex-shrink-0">
-        <LogoDisplay />
-        <div className="text-center flex-1 flex items-center justify-center gap-2">
-          <p className="text-sm font-bold truncate max-w-[120px]">{session?.answer || session?.word}</p>
-          {/* Timer Display */}
-          <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-0.5">
-            <span className="text-lg">⏱️</span>
-            <span className="text-lg font-bold">{timeRemaining}</span>
-            <span className="text-xs">ث</span>
+      {/* Header - hidden when maximized */}
+      {!isMaximized && (
+        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-1 px-2 flex items-center justify-between flex-shrink-0">
+          <LogoDisplay />
+          <div className="text-center flex-1 flex items-center justify-center gap-2">
+            <p className="text-sm font-bold truncate max-w-[120px]">{session?.answer || session?.word}</p>
+            {/* Timer Display */}
+            <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-0.5">
+              <span className="text-lg">⏱️</span>
+              <span className="text-lg font-bold">{timeRemaining}</span>
+              <span className="text-xs">ث</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Fullscreen Toggle */}
+            <button
+              onClick={toggleFullscreen}
+              className="text-white hover:text-red-200 text-xl p-1"
+              title="ملء الشاشة"
+            >
+              ⛶
+            </button>
+            {/* Exit Button */}
+            <button
+              onClick={() => {
+                if (window.confirm('هل تريد الخروج من الرسم؟')) {
+                  navigate('/')
+                }
+              }}
+              className="text-white hover:text-red-200 text-2xl"
+            >
+              ×
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Fullscreen Toggle */}
+      )}
+
+      {/* Floating controls when maximized */}
+      {isMaximized && (
+        <div className="absolute top-2 right-2 z-50 flex gap-2">
+          {/* Timer - floating */}
+          <div className="flex items-center gap-1 bg-red-600/90 text-white rounded-full px-2 py-1 shadow-lg">
+            <span className="text-sm">⏱️</span>
+            <span className="text-sm font-bold">{timeRemaining}</span>
+          </div>
+          {/* Restore button */}
           <button
             onClick={toggleFullscreen}
-            className="text-white hover:text-red-200 text-xl p-1"
-            title="ملء الشاشة"
+            className="bg-red-600/90 hover:bg-red-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg text-sm"
+            title="تصغير"
           >
             ⛶
           </button>
-          {/* Exit Button */}
-          <button
-            onClick={() => {
-              if (window.confirm('هل تريد الخروج من الرسم؟')) {
-                navigate('/')
-              }
-            }}
-            className="text-white hover:text-red-200 text-2xl"
-          >
-            ×
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Main Content - Side toolbars with canvas in center */}
       <div className="flex-1 flex overflow-hidden">
