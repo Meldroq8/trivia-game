@@ -266,6 +266,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
           src={src}
           preload="metadata"
           volume={volume}
+          loop
         />
       )}
 

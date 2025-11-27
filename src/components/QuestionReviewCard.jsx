@@ -44,8 +44,28 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
     }
   }
 
+  // Difficulty badge
+  const getDifficultyBadge = () => {
+    const difficulty = question.difficulty
+    switch (difficulty) {
+      case 'easy':
+        return { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400', label: 'سهل' }
+      case 'medium':
+        return { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', label: 'متوسط' }
+      case 'hard':
+        return { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-700 dark:text-rose-400', label: 'صعب' }
+      default:
+        return { bg: 'bg-gray-100 dark:bg-gray-700', text: 'text-gray-600 dark:text-gray-400', label: 'غير محدد' }
+    }
+  }
+
+  // Check if difficulty doesn't match (AI detected different difficulty)
+  const hasDifficultyMismatch = aiNotes?.difficultyMatch === false
+  const actualDifficulty = aiNotes?.actualDifficulty
+
   const statusBadge = getStatusBadge()
   const accuracyBadge = getAccuracyBadge()
+  const difficultyBadge = getDifficultyBadge()
 
   // Handle approve with possible edits
   const handleApprove = async () => {
@@ -103,6 +123,16 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           {accuracyBadge && (
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${accuracyBadge.bg} ${accuracyBadge.text}`}>
               {accuracyBadge.label}
+            </span>
+          )}
+          {/* Difficulty badge */}
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${difficultyBadge.bg} ${difficultyBadge.text}`}>
+            {difficultyBadge.label}
+          </span>
+          {/* Difficulty mismatch warning */}
+          {hasDifficultyMismatch && (
+            <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full text-xs font-medium">
+              ⚠️ صعوبة غير متطابقة
             </span>
           )}
           {/* Show loading indicator if verifying */}
@@ -163,10 +193,33 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
         )}
       </div>
 
+      {/* Difficulty mismatch details - show when AI detected different difficulty */}
+      {hasDifficultyMismatch && (
+        <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-orange-700 dark:text-orange-300 font-bold text-sm">⚠️ تنبيه الصعوبة:</span>
+            <span className="text-orange-900 dark:text-orange-100">
+              الصعوبة المحددة: <strong>{question.difficulty || 'غير محدد'}</strong>
+            </span>
+            <span className="text-orange-600 dark:text-orange-400">←</span>
+            <span className="text-orange-900 dark:text-orange-100">
+              الصعوبة الفعلية: <strong>{actualDifficulty || 'غير محدد'}</strong>
+            </span>
+          </div>
+          {aiNotes?.suggestedQuestion && (
+            <p className="text-sm text-orange-700 dark:text-orange-300 mt-2">
+              💡 تم اقتراح سؤال معدل ليناسب الصعوبة المطلوبة (الإجابة لم تتغير)
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Suggested question - always visible when present (important!) */}
       {aiNotes?.suggestedQuestion && (
         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
-          <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">💡 سؤال مقترح: </span>
+          <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">
+            {hasDifficultyMismatch ? '📊 سؤال معدل للصعوبة: ' : '💡 سؤال مقترح: '}
+          </span>
           <span className="text-blue-900 dark:text-blue-100 font-medium" dir={getTextDirection(aiNotes.suggestedQuestion)}>
             {aiNotes.suggestedQuestion}
           </span>
@@ -187,6 +240,26 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
       {expanded && aiNotes && Object.keys(aiNotes).length > 0 && (
         <div className="mt-4 p-3 bg-gray-100 dark:bg-slate-700 rounded-lg space-y-2">
           <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300">ملاحظات الذكاء الاصطناعي:</h4>
+
+          {/* Difficulty analysis */}
+          {(aiNotes.difficultyMatch !== undefined || aiNotes.actualDifficulty) && (
+            <div className="text-sm">
+              <span className={`font-medium ${hasDifficultyMismatch ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
+                تحليل الصعوبة:{' '}
+              </span>
+              <span className="text-gray-700 dark:text-gray-300">
+                {hasDifficultyMismatch ? (
+                  <>
+                    الصعوبة المحددة ({question.difficulty}) لا تتطابق مع الصعوبة الفعلية ({actualDifficulty})
+                  </>
+                ) : (
+                  <>
+                    الصعوبة متطابقة ✓ ({question.difficulty || 'غير محدد'})
+                  </>
+                )}
+              </span>
+            </div>
+          )}
 
           {/* Grammar issues */}
           {aiNotes.grammarIssues?.length > 0 && (
@@ -338,12 +411,20 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           <button
             onClick={() => {
               if (aiNotes.suggestedQuestion) setEditedText(aiNotes.suggestedQuestion)
-              if (aiNotes.suggestedAnswer) setEditedAnswer(aiNotes.suggestedAnswer)
+              // Note: We don't apply suggestedAnswer anymore for difficulty adjustments
+              // since the answer is linked to an image and should not change
+              if (aiNotes.suggestedAnswer && !hasDifficultyMismatch) setEditedAnswer(aiNotes.suggestedAnswer)
               setIsEditing(true)
             }}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-1.5 px-4 rounded-lg"
+            className={`text-white text-sm font-medium py-1.5 px-4 rounded-lg ${
+              hasDifficultyMismatch
+                ? 'bg-orange-500 hover:bg-orange-600'
+                : 'bg-yellow-500 hover:bg-yellow-600'
+            }`}
           >
-            {aiNotes.suggestedQuestion && aiNotes.suggestedAnswer
+            {hasDifficultyMismatch
+              ? '📊 تطبيق السؤال المعدل للصعوبة'
+              : aiNotes.suggestedQuestion && aiNotes.suggestedAnswer
               ? 'تطبيق المقترحات'
               : aiNotes.suggestedQuestion
               ? 'تطبيق السؤال المقترح'

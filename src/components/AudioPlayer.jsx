@@ -142,6 +142,7 @@ function AudioPlayer({ src, className = '' }) {
         src={optimizedSrc}
         preload="metadata"
         volume={volume}
+        loop
       />
 
       <div className="flex items-center gap-3">
