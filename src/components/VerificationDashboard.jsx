@@ -275,6 +275,8 @@ function VerificationDashboard({ userId }) {
                 {
                   grammarIssues: result.grammarIssues || [],
                   factualAccuracy: result.factualAccuracy || 'unknown',
+                  difficultyMatch: result.difficultyMatch !== false,
+                  actualDifficulty: result.actualDifficulty || null,
                   suggestedQuestion: result.suggestedQuestion || null,
                   suggestedAnswer: result.suggestedAnswer || null,
                   suggestedCorrection: result.suggestedCorrection || '',
@@ -428,6 +430,8 @@ function VerificationDashboard({ userId }) {
         {
           grammarIssues: result.grammarIssues || [],
           factualAccuracy: result.factualAccuracy || 'unknown',
+          difficultyMatch: result.difficultyMatch !== false,
+          actualDifficulty: result.actualDifficulty || null,
           suggestedQuestion: result.suggestedQuestion || null,
           suggestedAnswer: result.suggestedAnswer || null,
           suggestedCorrection: result.suggestedCorrection || '',
@@ -447,6 +451,8 @@ function VerificationDashboard({ userId }) {
           aiNotes: {
             grammarIssues: result.grammarIssues || [],
             factualAccuracy: result.factualAccuracy || 'unknown',
+            difficultyMatch: result.difficultyMatch !== false,
+            actualDifficulty: result.actualDifficulty || null,
             suggestedQuestion: result.suggestedQuestion || null,
             suggestedAnswer: result.suggestedAnswer || null,
             suggestedCorrection: result.suggestedCorrection || '',
@@ -548,6 +554,8 @@ function VerificationDashboard({ userId }) {
                 {
                   grammarIssues: result.grammarIssues || [],
                   factualAccuracy: result.factualAccuracy || 'unknown',
+                  difficultyMatch: result.difficultyMatch !== false,
+                  actualDifficulty: result.actualDifficulty || null,
                   suggestedQuestion: result.suggestedQuestion || null,
                   suggestedAnswer: result.suggestedAnswer || null,
                   suggestedCorrection: result.suggestedCorrection || '',
@@ -564,6 +572,8 @@ function VerificationDashboard({ userId }) {
                   aiNotes: {
                     grammarIssues: result.grammarIssues || [],
                     factualAccuracy: result.factualAccuracy || 'unknown',
+                    difficultyMatch: result.difficultyMatch !== false,
+                    actualDifficulty: result.actualDifficulty || null,
                     suggestedQuestion: result.suggestedQuestion || null,
                     suggestedAnswer: result.suggestedAnswer || null,
                     suggestedCorrection: result.suggestedCorrection || '',

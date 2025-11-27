@@ -191,10 +191,12 @@ class QuestionVerificationService {
       const questionsText = toVerify.map((q, idx) => {
         const answerText = Array.isArray(q.answer) ? q.answer[0] : (q.answer || '')
         const categoryName = q.categoryName || q.categoryId || 'عام'
+        const difficulty = q.difficulty || 'medium'
         return `[سؤال ${idx + 1}] (ID: ${q.id})
 السؤال: ${q.text}
 الإجابة: ${answerText}
-الفئة: ${categoryName}`
+الفئة: ${categoryName}
+الصعوبة المحددة: ${difficulty}`
       }).join('\n\n')
 
       const prompt = `مدقق أسئلة تريفيا. راجع هذه الأسئلة:
@@ -206,6 +208,12 @@ ${questionsText}
 2. هل الإجابة كاملة؟ (ليست ناقصة أو فارغة)
 3. هل توجد أخطاء إملائية واضحة؟
 4. ابحث في الإنترنت وتحقق: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
+5. هل مستوى صعوبة السؤال يتناسب مع الصعوبة المحددة؟
+
+📊 مستويات الصعوبة:
+- easy (سهل): أسئلة معلومات عامة بسيطة، يعرفها معظم الناس
+- medium (متوسط): أسئلة تحتاج بعض المعرفة، ليست واضحة للجميع
+- hard (صعب): أسئلة تحتاج معرفة متخصصة أو تفاصيل دقيقة
 
 🚨 تحذير مهم جداً:
 - اقرأ السؤال بدقة شديدة قبل البحث
@@ -217,16 +225,24 @@ ${questionsText}
 - السؤال والإجابة كاملين
 - الإجابة صحيحة بعد التحقق من الإنترنت
 - لا توجد أخطاء إملائية واضحة
+- مستوى الصعوبة متناسب
 
 ❌ متى تختار "flag" (يحتاج مراجعة):
 - السؤال ناقص أو غير مكتمل
 - الإجابة فارغة أو ناقصة
 - أخطاء إملائية واضحة
 - الإجابة خاطئة بعد التحقق من الإنترنت
+- مستوى الصعوبة غير متناسب مع السؤال
 
-⚠️ قاعدة الاقتراحات:
-- إذا الإجابة صحيحة: suggestedQuestion = null
-- إذا الإجابة خاطئة: اقترح سؤال يكون جوابه = الإجابة الحالية
+⚠️ قاعدة الاقتراحات المهمة:
+- إذا الإجابة صحيحة والصعوبة متناسبة: suggestedQuestion = null
+- إذا الإجابة خاطئة: اقترح سؤال يكون جوابه = الإجابة الحالية (لا تغير الإجابة!)
+- إذا الصعوبة غير متناسبة: اقترح سؤال معدل يناسب الصعوبة المحددة ويكون جوابه = الإجابة الحالية
+
+🎯 قاعدة تعديل الصعوبة:
+- مثال: إذا السؤال محدد كـ "hard" لكن السؤال سهل جداً، عدل صياغة السؤال ليصبح أصعب
+- مثال: إذا السؤال "ما عاصمة فرنسا؟" والصعوبة "hard"، اقترح "في أي عام أصبحت باريس العاصمة الرسمية لفرنسا؟" (نفس الموضوع، سؤال أصعب)
+- هام جداً: لا تغير الإجابة أبداً! فقط عدل السؤال ليناسب الصعوبة المطلوبة
 
 أجب بـ JSON array فقط (بدون أي نص إضافي):
 [
@@ -235,9 +251,11 @@ ${questionsText}
     "status": "pass" أو "flag",
     "grammarIssues": [],
     "factualAccuracy": "verified" أو "incorrect",
-    "suggestedQuestion": null,
+    "difficultyMatch": true أو false,
+    "actualDifficulty": "easy" أو "medium" أو "hard",
+    "suggestedQuestion": null أو "السؤال المعدل للصعوبة",
     "suggestedAnswer": null,
-    "notes": "سبب قصير"
+    "notes": "سبب قصير (اذكر إذا كانت الصعوبة غير متناسبة)"
   }
 ]`
 
@@ -305,9 +323,12 @@ ${questionsText}
           questionId: question.id,
           questionText: question.text,
           answer: question.answer,
+          difficulty: question.difficulty,
           status: result.status || 'flag',
           grammarIssues: result.grammarIssues || [],
           factualAccuracy: result.factualAccuracy || 'uncertain',
+          difficultyMatch: result.difficultyMatch !== false, // default to true if not specified
+          actualDifficulty: result.actualDifficulty || question.difficulty || 'medium',
           suggestedQuestion: result.suggestedQuestion || null,
           suggestedAnswer: result.suggestedAnswer || null,
           notes: result.notes || '',
@@ -323,9 +344,12 @@ ${questionsText}
         questionId: question.id,
         questionText: question.text,
         answer: question.answer,
+        difficulty: question.difficulty,
         status: 'flag',
         grammarIssues: [],
         factualAccuracy: 'uncertain',
+        difficultyMatch: true,
+        actualDifficulty: question.difficulty || 'medium',
         suggestedQuestion: null,
         suggestedAnswer: null,
         notes: 'تعذر تحليل الاستجابة',
@@ -365,18 +389,26 @@ ${questionsText}
       const categoryName = question.categoryName || question.categoryId || 'عام'
       // Handle answer that might be an array
       const answerText = Array.isArray(question.answer) ? question.answer[0] : (question.answer || '')
+      const difficulty = question.difficulty || 'medium'
 
       const prompt = `مدقق أسئلة تريفيا. راجع هذا السؤال:
 
 السؤال: ${question.text}
 الإجابة: ${answerText}
 الفئة: ${categoryName}
+الصعوبة المحددة: ${difficulty}
 
 ⚠️ خطوات التحقق:
 1. هل السؤال كامل ومفهوم؟ (ليس ناقص أو مقطوع)
 2. هل الإجابة كاملة؟ (ليست ناقصة أو فارغة)
 3. هل توجد أخطاء إملائية واضحة؟
 4. ابحث في الإنترنت وتحقق: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
+5. هل مستوى صعوبة السؤال يتناسب مع الصعوبة المحددة؟
+
+📊 مستويات الصعوبة:
+- easy (سهل): أسئلة معلومات عامة بسيطة، يعرفها معظم الناس
+- medium (متوسط): أسئلة تحتاج بعض المعرفة، ليست واضحة للجميع
+- hard (صعب): أسئلة تحتاج معرفة متخصصة أو تفاصيل دقيقة
 
 🚨 تحذير مهم جداً:
 - اقرأ السؤال بدقة شديدة قبل البحث
@@ -387,21 +419,30 @@ ${questionsText}
 - السؤال والإجابة كاملين
 - الإجابة صحيحة بعد التحقق
 - لا توجد أخطاء إملائية واضحة
+- مستوى الصعوبة متناسب
 
 ❌ متى تختار "flag":
 - السؤال ناقص أو غير مكتمل
 - الإجابة فارغة أو ناقصة
 - أخطاء إملائية واضحة
 - الإجابة خاطئة بعد التحقق
+- مستوى الصعوبة غير متناسب مع السؤال
+
+🎯 قاعدة تعديل الصعوبة:
+- إذا الصعوبة غير متناسبة: اقترح سؤال معدل يناسب الصعوبة المحددة ويكون جوابه = الإجابة الحالية
+- مثال: إذا السؤال "ما عاصمة فرنسا؟" والصعوبة "hard"، اقترح سؤال أصعب مثل "في أي عام أصبحت باريس العاصمة الرسمية لفرنسا؟"
+- هام جداً: لا تغير الإجابة أبداً! فقط عدل السؤال ليناسب الصعوبة المطلوبة
 
 أجب JSON فقط:
 {
   "status": "pass" أو "flag",
   "grammarIssues": ["أخطاء إملائية/نحوية"],
   "factualAccuracy": "verified" أو "incorrect",
-  "suggestedQuestion": null,
+  "difficultyMatch": true أو false,
+  "actualDifficulty": "easy" أو "medium" أو "hard",
+  "suggestedQuestion": null أو "السؤال المعدل للصعوبة",
   "suggestedAnswer": null,
-  "notes": "سبب قصير",
+  "notes": "سبب قصير (اذكر إذا كانت الصعوبة غير متناسبة)",
   "sources": []
 }`
 
@@ -457,9 +498,12 @@ ${questionsText}
         questionId: question.id,
         questionText: question.text,
         answer: question.answer,
+        difficulty: question.difficulty,
         status: parsed.status || 'flag',
         grammarIssues: parsed.grammarIssues || [],
         factualAccuracy: parsed.factualAccuracy || 'uncertain',
+        difficultyMatch: parsed.difficultyMatch !== false,
+        actualDifficulty: parsed.actualDifficulty || question.difficulty || 'medium',
         suggestedQuestion: parsed.suggestedQuestion || null,
         suggestedAnswer: parsed.suggestedAnswer || null,
         clarityScore: parsed.clarityScore || 3,
@@ -482,15 +526,19 @@ ${questionsText}
       const factualAccuracy = extractField('factualAccuracy') || 'uncertain'
       const suggestedQuestion = extractField('suggestedQuestion')
       const suggestedAnswer = extractField('suggestedAnswer')
+      const actualDifficulty = extractField('actualDifficulty')
       const notes = extractField('notes') || 'تعذر تحليل الاستجابة'
 
       return {
         questionId: question.id,
         questionText: question.text,
         answer: question.answer,
+        difficulty: question.difficulty,
         status: status,
         grammarIssues: [],
         factualAccuracy: factualAccuracy,
+        difficultyMatch: !actualDifficulty || actualDifficulty === question.difficulty,
+        actualDifficulty: actualDifficulty || question.difficulty || 'medium',
         suggestedQuestion: suggestedQuestion,
         suggestedAnswer: suggestedAnswer,
         notes: notes,
