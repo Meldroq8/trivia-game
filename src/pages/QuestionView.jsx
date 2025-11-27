@@ -729,7 +729,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         devLog('🎨 Initializing drawing session with ID:', sessionId)
 
         // Calculate initial time based on difficulty
-        const difficulty = currentQuestion?.difficulty || 'medium'
+        const difficulty = currentQuestion?.question?.difficulty || currentQuestion?.difficulty || 'medium'
         const initialTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
 
         // Create session in Firestore
@@ -739,8 +739,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           word: currentQuestion?.question?.text || currentQuestion?.text,
           promptImageUrl: currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl,
           teamTurn: gameState.currentTurn,
-          difficulty: currentQuestion?.difficulty || 'medium',
-          points: currentQuestion?.points || 400,
+          difficulty: difficulty,
+          points: currentQuestion?.question?.points || currentQuestion?.points || 400,
           timeRemaining: initialTime // Set initial timer value
         })
 
@@ -760,7 +760,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               setQrTimerStarted(true)
               setQrTimerPaused(false)
               // Set initial time based on difficulty
-              const difficulty = currentQuestion?.difficulty || 'medium'
+              const difficulty = currentQuestion?.question?.difficulty || currentQuestion?.difficulty || 'medium'
               const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
               setQrTimeRemaining(timeLimit)
               devLog('🎨 Drawing started, timer set to:', timeLimit)
@@ -939,7 +939,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     setImageZoomed(false)
     // Reset QR mini-game timer
     setQrTimerStarted(false)
-    setQrTimeRemaining(getQrTimerDuration(currentQuestion?.points))
+    setQrTimeRemaining(getQrTimerDuration(currentQuestion?.question?.points || currentQuestion?.points))
     setQrTimerPaused(false)
 
     const updateDimensions = () => {
@@ -1995,7 +1995,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show circular timer ONLY for charades mode (not drawing mode - canvas has its own timer)
                   if (isCharadesMode && qrTimerStarted) {
-                    const maxTime = getQrTimerDuration(currentQuestion?.points)
+                    const maxTime = getQrTimerDuration(currentQuestion?.question?.points || currentQuestion?.points)
                     const progress = (qrTimeRemaining / maxTime) * 100
 
                     // Responsive sizing based on screen size and available width
@@ -2181,7 +2181,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           }}
                           onClick={() => {
                             // Only reset the time, keep the circular timer visible
-                            setQrTimeRemaining(getQrTimerDuration(currentQuestion?.points))
+                            setQrTimeRemaining(getQrTimerDuration(currentQuestion?.question?.points || currentQuestion?.points))
                             setQrTimerPaused(false)
                           }}
                         >
@@ -2501,7 +2501,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                             <button type="button" className="flex items-center justify-center p-1"
                                     onClick={async () => {
-                                      const difficulty = currentQuestion?.difficulty || 'medium'
+                                      const difficulty = currentQuestion?.question?.difficulty || currentQuestion?.difficulty || 'medium'
                                       const timeLimit = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 45 : 60
                                       setQrTimeRemaining(timeLimit)
 
