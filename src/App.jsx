@@ -102,12 +102,20 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     const hasActiveGame = gameState.selectedCategories?.length > 0 ||
                          gameState.gameHistory?.length > 0 ||
                          gameState.team1?.score > 0 ||
-                         gameState.team2?.score > 0
+                         gameState.team2?.score > 0 ||
+                         gameState.currentQuestion !== null // Also consider having a current question as active game
+
+    // Valid game routes that should be preserved on reload
+    const validGameRoutes = ['/game', '/question', '/answer', '/results']
+
+    // If user is already on a valid game route, DON'T navigate away
+    // This fixes the issue where reloading on /question would redirect to /game
+    if (validGameRoutes.includes(location.pathname)) {
+      devLog('✅ User already on valid game route:', location.pathname, '- staying here')
+      return
+    }
 
     if (hasActiveGame && gameState.currentRoute && gameState.currentRoute !== location.pathname) {
-      // Only restore to game pages, not to other pages like admin/profile
-      const validGameRoutes = ['/game', '/question', '/answer', '/results']
-
       if (validGameRoutes.includes(gameState.currentRoute)) {
         devLog('🔄 Restoring route after reload:', gameState.currentRoute)
         navigate(gameState.currentRoute, { replace: true })

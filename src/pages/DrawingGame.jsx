@@ -403,106 +403,139 @@ function DrawingGame() {
     )
   }
 
+  // Fullscreen toggle handler
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen()
+      } else {
+        await document.exitFullscreen()
+      }
+    } catch (err) {
+      prodError('Fullscreen error:', err)
+    }
+  }
+
   // Drawing interface (landscape)
   return (
     <div className="fixed inset-0 bg-[#f7f2e6] dark:bg-slate-900 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-2 px-4 flex items-center justify-between flex-shrink-0">
+      <div className="bg-gradient-to-r from-red-600 to-red-700 text-white py-1 px-2 flex items-center justify-between flex-shrink-0">
         <LogoDisplay />
-        <div className="text-center flex-1 flex items-center justify-center gap-4">
-          <p className="text-sm font-bold">{session?.answer || session?.word}</p>
+        <div className="text-center flex-1 flex items-center justify-center gap-2">
+          <p className="text-sm font-bold truncate max-w-[120px]">{session?.answer || session?.word}</p>
           {/* Timer Display */}
-          <div className="flex items-center gap-2 bg-white/20 rounded-full px-3 py-1">
-            <span className="text-2xl">⏱️</span>
-            <span className="text-xl font-bold">{timeRemaining}</span>
-            <span className="text-sm">ث</span>
+          <div className="flex items-center gap-1 bg-white/20 rounded-full px-2 py-0.5">
+            <span className="text-lg">⏱️</span>
+            <span className="text-lg font-bold">{timeRemaining}</span>
+            <span className="text-xs">ث</span>
           </div>
         </div>
-        <button
-          onClick={() => {
-            if (window.confirm('هل تريد الخروج من الرسم؟')) {
-              navigate('/')
-            }
-          }}
-          className="text-white hover:text-red-200 text-2xl"
-        >
-          ×
-        </button>
-      </div>
-
-      {/* Canvas Area */}
-      <div className="flex-1 bg-white dark:bg-slate-700 p-2 overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          width={1920}
-          height={1080}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          onTouchStart={startDrawing}
-          onTouchMove={draw}
-          onTouchEnd={stopDrawing}
-          className="w-full h-full"
-          style={{
-            backgroundColor: '#FFFFFF',
-            cursor: currentTool === 'eraser' ? 'crosshair' : 'crosshair',
-            borderRadius: '8px',
-            touchAction: 'none' // Prevents scrolling/zooming during drawing
-          }}
-        />
-      </div>
-
-      {/* Color Picker */}
-      <div className="bg-gray-50 dark:bg-slate-900 py-2 px-4 flex gap-2 justify-center items-center flex-shrink-0">
-        {colors.map((color) => (
+        <div className="flex items-center gap-2">
+          {/* Fullscreen Toggle */}
           <button
-            key={color}
+            onClick={toggleFullscreen}
+            className="text-white hover:text-red-200 text-xl p-1"
+            title="ملء الشاشة"
+          >
+            ⛶
+          </button>
+          {/* Exit Button */}
+          <button
             onClick={() => {
-              setCurrentColor(color)
-              setCurrentTool('pen') // Switch to pen when selecting a color
+              if (window.confirm('هل تريد الخروج من الرسم؟')) {
+                navigate('/')
+              }
             }}
-            className={`w-8 h-8 rounded-full transition-all border-2 ${
-              currentColor === color && currentTool === 'pen'
-                ? 'scale-125 border-white shadow-lg ring-2 ring-offset-1 ring-blue-500'
-                : 'border-gray-300 dark:border-slate-600 hover:scale-110'
-            }`}
-            style={{ backgroundColor: color }}
-          />
-        ))}
+            className="text-white hover:text-red-200 text-2xl"
+          >
+            ×
+          </button>
+        </div>
       </div>
 
-      {/* Drawing Tools */}
-      <div className="bg-gray-100 dark:bg-slate-800 py-3 px-4 flex gap-3 justify-center items-center flex-shrink-0">
-        <button
-          onClick={() => setCurrentTool('pen')}
-          className={`flex-1 max-w-[120px] py-2 px-3 rounded-lg font-bold transition-all text-sm ${
-            currentTool === 'pen'
-              ? 'text-white shadow-lg scale-105'
-              : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-slate-600'
-          }`}
-          style={currentTool === 'pen' ? { backgroundColor: currentColor } : {}}
-        >
-          ✏️ قلم
-        </button>
+      {/* Main Content - Side toolbars with canvas in center */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Colors */}
+        <div className="bg-gray-100 dark:bg-slate-800 p-1 flex flex-col gap-1 justify-center items-center flex-shrink-0">
+          {colors.map((color) => (
+            <button
+              key={color}
+              onClick={() => {
+                setCurrentColor(color)
+                setCurrentTool('pen')
+              }}
+              className={`w-7 h-7 rounded-full transition-all border-2 ${
+                currentColor === color && currentTool === 'pen'
+                  ? 'scale-110 border-white shadow-lg ring-2 ring-offset-1 ring-blue-500'
+                  : 'border-gray-300 dark:border-slate-600'
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
 
-        <button
-          onClick={() => setCurrentTool('eraser')}
-          className={`flex-1 max-w-[120px] py-2 px-3 rounded-lg font-bold transition-all text-sm ${
-            currentTool === 'eraser'
-              ? 'bg-orange-600 text-white shadow-lg scale-105'
-              : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100 hover:bg-orange-50 dark:hover:bg-slate-600'
-          }`}
-        >
-          🧹 ممحاة
-        </button>
+        {/* Canvas Area */}
+        <div className="flex-1 bg-white dark:bg-slate-700 p-1 overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            width={1920}
+            height={1080}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            onTouchStart={startDrawing}
+            onTouchMove={draw}
+            onTouchEnd={stopDrawing}
+            className="w-full h-full"
+            style={{
+              backgroundColor: '#FFFFFF',
+              cursor: 'crosshair',
+              borderRadius: '8px',
+              touchAction: 'none'
+            }}
+          />
+        </div>
 
-        <button
-          onClick={handleClearCanvas}
-          className="flex-1 max-w-[120px] bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm"
-        >
-          🗑️ مسح
-        </button>
+        {/* Right Sidebar - Tools */}
+        <div className="bg-gray-100 dark:bg-slate-800 p-1 flex flex-col gap-2 justify-center items-center flex-shrink-0">
+          {/* Pen Tool */}
+          <button
+            onClick={() => setCurrentTool('pen')}
+            className={`w-10 h-10 rounded-lg font-bold transition-all flex items-center justify-center text-lg ${
+              currentTool === 'pen'
+                ? 'text-white shadow-lg scale-105'
+                : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100'
+            }`}
+            style={currentTool === 'pen' ? { backgroundColor: currentColor } : {}}
+            title="قلم"
+          >
+            ✏️
+          </button>
+
+          {/* Eraser Tool */}
+          <button
+            onClick={() => setCurrentTool('eraser')}
+            className={`w-10 h-10 rounded-lg font-bold transition-all flex items-center justify-center text-lg ${
+              currentTool === 'eraser'
+                ? 'bg-orange-600 text-white shadow-lg scale-105'
+                : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100'
+            }`}
+            title="ممحاة"
+          >
+            🧹
+          </button>
+
+          {/* Clear Canvas */}
+          <button
+            onClick={handleClearCanvas}
+            className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center text-lg"
+            title="مسح الكل"
+          >
+            🗑️
+          </button>
+        </div>
       </div>
     </div>
   )
