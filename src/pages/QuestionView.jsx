@@ -2390,7 +2390,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             }}
                           >
                             <QRCodeWithLogo
-                              questionId={sessionId}
+                              questionId={
+                                // For drawing mode, use sessionId (includes userId for unique sessions)
+                                // For charades/answer mode, use raw questionId (AnswerViewPage expects just the question ID)
+                                (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
+                                  ? sessionId
+                                  : questionId
+                              }
                               size={styles.isPC
                                 ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
                                 : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px
