@@ -43,9 +43,15 @@ function DrawingCanvas({ strokes = [], width = 1920, height = 1080, className = 
       if (stroke.points.length === 1) {
         // Single point - draw a dot
         const point = stroke.points[0]
+        const dotRadius = stroke.tool === 'eraser' ? 10 : 1.5 // Match line width / 2
         ctx.beginPath()
-        ctx.arc(point.x * width, point.y * height, 1.5, 0, Math.PI * 2)
-        ctx.fill()
+        ctx.arc(point.x * width, point.y * height, dotRadius, 0, Math.PI * 2)
+        if (stroke.tool === 'eraser') {
+          ctx.fill() // Eraser uses destination-out
+        } else {
+          ctx.fillStyle = stroke.color || '#000000'
+          ctx.fill()
+        }
       } else {
         // Multiple points - draw connected lines
         const firstPoint = stroke.points[0]
