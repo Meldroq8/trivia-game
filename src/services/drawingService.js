@@ -1,4 +1,4 @@
-import { doc, setDoc, updateDoc, onSnapshot, serverTimestamp, increment, deleteDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc, updateDoc, onSnapshot, serverTimestamp, increment, deleteDoc, getDoc, arrayUnion } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { devLog, prodError } from '../utils/devLog'
 
@@ -85,23 +85,17 @@ export class DrawingService {
   }
 
   /**
-   * Add a stroke to the drawing
+   * Add a stroke to the drawing (atomic operation using arrayUnion)
    * @param {string} sessionId
    * @param {object} stroke - { points: [{x, y}], tool: 'pen'|'eraser', timestamp }
    */
   static async addStroke(sessionId, stroke) {
     try {
       const sessionRef = doc(db, 'drawingSessions', sessionId)
-      const sessionDoc = await getDoc(sessionRef)
 
-      if (!sessionDoc.exists()) {
-        throw new Error('Session not found')
-      }
-
-      const currentStrokes = sessionDoc.data().strokes || []
-
+      // Use arrayUnion for atomic append - no race conditions
       await updateDoc(sessionRef, {
-        strokes: [...currentStrokes, stroke],
+        strokes: arrayUnion(stroke),
         lastHeartbeat: serverTimestamp()
       })
     } catch (error) {
@@ -111,21 +105,15 @@ export class DrawingService {
   }
 
   /**
-   * Add multiple strokes (batch update for performance)
+   * Add multiple strokes (atomic operation using arrayUnion)
    */
   static async addStrokes(sessionId, newStrokes) {
     try {
       const sessionRef = doc(db, 'drawingSessions', sessionId)
-      const sessionDoc = await getDoc(sessionRef)
 
-      if (!sessionDoc.exists()) {
-        throw new Error('Session not found')
-      }
-
-      const currentStrokes = sessionDoc.data().strokes || []
-
+      // Use arrayUnion for atomic append - prevents race conditions where strokes are lost
       await updateDoc(sessionRef, {
-        strokes: [...currentStrokes, ...newStrokes],
+        strokes: arrayUnion(...newStrokes),
         lastHeartbeat: serverTimestamp()
       })
     } catch (error) {

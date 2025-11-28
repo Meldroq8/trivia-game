@@ -14,8 +14,8 @@ function DrawingGame() {
   const [isReady, setIsReady] = useState(false)
   const [currentTool, setCurrentTool] = useState('pen')
   const [currentColor, setCurrentColor] = useState('#000000')
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [currentStroke, setCurrentStroke] = useState([])
+  const isDrawingRef = useRef(false) // Use ref to avoid state updates during drawing
+  const currentStrokeRef = useRef([]) // Use ref for stroke points to avoid iOS lag
 
   // Available colors for drawing
   const colors = [
@@ -198,25 +198,42 @@ function DrawingGame() {
 
   // Removed syncStrokes - now using direct sync on pen lift only
 
-  // Drawing handlers
+  // Drawing handlers - using refs to avoid React state updates during drawing (fixes iOS lag)
   const startDrawing = (e) => {
     if (!isReady || !isLandscape || timeRemaining <= 0) return // Stop if time is up
 
-    setIsDrawing(true)
+    isDrawingRef.current = true
     const point = getCanvasPoint(e)
-    setCurrentStroke([point])
+    currentStrokeRef.current = [point]
+
+    // Draw initial dot immediately (for taps/short strokes)
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+
+    if (currentTool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.fillStyle = 'rgba(0,0,0,1)'
+      const dotSize = 20
+      ctx.beginPath()
+      ctx.arc(point.x * canvas.width, point.y * canvas.height, dotSize / 2, 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.fillStyle = currentColor
+      const dotSize = 3
+      ctx.beginPath()
+      ctx.arc(point.x * canvas.width, point.y * canvas.height, dotSize / 2, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
 
   const draw = (e) => {
-    if (!isDrawing || !isReady || timeRemaining <= 0) return // Stop if time is up
-
-    // Note: preventDefault removed - using CSS touch-action instead
+    if (!isDrawingRef.current || !isReady || timeRemaining <= 0) return // Stop if time is up
 
     const point = getCanvasPoint(e)
 
-    // Add point to current stroke
-    const updatedStroke = [...currentStroke, point]
-    setCurrentStroke(updatedStroke)
+    // Add point to current stroke (using ref - no React re-render)
+    currentStrokeRef.current.push(point)
 
     // Draw on local canvas immediately (instant feedback, no lag)
     const canvas = canvasRef.current
@@ -235,8 +252,9 @@ function DrawingGame() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
 
-    if (currentStroke.length > 0) {
-      const lastPoint = currentStroke[currentStroke.length - 1]
+    const strokePoints = currentStrokeRef.current
+    if (strokePoints.length > 1) {
+      const lastPoint = strokePoints[strokePoints.length - 2]
       ctx.beginPath()
       ctx.moveTo(lastPoint.x * canvas.width, lastPoint.y * canvas.height)
       ctx.lineTo(point.x * canvas.width, point.y * canvas.height)
@@ -247,28 +265,30 @@ function DrawingGame() {
   }
 
   const stopDrawing = async () => {
-    if (!isDrawing) return
+    if (!isDrawingRef.current) return
 
-    setIsDrawing(false)
+    isDrawingRef.current = false
 
     // Sync COMPLETE stroke when pen lifts (perfect accuracy)
-    if (currentStroke.length > 0) {
+    const strokePoints = currentStrokeRef.current
+    if (strokePoints.length > 0) {
       const completeStroke = {
-        points: currentStroke, // All points captured during this stroke
+        points: [...strokePoints], // Copy the points array
         tool: currentTool,
         color: currentTool === 'pen' ? currentColor : null, // Only save color for pen strokes
         timestamp: Date.now()
       }
 
-      // Sync immediately - single write per stroke
+      // Clear the ref immediately
+      currentStrokeRef.current = []
+
+      // Sync immediately - single atomic write per stroke
       try {
         await DrawingService.addStrokes(sessionId, [completeStroke])
         devLog('🎨 Complete stroke synced:', completeStroke.points.length, 'points')
       } catch (err) {
         prodError('Error syncing stroke:', err)
       }
-
-      setCurrentStroke([])
     }
   }
 
