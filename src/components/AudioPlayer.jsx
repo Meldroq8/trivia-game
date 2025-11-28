@@ -35,12 +35,37 @@ function AudioPlayer({ src, className = '' }) {
     })
 
     const handleLoadedData = () => {
-      setDuration(audio.duration)
+      devLog('🎵 Audio loaded (loadeddata)')
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration)
+      }
+      setIsLoading(false)
+    }
+
+    // iOS often fires loadedmetadata before loadeddata
+    const handleLoadedMetadata = () => {
+      devLog('🎵 Audio metadata loaded (iOS)')
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration)
+      }
+      setIsLoading(false)
+    }
+
+    // canplaythrough is more reliable on iOS
+    const handleCanPlayThrough = () => {
+      devLog('🎵 Audio can play through (iOS)')
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration)
+      }
       setIsLoading(false)
     }
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime)
+      // iOS sometimes doesn't report duration until playback starts
+      if (audio.duration && !isNaN(audio.duration) && duration === 0) {
+        setDuration(audio.duration)
+      }
     }
 
     const handleEnded = () => {
@@ -54,18 +79,28 @@ function AudioPlayer({ src, className = '' }) {
       setIsLoading(false)
     }
 
+    // Add all event listeners for better iOS compatibility
     audio.addEventListener('loadeddata', handleLoadedData)
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
+    audio.addEventListener('canplaythrough', handleCanPlayThrough)
     audio.addEventListener('timeupdate', handleTimeUpdate)
     audio.addEventListener('ended', handleEnded)
     audio.addEventListener('error', handleError)
 
+    // Force load on iOS - sometimes needed
+    if (audio.load) {
+      audio.load()
+    }
+
     return () => {
       audio.removeEventListener('loadeddata', handleLoadedData)
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      audio.removeEventListener('canplaythrough', handleCanPlayThrough)
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('ended', handleEnded)
       audio.removeEventListener('error', handleError)
     }
-  }, [src, optimizedSrc])
+  }, [src, optimizedSrc, duration])
 
   const togglePlay = () => {
     const audio = audioRef.current
@@ -140,9 +175,11 @@ function AudioPlayer({ src, className = '' }) {
       <audio
         ref={audioRef}
         src={optimizedSrc}
-        preload="metadata"
-        volume={volume}
+        preload="auto"
         loop
+        playsInline
+        webkit-playsinline="true"
+        x-webkit-airplay="allow"
       />
 
       <div className="flex items-center gap-3">
