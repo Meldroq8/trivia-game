@@ -37,7 +37,10 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
     if (!media) return
 
     const handleLoadedData = () => {
-      setDuration(media.duration)
+      devLog('Media loaded (loadeddata):', src)
+      if (media.duration && !isNaN(media.duration)) {
+        setDuration(media.duration)
+      }
       setIsLoading(false)
       if (autoPlay) {
         media.play().catch(console.error)
@@ -45,8 +48,30 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
       }
     }
 
+    // iOS often fires loadedmetadata before loadeddata
+    const handleLoadedMetadata = () => {
+      devLog('Media metadata loaded (iOS):', src)
+      if (media.duration && !isNaN(media.duration)) {
+        setDuration(media.duration)
+      }
+      setIsLoading(false)
+    }
+
+    // canplaythrough is more reliable on iOS
+    const handleCanPlayThrough = () => {
+      devLog('Media can play through (iOS):', src)
+      if (media.duration && !isNaN(media.duration)) {
+        setDuration(media.duration)
+      }
+      setIsLoading(false)
+    }
+
     const handleTimeUpdate = () => {
       setCurrentTime(media.currentTime)
+      // iOS sometimes doesn't report duration until playback starts
+      if (media.duration && !isNaN(media.duration) && duration === 0) {
+        setDuration(media.duration)
+      }
     }
 
     const handleEnded = () => {
@@ -64,22 +89,32 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
     const handlePlay = () => setIsPlaying(true)
     const handlePause = () => setIsPlaying(false)
 
+    // Add all event listeners for better iOS compatibility
     media.addEventListener('loadeddata', handleLoadedData)
+    media.addEventListener('loadedmetadata', handleLoadedMetadata)
+    media.addEventListener('canplaythrough', handleCanPlayThrough)
     media.addEventListener('timeupdate', handleTimeUpdate)
     media.addEventListener('ended', handleEnded)
     media.addEventListener('error', handleError)
     media.addEventListener('play', handlePlay)
     media.addEventListener('pause', handlePause)
 
+    // Force load on iOS - sometimes needed
+    if (media.load) {
+      media.load()
+    }
+
     return () => {
       media.removeEventListener('loadeddata', handleLoadedData)
+      media.removeEventListener('loadedmetadata', handleLoadedMetadata)
+      media.removeEventListener('canplaythrough', handleCanPlayThrough)
       media.removeEventListener('timeupdate', handleTimeUpdate)
       media.removeEventListener('ended', handleEnded)
       media.removeEventListener('error', handleError)
       media.removeEventListener('play', handlePlay)
       media.removeEventListener('pause', handlePause)
     }
-  }, [src, autoPlay, isVideo])
+  }, [src, autoPlay, isVideo, duration])
 
   // Close volume control when clicking outside
   useEffect(() => {
@@ -264,9 +299,12 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
         <audio
           ref={mediaRef}
           src={src}
-          preload="metadata"
-          volume={volume}
+          preload="auto"
           loop
+          playsInline
+          webkit-playsinline="true"
+          x-webkit-airplay="allow"
+          controlsList="nodownload"
         />
       )}
 
