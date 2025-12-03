@@ -51,8 +51,95 @@ export const extractZipFile = async (zipFile, onProgress = null) => {
   try {
     if (onProgress) onProgress(0, 100, 'جاري تحميل الملف المضغوط...')
 
+    // Validate file object
+    if (!zipFile) {
+      throw new Error('لم يتم تحديد ملف')
+    }
+
+    const fileSizeMB = (zipFile.size / (1024 * 1024)).toFixed(2)
+    devLog(`📦 ZIP file info: name=${zipFile.name}, size=${fileSizeMB}MB, type=${zipFile.type}`)
+
+    // Check if file is still readable
+    if (zipFile.size === 0) {
+      throw new Error('الملف فارغ أو غير قابل للقراءة')
+    }
+
+    // Warn if file is very large (> 500MB)
+    if (zipFile.size > 500 * 1024 * 1024) {
+      devLog(`⚠️ Large file detected (${fileSizeMB}MB). Using streaming approach...`)
+      if (onProgress) onProgress(0, 100, `ملف كبير (${fileSizeMB}MB) - جاري القراءة...`)
+    }
+
+    // For very large files (> 1GB), warn user
+    if (zipFile.size > 1024 * 1024 * 1024) {
+      devWarn(`⚠️ File is over 1GB. This may take a while or fail due to browser memory limits.`)
+    }
+
+    // Files over 2GB will likely fail in most browsers
+    if (zipFile.size > 2 * 1024 * 1024 * 1024) {
+      throw new Error(`الملف كبير جداً (${fileSizeMB}MB). الحد الأقصى للمتصفح حوالي 2GB. يرجى تقسيم الملف إلى أجزاء أصغر.`)
+    }
+
+    // Try streaming approach first for large files
+    let arrayBuffer
+    try {
+      // Use stream() for more reliable large file reading
+      if (zipFile.size > 100 * 1024 * 1024 && zipFile.stream) {
+        devLog('📦 Using stream API for large file...')
+        const reader = zipFile.stream().getReader()
+        const chunks = []
+        let receivedLength = 0
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          chunks.push(value)
+          receivedLength += value.length
+
+          // Update progress
+          const progressPercent = Math.floor((receivedLength / zipFile.size) * 5)
+          if (onProgress) onProgress(progressPercent, 100, `جاري قراءة الملف... ${Math.floor(receivedLength / (1024 * 1024))}MB / ${fileSizeMB}MB`)
+        }
+
+        // Combine chunks into single ArrayBuffer
+        arrayBuffer = new Uint8Array(receivedLength)
+        let position = 0
+        for (const chunk of chunks) {
+          arrayBuffer.set(chunk, position)
+          position += chunk.length
+        }
+        arrayBuffer = arrayBuffer.buffer
+      } else {
+        // For smaller files, use arrayBuffer() directly
+        arrayBuffer = await zipFile.arrayBuffer()
+      }
+    } catch (streamError) {
+      devLog('Stream/arrayBuffer() failed, trying FileReader...', streamError)
+      // Fallback to FileReader with progress
+      arrayBuffer = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onprogress = (e) => {
+          if (e.lengthComputable && onProgress) {
+            const progressPercent = Math.floor((e.loaded / e.total) * 5)
+            onProgress(progressPercent, 100, `جاري قراءة الملف... ${Math.floor(e.loaded / (1024 * 1024))}MB / ${fileSizeMB}MB`)
+          }
+        }
+        reader.onerror = (e) => {
+          prodError('FileReader error:', e)
+          reject(new Error(`فشل في قراءة الملف (${fileSizeMB}MB) - الملف كبير جداً أو حاول مرة أخرى`))
+        }
+        reader.readAsArrayBuffer(zipFile)
+      })
+    }
+
+    devLog(`📦 Read ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)}MB from ZIP`)
+
+    if (onProgress) onProgress(5, 100, 'جاري فك الضغط...')
+
     const zip = new JSZip()
-    const zipData = await zip.loadAsync(zipFile, {
+    const zipData = await zip.loadAsync(arrayBuffer, {
       // Process files one by one instead of loading all at once
       createFolders: false
     })
@@ -168,6 +255,7 @@ const uploadMediaFile = async (file, folder) => {
  */
 export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgress = null) => {
   const questions = []
+  const missingMediaFiles = [] // Track files referenced in XLSX but not found in ZIP
   const total = excelData.length
   const BATCH_SIZE = 10 // Process 10 questions at a time
 
@@ -207,28 +295,37 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
 
     // Process media files individually with error handling for each
     const failedUploads = []
+    const questionMissingMedia = [] // Track missing media for this question
 
     // Question Image
     const qImageFilename = row.Question_Image || row.question_image || row.صورة_السؤال
-    if (qImageFilename && mediaFiles[qImageFilename]) {
-      try {
-        devLog(`📤 Uploading question image: ${qImageFilename}`)
-        question.imageUrl = await uploadMediaFile(mediaFiles[qImageFilename], 'images/questions')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload question image ${qImageFilename}:`, error.message)
-        failedUploads.push(`صورة السؤال: ${qImageFilename} (${error.message})`)
+    if (qImageFilename) {
+      if (mediaFiles[qImageFilename]) {
+        try {
+          devLog(`📤 Uploading question image: ${qImageFilename}`)
+          question.imageUrl = await uploadMediaFile(mediaFiles[qImageFilename], 'images/questions')
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload question image ${qImageFilename}:`, error.message)
+          failedUploads.push(`صورة السؤال: ${qImageFilename} (${error.message})`)
+        }
+      } else {
+        questionMissingMedia.push({ type: 'صورة السؤال', filename: qImageFilename })
       }
     }
 
     // Question Audio
     const qAudioFilename = row.Question_Audio || row.question_audio || row.صوت_السؤال
-    if (qAudioFilename && mediaFiles[qAudioFilename]) {
-      try {
-        devLog(`📤 Uploading question audio: ${qAudioFilename}`)
-        question.audioUrl = await uploadMediaFile(mediaFiles[qAudioFilename], 'audio')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload question audio ${qAudioFilename}:`, error.message)
-        failedUploads.push(`صوت السؤال: ${qAudioFilename} (${error.message})`)
+    if (qAudioFilename) {
+      if (mediaFiles[qAudioFilename]) {
+        try {
+          devLog(`📤 Uploading question audio: ${qAudioFilename}`)
+          question.audioUrl = await uploadMediaFile(mediaFiles[qAudioFilename], 'audio')
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload question audio ${qAudioFilename}:`, error.message)
+          failedUploads.push(`صوت السؤال: ${qAudioFilename} (${error.message})`)
+        }
+      } else {
+        questionMissingMedia.push({ type: 'صوت السؤال', filename: qAudioFilename })
       }
     }
 
@@ -245,32 +342,39 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
           failedUploads.push(`فيديو السؤال: ${qVideoFilename} (${error.message})`)
         }
       } else {
-        devWarn(`⚠️ Question video not found in ZIP: ${qVideoFilename}`)
-        devLog(`Available media files:`, Object.keys(mediaFiles))
+        questionMissingMedia.push({ type: 'فيديو السؤال', filename: qVideoFilename })
       }
     }
 
     // Answer Image
     const aImageFilename = row.Answer_Image || row.answer_image || row.صورة_الإجابة
-    if (aImageFilename && mediaFiles[aImageFilename]) {
-      try {
-        devLog(`📤 Uploading answer image: ${aImageFilename}`)
-        question.answerImageUrl = await uploadMediaFile(mediaFiles[aImageFilename], 'images/questions')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload answer image ${aImageFilename}:`, error.message)
-        failedUploads.push(`صورة الإجابة: ${aImageFilename} (${error.message})`)
+    if (aImageFilename) {
+      if (mediaFiles[aImageFilename]) {
+        try {
+          devLog(`📤 Uploading answer image: ${aImageFilename}`)
+          question.answerImageUrl = await uploadMediaFile(mediaFiles[aImageFilename], 'images/questions')
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload answer image ${aImageFilename}:`, error.message)
+          failedUploads.push(`صورة الإجابة: ${aImageFilename} (${error.message})`)
+        }
+      } else {
+        questionMissingMedia.push({ type: 'صورة الإجابة', filename: aImageFilename })
       }
     }
 
     // Answer Audio
     const aAudioFilename = row.Answer_Audio || row.answer_audio || row.صوت_الإجابة
-    if (aAudioFilename && mediaFiles[aAudioFilename]) {
-      try {
-        devLog(`📤 Uploading answer audio: ${aAudioFilename}`)
-        question.answerAudioUrl = await uploadMediaFile(mediaFiles[aAudioFilename], 'audio')
-      } catch (error) {
-        devWarn(`⚠️ Failed to upload answer audio ${aAudioFilename}:`, error.message)
-        failedUploads.push(`صوت الإجابة: ${aAudioFilename} (${error.message})`)
+    if (aAudioFilename) {
+      if (mediaFiles[aAudioFilename]) {
+        try {
+          devLog(`📤 Uploading answer audio: ${aAudioFilename}`)
+          question.answerAudioUrl = await uploadMediaFile(mediaFiles[aAudioFilename], 'audio')
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload answer audio ${aAudioFilename}:`, error.message)
+          failedUploads.push(`صوت الإجابة: ${aAudioFilename} (${error.message})`)
+        }
+      } else {
+        questionMissingMedia.push({ type: 'صوت الإجابة', filename: aAudioFilename })
       }
     }
 
@@ -287,9 +391,18 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
           failedUploads.push(`فيديو الإجابة: ${aVideoFilename} (${error.message})`)
         }
       } else {
-        devWarn(`⚠️ Answer video not found in ZIP: ${aVideoFilename}`)
-        devLog(`Available media files:`, Object.keys(mediaFiles))
+        questionMissingMedia.push({ type: 'فيديو الإجابة', filename: aVideoFilename })
       }
+    }
+
+    // Track missing media for this question
+    if (questionMissingMedia.length > 0) {
+      missingMediaFiles.push({
+        questionNumber: i + 1,
+        questionText: question.text?.substring(0, 50) + '...',
+        missingFiles: questionMissingMedia
+      })
+      devWarn(`⚠️ Question ${i + 1} has ${questionMissingMedia.length} missing media files:`, questionMissingMedia)
     }
 
     // Log any failed uploads for this question
@@ -303,7 +416,13 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
     questions.push(question)
   }
 
-  return questions
+  // Log summary of missing media files
+  if (missingMediaFiles.length > 0) {
+    devWarn(`📋 Total questions with missing media: ${missingMediaFiles.length}`)
+    devLog('Missing media summary:', missingMediaFiles)
+  }
+
+  return { questions, missingMediaFiles }
 }
 
 /**

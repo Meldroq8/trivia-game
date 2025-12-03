@@ -3,12 +3,15 @@ import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { questionVerificationService } from '../services/questionVerificationService'
 import { devLog, prodError } from '../utils/devLog'
 import QuestionReviewCard from './QuestionReviewCard'
+import DifficultyBalancer from './DifficultyBalancer'
 
 /**
  * Dashboard for AI-powered question verification
  * Allows admins to verify questions in batch and review flagged ones
  */
 function VerificationDashboard({ userId }) {
+  // Main tab: 'verification' or 'difficulty'
+  const [mainTab, setMainTab] = useState('verification')
   // Stats
   const [stats, setStats] = useState({
     total: 0,
@@ -652,6 +655,44 @@ function VerificationDashboard({ userId }) {
 
   return (
     <div className="space-y-6">
+      {/* Main Tab Selector */}
+      <div className="flex gap-2 bg-white dark:bg-slate-800 rounded-xl p-2 shadow-md">
+        <button
+          onClick={() => setMainTab('verification')}
+          className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+            mainTab === 'verification'
+              ? 'bg-purple-600 text-white shadow-lg'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          التحقق من الأسئلة
+        </button>
+        <button
+          onClick={() => setMainTab('difficulty')}
+          className={`flex-1 py-3 px-6 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+            mainTab === 'difficulty'
+              ? 'bg-amber-500 text-white shadow-lg'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+          </svg>
+          موازن الصعوبات
+        </button>
+      </div>
+
+      {/* Difficulty Balancer Tab */}
+      {mainTab === 'difficulty' && (
+        <DifficultyBalancer categories={categories} categoryMap={categoryMap} />
+      )}
+
+      {/* Verification Tab */}
+      {mainTab === 'verification' && (
+        <>
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white">
         <h2 className="text-2xl font-bold mb-2">التحقق من الأسئلة بالذكاء الاصطناعي</h2>
@@ -861,6 +902,8 @@ function VerificationDashboard({ userId }) {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

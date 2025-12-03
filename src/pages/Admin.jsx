@@ -1713,6 +1713,10 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
   // Unique tab ID to avoid reacting to own broadcasts
   const tabIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
 
+  // File input refs for reliable file access
+  const xlsxFileInputRef = useRef(null)
+  const zipFileInputRef = useRef(null)
+
   // Cross-tab sync using BroadcastChannel
   useEffect(() => {
     const channel = new BroadcastChannel('question-sync')
@@ -2221,7 +2225,15 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       return
     }
 
-    if (!bulkFile) {
+    // Get file from input ref directly (more reliable than state)
+    let file = null
+    if (bulkImportType === 'zip' && zipFileInputRef.current) {
+      file = zipFileInputRef.current.files[0]
+    } else if (bulkImportType === 'xlsx' && xlsxFileInputRef.current) {
+      file = xlsxFileInputRef.current.files[0]
+    }
+
+    if (!file) {
       alert('يرجى اختيار ملف XLSX أو ZIP')
       return
     }
@@ -2236,7 +2248,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       // Handle ZIP file (contains both XLSX and media)
       if (bulkImportType === 'zip') {
         devLog('📦 Extracting ZIP file...')
-        const extracted = await extractZipFile(bulkFile, (progress, total, message) => {
+        const extracted = await extractZipFile(file, (progress, total, message) => {
           setBulkProgress({ current: progress, total, message })
         })
 
@@ -2251,7 +2263,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       // Handle XLSX file only
       else if (bulkImportType === 'xlsx') {
         devLog('📄 Parsing XLSX file...')
-        excelData = await parseExcelFile(bulkFile)
+        excelData = await parseExcelFile(file)
       }
 
       if (excelData.length === 0) {
@@ -2261,13 +2273,18 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       devLog(`📊 Processing ${excelData.length} questions...`)
 
       // Process questions with media upload
-      const processedQuestions = await processBulkQuestions(
+      const { questions: processedQuestions, missingMediaFiles } = await processBulkQuestions(
         excelData,
         mediaFiles,
         (current, total, message) => {
           setBulkProgress({ current, total, message })
         }
       )
+
+      // Log missing media files summary
+      if (missingMediaFiles.length > 0) {
+        devWarn(`⚠️ ${missingMediaFiles.length} questions have missing media files`)
+      }
 
       // Check if category exists or create it
       let targetCategoryId = categories.find(c => c.name === bulkCategoryName)?.id
@@ -2309,6 +2326,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       let skippedCount = 0
       const errors = []
 
+      const MAX_RETRIES = 3
       for (let i = 0; i < processedQuestions.length; i++) {
         const question = processedQuestions[i]
         setBulkProgress({
@@ -2317,19 +2335,41 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
           message: `جاري حفظ السؤال ${i + 1} من ${processedQuestions.length} في قاعدة البيانات...`
         })
 
-        try {
-          devLog(`➕ Adding question ${i + 1} to category ${targetCategoryId}:`, {
-            text: question.text?.substring(0, 50) + '...',
-            categoryId: targetCategoryId,
-            categoryName: bulkCategoryName
-          })
-          // Use addSingleQuestion which properly associates the question with the category
-          const addedQuestionId = await FirebaseQuestionsService.addSingleQuestion(targetCategoryId, question)
-          devLog(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
-          addedCount++
-        } catch (error) {
-          prodError(`Error adding question ${i + 1}:`, error)
-          errors.push({ questionNumber: i + 1, text: question.text, error: error.message })
+        let success = false
+        let lastError = null
+
+        // Retry loop for handling "Document already exists" and other transient errors
+        for (let attempt = 1; attempt <= MAX_RETRIES && !success; attempt++) {
+          try {
+            devLog(`➕ Adding question ${i + 1} to category ${targetCategoryId} (attempt ${attempt}):`, {
+              text: question.text?.substring(0, 50) + '...',
+              categoryId: targetCategoryId,
+              categoryName: bulkCategoryName
+            })
+            // Use addSingleQuestion which properly associates the question with the category
+            const addedQuestionId = await FirebaseQuestionsService.addSingleQuestion(targetCategoryId, question)
+            devLog(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
+            addedCount++
+            success = true
+          } catch (error) {
+            lastError = error
+            const isRetryableError = error.message?.includes('already exists') ||
+                                     error.message?.includes('PERMISSION_DENIED') ||
+                                     error.code === 'unavailable' ||
+                                     error.code === 'deadline-exceeded'
+
+            if (isRetryableError && attempt < MAX_RETRIES) {
+              devWarn(`⚠️ Attempt ${attempt} failed for question ${i + 1}, retrying in ${attempt * 500}ms...`, error.message)
+              await new Promise(resolve => setTimeout(resolve, attempt * 500))
+            } else if (attempt === MAX_RETRIES) {
+              prodError(`Error adding question ${i + 1} after ${MAX_RETRIES} attempts:`, error)
+            }
+          }
+        }
+
+        // If all retries failed, log error and cleanup
+        if (!success) {
+          errors.push({ questionNumber: i + 1, text: question.text, error: lastError?.message || 'Unknown error' })
           skippedCount++
 
           // Delete uploaded media files for this failed question
@@ -2359,6 +2399,19 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         prodError('Failed questions:', errors)
       }
 
+      // Log missing media files report
+      if (missingMediaFiles.length > 0) {
+        console.group('📋 Missing Media Files Report')
+        console.warn(`⚠️ ${missingMediaFiles.length} questions referenced media files not found in ZIP:`)
+        missingMediaFiles.forEach(({ questionNumber, questionText, missingFiles }) => {
+          console.warn(`\n❌ Question ${questionNumber}: ${questionText}`)
+          missingFiles.forEach(({ type, filename }) => {
+            console.warn(`   - ${type}: "${filename}"`)
+          })
+        })
+        console.groupEnd()
+      }
+
       // Reset state
       setBulkFile(null)
       setBulkCategoryName('')
@@ -2368,7 +2421,23 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       devLog(`📊 Import complete: ${addedCount} added, ${skippedCount} skipped`)
       devLog(`🔄 Refreshing data to show newly added questions in category: ${bulkCategoryName}`)
 
-      alert(`✅ نجح الاستيراد!\n\n📊 تم إضافة: ${addedCount} سؤال\n⚠️ تم تخطي: ${skippedCount} سؤال\n📁 الفئة: ${bulkCategoryName}`)
+      // Build alert message with missing media info
+      let alertMessage = `✅ نجح الاستيراد!\n\n📊 تم إضافة: ${addedCount} سؤال\n⚠️ تم تخطي: ${skippedCount} سؤال\n📁 الفئة: ${bulkCategoryName}`
+
+      if (missingMediaFiles.length > 0) {
+        alertMessage += `\n\n⚠️ ${missingMediaFiles.length} أسئلة بدون ملفات وسائط:\n`
+        // Show first 5 missing media entries in alert
+        const preview = missingMediaFiles.slice(0, 5)
+        preview.forEach(({ questionNumber, missingFiles }) => {
+          alertMessage += `\n• سؤال ${questionNumber}: ${missingFiles.map(f => f.filename).join(', ')}`
+        })
+        if (missingMediaFiles.length > 5) {
+          alertMessage += `\n... و ${missingMediaFiles.length - 5} أسئلة أخرى`
+        }
+        alertMessage += '\n\n(تفاصيل كاملة في Console)'
+      }
+
+      alert(alertMessage)
 
       // Clear ALL caches to ensure fresh data everywhere
       devLog('🗑️ Clearing all caches to force fresh data load...')
@@ -4093,6 +4162,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                   <div>
                     <label className="block text-sm font-bold mb-2 text-black">ملف Excel:</label>
                     <input
+                      ref={xlsxFileInputRef}
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={(e) => setBulkFile(e.target.files[0])}
@@ -4169,6 +4239,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                   <div>
                     <label className="block text-sm font-bold mb-2 text-black">ملف ZIP:</label>
                     <input
+                      ref={zipFileInputRef}
                       type="file"
                       accept=".zip"
                       onChange={(e) => setBulkFile(e.target.files[0])}
@@ -7009,6 +7080,8 @@ function UserMessagesManager({ isAdmin }) {
     }
   }
 
+  const [successMessage, setSuccessMessage] = useState('')
+
   const handleMarkResolved = async (report) => {
     if (!window.confirm('هل أنت متأكد من وضع علامة "تم الحل" على هذا التقرير؟')) {
       return
@@ -7030,11 +7103,18 @@ function UserMessagesManager({ isAdmin }) {
         devLog('✅ Notification sent to user:', report.userId)
       }
 
-      await loadReports()
-      alert('تم وضع علامة "تم الحل" على التقرير وإرسال إشعار للمستخدم')
+      // Update state directly instead of reloading
+      setReports(prev => prev.map(r =>
+        r.id === report.id ? { ...r, status: 'resolved' } : r
+      ))
+
+      // Show success message briefly
+      setSuccessMessage('✅ تم وضع علامة "تم الحل" على التقرير')
+      setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
       prodError('Error marking report as resolved:', error)
-      alert('فشل في تحديث حالة التقرير: ' + error.message)
+      setSuccessMessage('❌ فشل في تحديث حالة التقرير')
+      setTimeout(() => setSuccessMessage(''), 3000)
     } finally {
       setProcessingId(null)
     }
@@ -7048,11 +7128,17 @@ function UserMessagesManager({ isAdmin }) {
     try {
       setProcessingId(reportId)
       await FirebaseQuestionsService.deleteQuestionReport(reportId)
-      await loadReports()
-      alert('تم حذف التقرير بنجاح')
+
+      // Remove from state directly instead of reloading
+      setReports(prev => prev.filter(r => r.id !== reportId))
+
+      // Show success message briefly
+      setSuccessMessage('✅ تم حذف التقرير بنجاح')
+      setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
       prodError('Error deleting report:', error)
-      alert('فشل في حذف التقرير: ' + error.message)
+      setSuccessMessage('❌ فشل في حذف التقرير')
+      setTimeout(() => setSuccessMessage(''), 3000)
     } finally {
       setProcessingId(null)
     }
@@ -7090,6 +7176,15 @@ function UserMessagesManager({ isAdmin }) {
 
   return (
     <div className="space-y-6">
+      {/* Success/Error Toast */}
+      {successMessage && (
+        <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-bold transition-all duration-300 ${
+          successMessage.includes('✅') ? 'bg-green-600' : 'bg-red-600'
+        }`}>
+          {successMessage}
+        </div>
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">رسائل المستخدمين</h2>
         <div className="flex gap-2">
