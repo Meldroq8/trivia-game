@@ -260,6 +260,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ===== HEADBAND SESSIONS =====
+    // Real-time headband game sessions (Who Am I / Guess the Image)
+    match /headbandSessions/{sessionId} {
+      // Allow public read/write for headband sessions
+      // Users scan QR codes and may not be authenticated on their phones
+      // Sessions are temporary and auto-cleanup after game ends
+      allow read, write: if true;
+    }
+
     // ===== NOTIFICATIONS =====
     // User notifications for report resolutions, etc.
     match /notifications/{notificationId} {

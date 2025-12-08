@@ -94,6 +94,7 @@ jobs:
 
     - name: Build project
       env:
+        # Firebase Configuration
         VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
         VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
         VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -101,10 +102,15 @@ jobs:
         VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-        VITE_GOOGLE_SEARCH_API_KEY: ${{ secrets.VITE_GOOGLE_SEARCH_API_KEY }}
-        VITE_GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.VITE_GOOGLE_SEARCH_ENGINE_ID }}
-        VITE_OPENAI_API_KEY: ${{ secrets.VITE_OPENAI_API_KEY }}
-        VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+        # CloudFront CDN Configuration
+        VITE_CLOUDFRONT_DOMAIN: ${{ secrets.VITE_CLOUDFRONT_DOMAIN }}
+        VITE_CLOUDFRONT_ENABLED: ${{ secrets.VITE_CLOUDFRONT_ENABLED }}
+        VITE_CDN_BASE_URL: ${{ secrets.VITE_CDN_BASE_URL }}
+        # AWS Configuration (credentials are in Firebase secrets, not exposed to frontend)
+        VITE_AWS_REGION: ${{ secrets.VITE_AWS_REGION }}
+        VITE_AWS_S3_BUCKET: ${{ secrets.VITE_AWS_S3_BUCKET }}
+        # Note: API keys (OpenAI, Google Search, Anthropic) are now stored in Firebase Functions secrets
+        # and accessed server-side only - they are NOT needed in frontend build
       run: npm run build
 
     - name: Deploy to Firebase Hosting

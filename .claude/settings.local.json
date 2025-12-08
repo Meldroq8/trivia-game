@@ -1,33 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev:*)",
-      "Bash(npm run deploy:*)",
-      "Bash(firebase deploy:*)",
-      "Bash(aws:*)",
-      "Bash(npm install:*)",
-      "Bash(curl:*)",
-      "Bash(python -m json.tool:*)",
-      "Bash(firebase functions:secrets:access:*)",
-      "Bash(firebase functions:secrets:set:*)",
-      "Bash(gcloud secrets versions access:*)",
-      "Bash(cat:*)",
-      "Bash(printf:*)",
-      "Bash(firebase functions:log:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(powershell -Command:*)",
-      "Bash(node scripts/analyze-media-urls.js:*)",
-      "Bash(node scripts/generate-csv-report.js:*)",
-      "Bash(node scripts/analyze-s3-bucket.js:*)",
-      "Bash(dir:*)",
-      "Bash(findstr:*)",
-      "Bash(node scripts/export-critical-duplicates.js:*)",
-      "WebSearch",
-      "WebFetch(domain:www.twilio.com)",
-      "WebFetch(domain:www.businesschat.io)",
-      "Bash(npm run build:*)"
+      "Bash(npx firebase deploy:*)"
     ],
     "deny": [],
     "ask": []

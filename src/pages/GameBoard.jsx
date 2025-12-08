@@ -40,7 +40,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - لعبة جارية'
+    document.title = 'راس براس - لعبة جارية'
   }, [])
 
   // Perk system state

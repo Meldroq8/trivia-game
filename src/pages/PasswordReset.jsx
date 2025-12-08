@@ -19,7 +19,7 @@ function PasswordReset() {
   const oobCode = searchParams.get('oobCode')
 
   useEffect(() => {
-    document.title = 'لمّه - إعادة تعيين كلمة المرور'
+    document.title = 'راس براس - إعادة تعيين كلمة المرور'
   }, [])
 
   // Verify the reset code when component mounts

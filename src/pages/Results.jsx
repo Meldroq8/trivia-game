@@ -19,7 +19,7 @@ function Results({ gameState, setGameState }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - النتائج'
+    document.title = 'راس براس - النتائج'
   }, [])
 
   // Track dimensions for responsive sizing

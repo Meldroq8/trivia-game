@@ -20,6 +20,8 @@ import { db } from '../firebase/config'
 import { getTextDirection, formatText } from '../utils/textDirection'
 import DrawingService from '../services/drawingService'
 import DrawingCanvas from '../components/DrawingCanvas'
+import HeadbandService from '../services/headbandService'
+import HeadbandDisplay, { HeadbandAnswerDisplay } from '../components/HeadbandDisplay'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -389,6 +391,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const drawingUnsubscribeRef = useRef(null)
   const drawingTimerInitializedRef = useRef(false)
 
+  // Headband mini-game state
+  const [headbandSession, setHeadbandSession] = useState(null)
+  const headbandUnsubscribeRef = useRef(null)
+
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
@@ -407,6 +413,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       'اختر شخص لتمثيل فريقك',
       'شخص واحد مسموح له يصور الباركود',
       'اذا كنت مستعد اضغط جاهز'
+    ],
+    headband: [
+      'لاعب من كل فريق يصور الباركود',
+      'اختر فريقك ثم اضغط جاهز',
+      'اسأل أسئلة لتخمين صورة الخصم'
     ]
   })
   const containerRef = useRef(null)
@@ -416,7 +427,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - سؤال'
+    document.title = 'راس براس - سؤال'
   }, [])
 
   // Load mini game rules from settings
@@ -693,6 +704,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     loadGameData()
   }, [currentQuestion?.id]) // Reload when question changes to get fresh settings
 
+  // In preview mode, use preview categories as fallback while gameData loads
+  useEffect(() => {
+    if (previewMode && previewGameData?.categories && !gameData) {
+      setGameData({ categories: previewGameData.categories })
+      devLog('✅ QuestionView: Using preview categories as fallback')
+    }
+  }, [previewMode, previewGameData, gameData])
+
   // Initialize and subscribe to drawing session for drawing mini-games
   useEffect(() => {
     if (!currentQuestion || !gameData) return
@@ -785,6 +804,84 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       drawingTimerInitializedRef.current = false // Reset timer flag on cleanup
     }
   }, [currentQuestion?.id, gameData, gameState.currentTurn, user?.uid])
+
+  // Initialize and subscribe to headband session for headband mini-games
+  useEffect(() => {
+    if (!currentQuestion || !gameData) return
+
+    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+    const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+    const isHeadbandMode = isQrMiniGame && miniGameType === 'headband'
+
+    if (!isHeadbandMode) {
+      // Cleanup any existing headband session if switching away from headband mode
+      if (headbandUnsubscribeRef.current) {
+        headbandUnsubscribeRef.current()
+        headbandUnsubscribeRef.current = null
+      }
+      setHeadbandSession(null)
+      return
+    }
+
+    // Create headband session - include user ID to prevent collisions between different games
+    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!questionId || !user?.uid) return
+    const sessionId = `${questionId}_${user.uid}`
+
+    const initHeadbandSession = async () => {
+      try {
+        devLog('🎯 Initializing headband session with ID:', sessionId)
+
+        // Get question data
+        const question = currentQuestion?.question || currentQuestion
+
+        // Create session in Firestore
+        await HeadbandService.createSession(sessionId, {
+          questionId: sessionId,
+          // Team A data (Answer + Answer_Image)
+          answer: question?.answer || '',
+          answerImage: question?.answerImageUrl || question?.answerImage || '',
+          // Team B data (Answer2 + Answer_Image2)
+          answer2: question?.answer2 || '',
+          answerImage2: question?.answerImage2 || question?.answerImageUrl2 || '',
+          // Question metadata
+          questionText: question?.text || '',
+          difficulty: question?.difficulty || 'medium',
+          points: question?.points || 400
+        })
+
+        devLog('🎯 Headband session created successfully:', sessionId)
+        devLog('🎯 QR Code URL should be:', `${window.location.origin}/headband/${sessionId}`)
+
+        // Subscribe to session updates
+        const unsubscribe = HeadbandService.subscribeToSession(sessionId, (sessionData) => {
+          if (sessionData) {
+            setHeadbandSession(sessionData)
+            devLog('🎯 Headband session updated:', sessionData.status, 'TeamA:', sessionData.teamACounter, 'TeamB:', sessionData.teamBCounter)
+          }
+        })
+
+        headbandUnsubscribeRef.current = unsubscribe
+      } catch (error) {
+        prodError('Error initializing headband session:', error)
+      }
+    }
+
+    initHeadbandSession()
+
+    // Cleanup on unmount or question change
+    return () => {
+      if (headbandUnsubscribeRef.current) {
+        headbandUnsubscribeRef.current()
+        headbandUnsubscribeRef.current = null
+      }
+    }
+  }, [currentQuestion?.id, gameData, user?.uid])
 
   const getCategoryById = (categoryId) => {
     if (gameData && gameData.categories) {
@@ -2220,6 +2317,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     )
                   }
 
+                  // Check if this is headband mode and both players are ready
+                  const isHeadbandMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) && miniGameType === 'headband'
+                  const isHeadbandActive = isHeadbandMode && headbandSession?.status === 'playing'
+
+                  // Show headband counter circles if both players are ready
+                  if (isHeadbandActive) {
+                    return (
+                      <div className="flex flex-col justify-center items-center w-full h-full p-4 md:p-8">
+                        {/* Explanation text */}
+                        <p className="text-center text-gray-700 dark:text-gray-300 text-sm md:text-lg mb-3 md:mb-6 font-medium">
+                          🟢 أخضر = أسئلة متبقية | 🔴 أحمر = أسئلة مستخدمة
+                        </p>
+                        <HeadbandDisplay
+                          teamACounter={headbandSession?.teamACounter || 0}
+                          teamBCounter={headbandSession?.teamBCounter || 0}
+                          teamAName="فريق أ"
+                          teamBName="فريق ب"
+                          maxQuestions={10}
+                        />
+                      </div>
+                    )
+                  }
+
                   // Show normal question content
                   return (
                     <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
@@ -2391,9 +2511,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           >
                             <QRCodeWithLogo
                               questionId={
-                                // For drawing mode, use sessionId (includes userId for unique sessions)
+                                // For drawing/headband mode, use sessionId (includes userId for unique sessions)
                                 // For charades/answer mode, use raw questionId (AnswerViewPage expects just the question ID)
-                                (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
+                                (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing' ||
+                                 category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
                                   ? sessionId
                                   : questionId
                               }
@@ -2401,15 +2522,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
                                 : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px
                               }
-                              mode={category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing' ? 'drawing' : 'answer'}
+                              mode={
+                                (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing') ? 'drawing' :
+                                (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband') ? 'headband' :
+                                'answer'
+                              }
                             />
                           </div>
 
                           {/* Instructions */}
                           <div className="flex flex-col portrait:gap-1.5 landscape:gap-2.5 portrait:scale-90">
-                            {((category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
-                              ? miniGameRules.drawing
-                              : miniGameRules.other
+                            {(
+                              (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
+                                ? miniGameRules.drawing
+                                : (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
+                                  ? (miniGameRules.headband || miniGameRules.other)
+                                  : miniGameRules.other
                             ).map((rule, index) => (
                               <div
                                 key={index}
@@ -2482,8 +2610,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
                   const miniGameTypeForTimer = category?.miniGameType || originalCategory?.miniGameType || 'charades'
                   const isDrawingModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'drawing'
+                  const isHeadbandModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'headband'
 
                   if (isQrMiniGame) {
+                    // Headband Mode - No timer at all (counter-based game)
+                    if (isHeadbandModeForTimer) {
+                      return null
+                    }
+
                     // Drawing Mode Timer - Show countdown timer ONLY when drawing is active
                     if (isDrawingModeForTimer) {
                       // Only show timer when drawing has started
@@ -2693,13 +2827,30 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   {/* Answer Content - Same as question content */}
                   <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
-                    <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
-                           style={{
-                             fontSize: `${styles.questionFontSize}px`,
-                             unicodeBidi: 'plaintext'
-                           }}>
-                      {currentQuestion ? formatText(currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
-                    </label>
+                    {/* Answer Text - Hide for headband mode since it shows answers on the cards */}
+                    {(() => {
+                      const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                      const category = gameData?.categories?.find(c => c.id === categoryId)
+                      const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                      const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+                      const isHeadbandMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) &&
+                                            (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
+
+                      // Skip answer text for headband mode
+                      if (isHeadbandMode && headbandSession) {
+                        return null
+                      }
+
+                      return (
+                        <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
+                               style={{
+                                 fontSize: `${styles.questionFontSize}px`,
+                                 unicodeBidi: 'plaintext'
+                               }}>
+                          {currentQuestion ? formatText(currentQuestion.question?.answer || currentQuestion.answer) : 'جاري تحميل الإجابة...'}
+                        </label>
+                      )
+                    })()}
 
                     {/* Answer Media Player */}
                     {(() => {
@@ -2724,15 +2875,56 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       </div>
                     )}
 
-                    {/* Answer Image (shown in answer area) */}
+                    {/* Headband Answer Display - show both images when in headband mode */}
                     {(() => {
+                      const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                      const category = gameData?.categories?.find(c => c.id === categoryId)
+                      const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                      const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+                      const isHeadbandMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) &&
+                                            (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
+
+                      if (isHeadbandMode && headbandSession) {
+                        return (
+                          <div className="relative overflow-hidden"
+                               style={{
+                                 height: (styles.imageAreaHeight * 1.4) + 'px',
+                                 maxHeight: (styles.imageAreaHeight * 1.4) + 'px',
+                                 width: styles.isPC ? '95%' : '92%',
+                                 maxWidth: styles.isPC ? '95%' : '92%'
+                               }}>
+                            <HeadbandAnswerDisplay
+                              answer={headbandSession.answer}
+                              answerImage={headbandSession.answerImage}
+                              answer2={headbandSession.answer2}
+                              answerImage2={headbandSession.answerImage2}
+                            />
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+
+                    {/* Answer Image (shown in answer area) - Skip for headband mode as it has its own display */}
+                    {(() => {
+                      // Check if headband mode - skip normal answer image
+                      const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                      const category = gameData?.categories?.find(c => c.id === categoryId)
+                      const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+                      const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+                      const isHeadbandMode = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) &&
+                                            (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
+
+                      // Skip normal answer image for headband mode
+                      if (isHeadbandMode && headbandSession) {
+                        return null
+                      }
+
                       // First check for answer-specific image
                       const answerImageUrl = currentQuestion?.question?.answerImageUrl ||
                                            currentQuestion?.answerImageUrl ||
                                            currentQuestion?.question?.answerImage ||
                                            currentQuestion?.answerImage
-
-                      const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
 
                       // Check if there's answer video/audio media
                       const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl

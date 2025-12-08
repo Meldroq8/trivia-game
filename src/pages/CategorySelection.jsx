@@ -22,7 +22,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - اختيار الفئات'
+    document.title = 'راس براس - اختيار الفئات'
   }, [])
   const [expandedMasters, setExpandedMasters] = useState({})
   const [searchText, setSearchText] = useState('')

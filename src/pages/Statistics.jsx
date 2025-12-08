@@ -15,7 +15,7 @@ function Statistics() {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - الإحصائيات'
+    document.title = 'راس براس - الإحصائيات'
   }, [])
 
   // Redirect to home if not authenticated (but only after loading is complete)

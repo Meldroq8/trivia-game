@@ -20,7 +20,7 @@ function MyGames({ gameState, setGameState }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - ألعابي'
+    document.title = 'راس براس - ألعابي'
   }, [])
 
   // Responsive scaling system

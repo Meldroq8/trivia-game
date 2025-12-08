@@ -43,7 +43,7 @@ function Admin() {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - لوحة التحكم'
+    document.title = 'راس براس - لوحة التحكم'
   }, [])
 
   // Load pending count for notification badge
@@ -634,6 +634,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
         'صورة الإجابة': q.answerImageUrl || '',
         'صوت الإجابة': q.answerAudioUrl || '',
         'فيديو الإجابة': q.answerVideoUrl || '',
+        'الإجابة 2': q.answer2 || '',
+        'صورة الإجابة 2': q.answerImageUrl2 || '',
         'الفئة': q.category || q.categoryId || categoryId
       }
     })
@@ -1201,11 +1203,14 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                       >
                         <option value="charades">🎭 تمثيل (Charades)</option>
                         <option value="drawing">🎨 رسم (Drawing)</option>
+                        <option value="headband">🎯 تخمين الصورة (Headband)</option>
                       </select>
                       <div className="text-xs text-blue-600 mt-1">
                         {category.miniGameType === 'drawing'
                           ? '🎨 سيرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية'
-                          : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
+                          : category.miniGameType === 'headband'
+                            ? '🎯 لاعبان يتواجهان - كل واحد يحمل صورة للآخر ليخمنها'
+                            : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
                       </div>
                     </div>
                   )}
@@ -2519,6 +2524,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     setEditingData({
       text: question.text,
       answer: question.answer,
+      answer2: question.answer2 || '',
       difficulty: question.difficulty,
       points: question.points,
       toleranceHint: question.toleranceHint || { enabled: false, value: '1' },
@@ -2527,6 +2533,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       videoUrl: question.videoUrl || '',
       answerAudioUrl: question.answerAudioUrl || '',
       answerImageUrl: question.answerImageUrl || '',
+      answerImageUrl2: question.answerImageUrl2 || '',
       answerVideoUrl: question.answerVideoUrl || '',
       options: question.options || []
     })
@@ -2736,6 +2743,24 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       } else {
         delete updatedQuestion.answerImageUrl
         firebaseUpdate.answerImageUrl = deleteField()
+      }
+
+      // Answer 2 (for headband mini-game)
+      if (editingData.answer2 && editingData.answer2.trim()) {
+        updatedQuestion.answer2 = editingData.answer2.trim()
+        firebaseUpdate.answer2 = editingData.answer2.trim()
+      } else {
+        delete updatedQuestion.answer2
+        firebaseUpdate.answer2 = deleteField()
+      }
+
+      // Answer Image 2 (for headband mini-game)
+      if (editingData.answerImageUrl2 && editingData.answerImageUrl2.trim()) {
+        updatedQuestion.answerImageUrl2 = editingData.answerImageUrl2.trim()
+        firebaseUpdate.answerImageUrl2 = editingData.answerImageUrl2.trim()
+      } else {
+        delete updatedQuestion.answerImageUrl2
+        firebaseUpdate.answerImageUrl2 = deleteField()
       }
 
       if (editingData.answerVideoUrl && editingData.answerVideoUrl.trim()) {
@@ -4591,6 +4616,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                               <p className="text-green-600 dark:text-green-400 mb-2 inline-block" style={{ unicodeBidi: 'plaintext' }}>
                                 ✓ {formatText(question.answer)}
                               </p>
+                              {question.answer2 && (
+                                <p className="text-purple-600 dark:text-purple-400 mb-2 inline-block mr-4" style={{ unicodeBidi: 'plaintext' }}>
+                                  ✓ الإجابة 2: {formatText(question.answer2)}
+                                </p>
+                              )}
                             </div>
 
                             {/* Multiple Choice Options */}
@@ -4707,6 +4737,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                           <button
                             onClick={() => {
                               const categoryName = question.categoryName
+                              // Find the full category object to get mini-game settings
+                              const categoryObj = categories.find(c => c.id === question.categoryId) || {}
 
                               // Store preview data in localStorage
                               const previewData = {
@@ -4725,7 +4757,14 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                   selectedCategories: [question.categoryId],
                                   usedQuestions: [],
                                   usedPointValues: [],
-                                  gameStarted: true
+                                  gameStarted: true,
+                                  // Include full category data for mini-game settings
+                                  categories: [{
+                                    id: question.categoryId,
+                                    name: categoryName,
+                                    enableQrMiniGame: categoryObj.enableQrMiniGame || false,
+                                    miniGameType: categoryObj.miniGameType || 'charades'
+                                  }]
                                 }
                               }
 
@@ -4949,6 +4988,30 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 type="video"
                                 className="w-full max-w-xs"
                               />
+                            </div>
+                          )}
+
+                          {/* Headband Mini-Game Fields Display */}
+                          {(question.answer2 || question.answerImageUrl2) && (
+                            <div className="mb-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                              <label className="block text-xs font-bold mb-2 text-purple-800">🎭 حقول لعبة العصابة:</label>
+                              {question.answer2 && (
+                                <div className="mb-2">
+                                  <span className="text-xs text-purple-700 font-bold">الإجابة 2: </span>
+                                  <span className="text-sm text-gray-900">{question.answer2}</span>
+                                </div>
+                              )}
+                              {question.answerImageUrl2 && (
+                                <div>
+                                  <span className="text-xs text-purple-700 font-bold block mb-1">صورة الإجابة 2:</span>
+                                  <img
+                                    src={question.answerImageUrl2}
+                                    alt="صورة الإجابة 2"
+                                    className="max-w-32 max-h-32 rounded-lg object-cover border cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => setZoomedImage(question.answerImageUrl2)}
+                                  />
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -5343,6 +5406,64 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 </div>
                               </div>
 
+                              {/* Headband Mini-Game Fields */}
+                              <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                                <h4 className="text-sm font-bold mb-3 text-purple-800">🎭 حقول لعبة العصابة (Headband)</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-purple-700">الإجابة 2:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.answer2 || ''}
+                                      onChange={(e) => updateEditingData('answer2', e.target.value)}
+                                      className="w-full p-2 border rounded text-sm text-gray-900 bg-white"
+                                      placeholder="الإجابة الثانية للاعب الثاني"
+                                      dir="rtl"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold mb-1 text-purple-700">صورة الإجابة 2:</label>
+                                    <input
+                                      type="text"
+                                      value={editingData.answerImageUrl2 || ''}
+                                      onChange={(e) => updateEditingData('answerImageUrl2', e.target.value)}
+                                      className="w-full p-2 border rounded text-xs text-gray-900 bg-white mb-1"
+                                      placeholder="رابط الصورة"
+                                    />
+                                    <div className="flex gap-1">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleMediaUpload(e.target.files[0], 'image', 'answerImageUrl2')}
+                                        disabled={uploadingMedia.answerImageUrl2}
+                                        className="hidden"
+                                        id="answer-image2-upload"
+                                      />
+                                      <label
+                                        htmlFor="answer-image2-upload"
+                                        className={`flex-1 text-center py-1 px-2 rounded text-xs font-bold cursor-pointer ${
+                                          uploadingMedia.answerImageUrl2
+                                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                                            : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                        }`}
+                                      >
+                                        {uploadingMedia.answerImageUrl2 ? '⏳ جاري الرفع...' : '📤 رفع صورة'}
+                                      </label>
+                                      {editingData.answerImageUrl2 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleMediaDelete('answerImageUrl2', editingData.answerImageUrl2, updateEditingData)}
+                                          className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs font-bold"
+                                          title="حذف الصورة"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
                               <div className="flex gap-2">
                                 <button
                                   type="button"
@@ -5385,6 +5506,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                             <p className="text-green-600 mb-2 inline-block" style={{ unicodeBidi: 'plaintext' }}>
                               ✓ {formatText(question.answer)}
                             </p>
+                            {question.answer2 && (
+                              <p className="text-purple-600 mb-2 inline-block mr-4" style={{ unicodeBidi: 'plaintext' }}>
+                                ✓ الإجابة 2: {formatText(question.answer2)}
+                              </p>
+                            )}
                           </div>
 
                           {/* Multiple Choice Options */}
@@ -5489,7 +5615,14 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                     selectedCategories: [category.id],
                                     usedQuestions: [], // Empty array instead of Set for JSON serialization
                                     usedPointValues: [], // Empty array instead of Set for JSON serialization
-                                    gameStarted: true
+                                    gameStarted: true,
+                                    // Include full category data for mini-game settings
+                                    categories: [{
+                                      id: category.id,
+                                      name: category.name,
+                                      enableQrMiniGame: category.enableQrMiniGame || false,
+                                      miniGameType: category.miniGameType || 'charades'
+                                    }]
                                   }
                                 }
 
@@ -5542,6 +5675,7 @@ function SettingsManager() {
   const [largeLogoSize, setLargeLogoSize] = useState('medium')
 
   const [slogan, setSlogan] = useState('')
+  const [showSlogan, setShowSlogan] = useState(true)
   const [loading, setLoading] = useState(true)
 
   const [sponsorLogoFile, setSponsorLogoFile] = useState(null)
@@ -5562,6 +5696,11 @@ function SettingsManager() {
       'اختر شخص لتمثيل فريقك',
       'شخص واحد مسموح له يصور الباركود',
       'اذا كنت مستعد اضغط جاهز'
+    ],
+    headband: [
+      'لاعب من كل فريق يصور الباركود',
+      'اختر فريقك ثم اضغط جاهز',
+      'اسأل أسئلة لتخمين صورة الخصم'
     ]
   })
   const [savingRules, setSavingRules] = useState(false)
@@ -5588,6 +5727,9 @@ function SettingsManager() {
         if (settings?.slogan) {
           setSlogan(settings.slogan)
         }
+        if (settings?.showSlogan !== undefined) {
+          setShowSlogan(settings.showSlogan)
+        }
         if (settings?.sponsorLogo) {
           setSponsorLogoPreview(settings.sponsorLogo)
         }
@@ -5598,7 +5740,13 @@ function SettingsManager() {
           setSignUpEnabled(settings.signUpEnabled)
         }
         if (settings?.miniGameRules) {
-          setMiniGameRules(settings.miniGameRules)
+          // Merge loaded rules with defaults to preserve any new rule types (like headband)
+          setMiniGameRules(prev => ({
+            ...prev,
+            ...settings.miniGameRules,
+            // Ensure headband exists even if not in saved settings
+            headband: settings.miniGameRules.headband || prev.headband
+          }))
         }
       } catch (error) {
         prodError('Error loading settings:', error)
@@ -5629,28 +5777,32 @@ function SettingsManager() {
 
     setUploading(true)
     try {
-      // Convert file to base64 and save to Firebase
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const base64Logo = e.target.result
-        const success = await saveAppSettings({
-          logo: base64Logo,
-          logoSize: logoSize
-        })
+      // Compress image before uploading (preserves transparency for PNG/WebP)
+      const compressed = await S3UploadService.compressImage(logoFile, 200, 0.85)
 
-        if (success) {
-          setLogoPreview(base64Logo)
-          alert('تم حفظ الشعار والحجم بنجاح!')
-        } else {
-          alert('حدث خطأ أثناء حفظ الشعار')
-        }
-        setUploading(false)
+      // Upload to S3 with correct extension
+      const extension = compressed.name.split('.').pop()
+      const fileName = `logo_${Date.now()}.${extension}`
+      const s3Url = await S3UploadService.uploadImage(compressed, 'images/settings', fileName)
+
+      // Save URL to app settings (not base64)
+      const success = await saveAppSettings({
+        logo: s3Url,
+        logoSize: logoSize
+      })
+
+      if (success) {
+        setLogoPreview(s3Url)
+        setLogoFile(null)
+        alert('تم حفظ الشعار والحجم بنجاح!')
+      } else {
+        alert('حدث خطأ أثناء حفظ الشعار')
       }
-      reader.readAsDataURL(logoFile)
     } catch (error) {
       prodError('Error uploading logo:', error)
+      alert('حدث خطأ أثناء رفع الشعار: ' + error.message)
+    } finally {
       setUploading(false)
-      alert('حدث خطأ أثناء رفع الشعار')
     }
   }
 
@@ -5671,6 +5823,11 @@ function SettingsManager() {
   const handleLogoRemove = async () => {
     if (confirm('هل أنت متأكد من حذف الشعار؟')) {
       try {
+        // Delete from S3 if it's an S3 URL
+        if (logoPreview && logoPreview.includes('cloudfront')) {
+          await S3UploadService.deleteFile(logoPreview)
+        }
+
         const success = await saveAppSettings({
           logo: null,
           logoSize: 'medium'
@@ -5711,28 +5868,32 @@ function SettingsManager() {
 
     setUploadingLargeLogo(true)
     try {
-      // Convert file to base64 and save to Firebase
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const base64Logo = e.target.result
-        const success = await saveAppSettings({
-          largeLogo: base64Logo,
-          largeLogoSize: largeLogoSize
-        })
+      // Compress image before uploading (preserves transparency for PNG/WebP)
+      const compressed = await S3UploadService.compressImage(largeLogoFile, 500, 0.85)
 
-        if (success) {
-          alert('تم حفظ الشعار الكبير بنجاح!')
-          setLargeLogoFile(null)
-        } else {
-          alert('حدث خطأ أثناء حفظ الشعار الكبير')
-        }
-        setUploadingLargeLogo(false)
+      // Upload to S3 with correct extension
+      const extension = compressed.name.split('.').pop()
+      const fileName = `large_logo_${Date.now()}.${extension}`
+      const s3Url = await S3UploadService.uploadImage(compressed, 'images/settings', fileName)
+
+      // Save URL to app settings (not base64)
+      const success = await saveAppSettings({
+        largeLogo: s3Url,
+        largeLogoSize: largeLogoSize
+      })
+
+      if (success) {
+        setLargeLogoPreview(s3Url)
+        setLargeLogoFile(null)
+        alert('تم حفظ الشعار الكبير بنجاح!')
+      } else {
+        alert('حدث خطأ أثناء حفظ الشعار الكبير')
       }
-      reader.readAsDataURL(largeLogoFile)
     } catch (error) {
       prodError('Error uploading large logo:', error)
+      alert('حدث خطأ أثناء رفع الشعار الكبير: ' + error.message)
+    } finally {
       setUploadingLargeLogo(false)
-      alert('حدث خطأ أثناء رفع الشعار الكبير')
     }
   }
 
@@ -5756,6 +5917,11 @@ function SettingsManager() {
     }
 
     try {
+      // Delete from S3 if it's an S3 URL
+      if (largeLogoPreview && largeLogoPreview.includes('cloudfront')) {
+        await S3UploadService.deleteFile(largeLogoPreview)
+      }
+
       const success = await saveAppSettings({ largeLogo: null })
       if (success) {
         setLargeLogoPreview(null)
@@ -5782,6 +5948,22 @@ function SettingsManager() {
     } catch (error) {
       prodError('Error saving slogan:', error)
       alert('حدث خطأ أثناء حفظ الشعار النصي')
+    }
+  }
+
+  const handleShowSloganToggle = async () => {
+    try {
+      const newValue = !showSlogan
+      const success = await saveAppSettings({ showSlogan: newValue })
+      if (success) {
+        setShowSlogan(newValue)
+        alert(newValue ? 'سيتم عرض الشعار النصي' : 'سيتم إخفاء الشعار النصي')
+      } else {
+        alert('حدث خطأ أثناء حفظ الإعداد')
+      }
+    } catch (error) {
+      prodError('Error toggling slogan visibility:', error)
+      alert('حدث خطأ أثناء حفظ الإعداد')
     }
   }
 
@@ -6124,6 +6306,20 @@ function SettingsManager() {
           يمكنك تعديل النص الذي يظهر في الصفحة الرئيسية تحت الشعار الكبير.
         </p>
 
+        {/* Visibility Toggle */}
+        <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+          <input
+            type="checkbox"
+            id="showSlogan"
+            checked={showSlogan}
+            onChange={handleShowSloganToggle}
+            className="w-5 h-5 text-blue-600 rounded cursor-pointer"
+          />
+          <label htmlFor="showSlogan" className="font-bold text-blue-800 cursor-pointer">
+            عرض الشعار النصي في الصفحة الرئيسية
+          </label>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 className="font-semibold mb-2 text-gray-700">الشعار النصي الحالي:</h4>
@@ -6140,7 +6336,7 @@ function SettingsManager() {
               value={slogan}
               onChange={(e) => setSlogan(e.target.value)}
               placeholder="أدخل الشعار النصي الجديد..."
-              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none"
+              className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none bg-white text-gray-900"
               maxLength={200}
             />
             <p className="text-sm text-gray-900 mt-1">
@@ -6346,6 +6542,47 @@ function SettingsManager() {
           <button
             onClick={() => handleAddRule('other')}
             className="mt-3 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>+</span>
+            إضافة قاعدة جديدة
+          </button>
+        </div>
+
+        {/* Headband Game Rules */}
+        <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <h4 className="font-bold text-orange-800 mb-3 flex items-center gap-2">
+            <span>🎯</span>
+            قواعد لعبة تخمين الصورة (Headband)
+          </h4>
+          <div className="space-y-3">
+            {(miniGameRules.headband || []).map((rule, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <div className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {index + 1}
+                </div>
+                <input
+                  type="text"
+                  value={rule}
+                  onChange={(e) => handleRuleChange('headband', index, e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-right text-gray-900 font-medium"
+                  dir="rtl"
+                  placeholder={`القاعدة ${index + 1}`}
+                />
+                {(miniGameRules.headband || []).length > 1 && (
+                  <button
+                    onClick={() => handleRemoveRule('headband', index)}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-lg flex-shrink-0 transition-colors"
+                    title="حذف القاعدة"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => handleAddRule('headband')}
+            className="mt-3 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <span>+</span>
             إضافة قاعدة جديدة
@@ -6892,6 +7129,14 @@ function PendingQuestionsManager() {
                   <p className="mt-1 text-gray-900 font-semibold text-right" style={{ unicodeBidi: 'plaintext' }}>
                     {formatText(question.answer)}
                   </p>
+                  {question.answer2 && (
+                    <>
+                      <strong className="text-purple-700 mt-2 block">🎭 الإجابة 2:</strong>
+                      <p className="mt-1 text-gray-900 font-semibold text-right" style={{ unicodeBidi: 'plaintext' }}>
+                        {formatText(question.answer2)}
+                      </p>
+                    </>
+                  )}
                 </div>
                 {question.options && question.options.length > 0 && (
                   <div>

@@ -29,7 +29,7 @@ function ProfilePage() {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه - الملف الشخصي'
+    document.title = 'راس براس - الملف الشخصي'
   }, [])
 
   // Redirect to home if not authenticated

@@ -22,9 +22,18 @@ function QRCodeWithLogo({ questionId, size = 250, mode = 'answer' }) {
   }, [getAppSettings])
 
   // Generate URL based on mode
-  const qrUrl = mode === 'drawing'
-    ? `${window.location.origin}/draw/${questionId}`
-    : `${window.location.origin}/answer-view/${questionId}`
+  const getQrUrl = () => {
+    switch (mode) {
+      case 'drawing':
+        return `${window.location.origin}/draw/${questionId}`
+      case 'headband':
+        return `${window.location.origin}/headband/${questionId}`
+      default: // 'answer' mode (charades)
+        return `${window.location.origin}/answer-view/${questionId}`
+    }
+  }
+
+  const qrUrl = getQrUrl()
 
   const answerViewUrl = qrUrl
 

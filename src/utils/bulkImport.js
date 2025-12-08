@@ -259,8 +259,24 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
   const total = excelData.length
   const BATCH_SIZE = 10 // Process 10 questions at a time
 
+  // Debug: Log first row column names
+  if (excelData.length > 0) {
+    devLog('📋 Excel column names found:', Object.keys(excelData[0]))
+    devLog('📋 First row data:', excelData[0])
+  }
+
   for (let i = 0; i < excelData.length; i++) {
     const row = excelData[i]
+
+    // Debug: Log Answer_Image2 lookup for first few rows
+    if (i < 3) {
+      devLog(`📋 Row ${i} - Answer_Image2 lookup:`, {
+        'Answer_Image2': row.Answer_Image2,
+        'answer_image2': row.answer_image2,
+        'صورة_الإجابة2': row.صورة_الإجابة2,
+        'Answer_Image_2': row['Answer_Image_2'],
+      })
+    }
 
     // Progress: 50% base + 50% for processing
     const progressPercent = 50 + Math.floor(((i + 1) / total) * 50)
@@ -359,6 +375,28 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
         }
       } else {
         questionMissingMedia.push({ type: 'صورة الإجابة', filename: aImageFilename })
+      }
+    }
+
+    // Answer 2 (for headband mini-game)
+    const answer2 = row.Answer2 || row.answer2 || row.الإجابة2 || row['Answer 2'] || ''
+    if (answer2) {
+      question.answer2 = answer2
+    }
+
+    // Answer Image 2 (for headband mini-game)
+    const aImage2Filename = row.Answer_Image2 || row.answer_image2 || row.صورة_الإجابة2 || row['Answer_Image_2']
+    if (aImage2Filename) {
+      if (mediaFiles[aImage2Filename]) {
+        try {
+          devLog(`📤 Uploading answer image 2: ${aImage2Filename}`)
+          question.answerImageUrl2 = await uploadMediaFile(mediaFiles[aImage2Filename], 'images/questions')
+        } catch (error) {
+          devWarn(`⚠️ Failed to upload answer image 2 ${aImage2Filename}:`, error.message)
+          failedUploads.push(`صورة الإجابة 2: ${aImage2Filename} (${error.message})`)
+        }
+      } else {
+        questionMissingMedia.push({ type: 'صورة الإجابة 2', filename: aImage2Filename })
       }
     }
 

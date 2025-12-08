@@ -194,7 +194,7 @@ function InstallPrompt() {
             {/* Text content */}
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-gray-900 dark:text-white text-lg">
-                أضف لمّه للشاشة الرئيسية
+                أضف راس براس للشاشة الرئيسية
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
                 {needsManualInstall

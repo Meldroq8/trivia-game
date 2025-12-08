@@ -25,7 +25,7 @@ function Index({ setGameState }) {
 
   // Set page title
   useEffect(() => {
-    document.title = 'لمّه'
+    document.title = 'راس براس'
   }, [])
 
   // Check for password reset success
@@ -230,23 +230,25 @@ function Index({ setGameState }) {
           </div>
 
           {/* Slogan */}
-          <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
-            <h1
-              className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
-              style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
-            >
-              {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
-            </h1>
-            <p
-              className="text-gray-600 dark:text-gray-300"
-              style={{
-                fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
-                marginBottom: `${responsiveStyles.baseGap * 2}px`
-              }}
-            >
-              اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
-            </p>
-          </div>
+          {settings.showSlogan !== false && (
+            <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
+              <h1
+                className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
+                style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
+              >
+                {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+              </h1>
+              <p
+                className="text-gray-600 dark:text-gray-300"
+                style={{
+                  fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
+                  marginBottom: `${responsiveStyles.baseGap * 2}px`
+                }}
+              >
+                اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
+              </p>
+            </div>
+          )}
 
           {/* Create Game Button */}
           <button
