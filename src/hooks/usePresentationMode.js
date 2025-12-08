@@ -92,8 +92,8 @@ export function usePresentationMode() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // F11 or F key for fullscreen
-      if (e.key === 'F11' || (e.key === 'f' && e.ctrlKey)) {
+      // F11 for fullscreen (removed Ctrl+F as it conflicts with browser find)
+      if (e.key === 'F11') {
         e.preventDefault()
         togglePresentationMode()
       }

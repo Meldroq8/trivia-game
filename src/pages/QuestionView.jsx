@@ -1099,15 +1099,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         gameHistory: [
           ...prev.gameHistory,
           {
-            question: currentQuestion.text,
-            answer: currentQuestion.answer,
+            question: currentQuestion.question?.text || currentQuestion.text || '',
+            answer: currentQuestion.question?.answer || currentQuestion.answer || '',
             points: finalPoints,
             basePoints: basePoints,
             doublePointsUsed: shouldApplyDouble,
             riskPointsUsed: shouldApplyRisk,
             riskPenalty: opponentHadRisk ? riskPenalty : 0,
             multiplier: multiplierUsed,
-            difficulty: currentQuestion.difficulty,
+            difficulty: currentQuestion.question?.difficulty || currentQuestion.difficulty || '',
             category: currentQuestion.categoryId,
             winner: teamKey,
             loser: opponentHadRisk ? opponentTeamKey : null,
@@ -1196,13 +1196,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         gameHistory: [
           ...prev.gameHistory,
           {
-            question: currentQuestion.text,
-            answer: currentQuestion.answer,
+            question: currentQuestion.question?.text || currentQuestion.text || '',
+            answer: currentQuestion.question?.answer || currentQuestion.answer || '',
             points: 0, // No points awarded
-            basePoints: currentQuestion.points,
+            basePoints: currentQuestion.question?.points || currentQuestion.points || 0,
             doublePointsUsed: false,
             riskPenalty: riskPenalty,
-            difficulty: currentQuestion.difficulty,
+            difficulty: currentQuestion.question?.difficulty || currentQuestion.difficulty || '',
             category: currentQuestion.categoryId,
             winner: 'none',
             loser: teamWithRisk,

@@ -204,14 +204,18 @@ export class AuthService {
           }
         }
 
-        // Game history - rebuild each entry
+        // Game history - rebuild each entry (including question text and answer for analytics)
         if (originalData.gameHistory && Array.isArray(originalData.gameHistory)) {
           rebuilt.gameHistory = originalData.gameHistory
             .filter(entry => entry != null)
             .map(entry => ({
               questionId: String(entry.questionId || ''),
+              question: String(entry.question || ''),
+              answer: String(entry.answer || ''),
+              difficulty: String(entry.difficulty || ''),
               winner: String(entry.winner || ''),
               points: Number(entry.points || 0),
+              basePoints: Number(entry.basePoints || entry.points || 0),
               timestamp: entry.timestamp || Date.now(),
               category: String(entry.category || '')
             }))
@@ -403,6 +407,50 @@ export class AuthService {
       devLog('✅ Game deleted successfully')
     } catch (error) {
       prodError('❌ Error deleting game:', error)
+      throw error
+    }
+  }
+
+  // Get ALL games (admin only - for analytics)
+  static async getAllGames(options = {}) {
+    try {
+      devLog('📊 Loading all games for analytics')
+
+      const { startDate, endDate } = options
+      let gamesQuery
+
+      if (startDate && endDate) {
+        // With date filtering
+        gamesQuery = query(
+          collection(db, 'games'),
+          where('createdAt', '>=', startDate),
+          where('createdAt', '<=', endDate),
+          orderBy('createdAt', 'desc')
+        )
+      } else {
+        // All games
+        gamesQuery = query(
+          collection(db, 'games'),
+          orderBy('createdAt', 'desc')
+        )
+      }
+
+      const snapshot = await getDocs(gamesQuery)
+      const games = []
+
+      snapshot.forEach((doc) => {
+        const data = doc.data()
+        games.push({
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || new Date()
+        })
+      })
+
+      devLog('📊 Loaded', games.length, 'games for analytics')
+      return games
+    } catch (error) {
+      prodError('❌ Error getting all games:', error)
       throw error
     }
   }

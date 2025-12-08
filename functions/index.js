@@ -21,6 +21,7 @@ const awsSecretAccessKey = defineSecret('AWS_SECRET_ACCESS_KEY')
 const openaiApiKey = defineSecret('OPENAI_API_KEY')
 const googleSearchApiKey = defineSecret('GOOGLE_SEARCH_API_KEY')
 const googleSearchEngineId = defineSecret('GOOGLE_SEARCH_ENGINE_ID')
+const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY')
 
 // S3 Upload Proxy - Secure server-side uploads
 export const s3Upload = onRequest(
@@ -1227,6 +1228,229 @@ export const imageProxy = onRequest(
     } catch (error) {
       console.error('Image proxy error:', error)
       res.status(500).send(`Error fetching image: ${error.message}`)
+    }
+  }
+)
+
+// Claude AI Service - Verify/Analyze Questions using Claude Opus 4.5
+export const claudeVerifyQuestion = onRequest(
+  {
+    cors: true,
+    maxInstances: 10,
+    timeoutSeconds: 120, // Longer timeout for Claude
+    secrets: [anthropicApiKey],
+  },
+  async (req, res) => {
+    // Set CORS headers FIRST
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    res.set('Access-Control-Max-Age', '86400')
+    res.set('Access-Control-Allow-Credentials', 'false')
+
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('')
+      return
+    }
+
+    try {
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Verify authentication
+      const authHeader = req.headers.authorization
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized: Missing token' })
+        return
+      }
+
+      const idToken = authHeader.split('Bearer ')[1]
+
+      // Verify the ID token
+      let decodedToken
+      try {
+        decodedToken = await getAuth().verifyIdToken(idToken)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        res.status(401).json({ error: 'Unauthorized: Invalid token' })
+        return
+      }
+
+      const userId = decodedToken.uid
+
+      // Check if user is admin
+      const db = getFirestore()
+      const userDoc = await db.collection('users').doc(userId).get()
+
+      if (!userDoc.exists || !userDoc.data().isAdmin) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' })
+        return
+      }
+
+      const { prompt, maxTokens = 4096 } = req.body
+
+      if (!prompt) {
+        res.status(400).json({ error: 'Missing prompt' })
+        return
+      }
+
+      // Call Claude API
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicApiKey.value(),
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-5-20251101',
+          max_tokens: maxTokens,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ]
+        })
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.text()
+        console.error('Claude API error response:', response.status, errorBody)
+        let errorMessage = `Claude API failed with status ${response.status}`
+        try {
+          const errorJson = JSON.parse(errorBody)
+          errorMessage = errorJson.error?.message || errorBody
+        } catch {
+          errorMessage = errorBody
+        }
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      const text = data.content?.[0]?.text || ''
+
+      res.status(200).json({ text })
+
+    } catch (error) {
+      console.error('Claude verify question error:', error)
+      res.status(500).json({ error: `Failed: ${error.message}` })
+    }
+  }
+)
+
+// Claude AI Service - Batch verify questions
+export const claudeVerifyBatch = onRequest(
+  {
+    cors: true,
+    maxInstances: 5,
+    timeoutSeconds: 300, // 5 minutes for batch operations
+    memory: '1GiB',
+    secrets: [anthropicApiKey],
+  },
+  async (req, res) => {
+    // Set CORS headers FIRST
+    res.set('Access-Control-Allow-Origin', '*')
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+    res.set('Access-Control-Max-Age', '86400')
+    res.set('Access-Control-Allow-Credentials', 'false')
+
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('')
+      return
+    }
+
+    try {
+      // Only allow POST requests
+      if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' })
+        return
+      }
+
+      // Verify authentication
+      const authHeader = req.headers.authorization
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).json({ error: 'Unauthorized: Missing token' })
+        return
+      }
+
+      const idToken = authHeader.split('Bearer ')[1]
+
+      // Verify the ID token
+      let decodedToken
+      try {
+        decodedToken = await getAuth().verifyIdToken(idToken)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        res.status(401).json({ error: 'Unauthorized: Invalid token' })
+        return
+      }
+
+      const userId = decodedToken.uid
+
+      // Check if user is admin
+      const db = getFirestore()
+      const userDoc = await db.collection('users').doc(userId).get()
+
+      if (!userDoc.exists || !userDoc.data().isAdmin) {
+        res.status(403).json({ error: 'Forbidden: Admin access required' })
+        return
+      }
+
+      const { prompt, maxTokens = 8192 } = req.body
+
+      if (!prompt) {
+        res.status(400).json({ error: 'Missing prompt' })
+        return
+      }
+
+      // Call Claude API with larger context for batch
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicApiKey.value(),
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-5-20251101',
+          max_tokens: maxTokens,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ]
+        })
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.text()
+        console.error('Claude batch API error response:', response.status, errorBody)
+        let errorMessage = `Claude API failed with status ${response.status}`
+        try {
+          const errorJson = JSON.parse(errorBody)
+          errorMessage = errorJson.error?.message || errorBody
+        } catch {
+          errorMessage = errorBody
+        }
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      const text = data.content?.[0]?.text || ''
+
+      res.status(200).json({ text })
+
+    } catch (error) {
+      console.error('Claude batch verify error:', error)
+      res.status(500).json({ error: `Failed: ${error.message}` })
     }
   }
 )

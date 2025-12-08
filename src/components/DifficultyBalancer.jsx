@@ -166,8 +166,13 @@ function DifficultyBalancer({ categories, categoryMap }) {
     try {
       let updated = 0
       for (const q of toUpdate) {
+        // Calculate points based on difficulty
+        const points = q.suggestedDifficulty === 'easy' ? 200 :
+                      q.suggestedDifficulty === 'medium' ? 400 : 600
+
         await FirebaseQuestionsService.updateQuestion(q.questionId, {
-          difficulty: q.suggestedDifficulty
+          difficulty: q.suggestedDifficulty,
+          points: points
         })
         updated++
         setProgress({ current: updated, total: toUpdate.length })

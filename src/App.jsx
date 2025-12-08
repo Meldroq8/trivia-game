@@ -66,6 +66,21 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
         newState.usedQuestions = new Set() // Reset used questions for new game
         newState.usedPointValues = new Set() // Reset used point values
         newState.currentQuestion = null
+        newState.assignedQuestions = {} // Reset button-to-question assignments for new game
+        newState.gameHistory = [] // Reset game history for new game
+        newState.currentTurn = 'team1' // Reset to team 1 starting
+        newState.gameName = 'لعبة الأسئلة' // Reset game name to default
+        newState.team1 = { name: 'الفريق الأول', score: 0 } // Reset to defaults
+        newState.team2 = { name: 'الفريق الثاني', score: 0 } // Reset to defaults
+        newState.selectedCategories = [] // Reset selected categories
+        newState.selectedPerks = [] // Reset selected perks
+        newState.perkUsage = {
+          team1: { double: 0, phone: 0, search: 0 },
+          team2: { double: 0, phone: 0, search: 0 }
+        }
+        newState.activatedPerks = {
+          doublePoints: { active: false, team: null }
+        }
         localStorage.removeItem('trivia_user_exited')
         devLog('🔄 Resetting game state for new game - user at category selection')
       }

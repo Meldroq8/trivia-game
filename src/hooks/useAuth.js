@@ -155,6 +155,8 @@ export const useAuth = () => {
     getAllUsers: AuthService.getAllUsers,
     updateUserRole: AuthService.updateUserRole,
     searchUsers: AuthService.searchUsers,
+    // Analytics methods (admin only)
+    getAllGames: AuthService.getAllGames,
     // Leaderboard methods
     getPublicLeaderboard: AuthService.getPublicLeaderboard,
     updateLeaderboard: AuthService.updateLeaderboard

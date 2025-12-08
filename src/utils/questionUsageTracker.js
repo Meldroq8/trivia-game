@@ -403,6 +403,43 @@ class QuestionUsageTracker {
   }
 
   /**
+   * Reset usage data for a specific category only
+   * @param {string} categoryId - Category ID to reset
+   * @param {Array} categoryQuestions - Questions in this category
+   * @returns {Promise<void>}
+   */
+  async resetCategoryUsage(categoryId, categoryQuestions) {
+    if (!categoryQuestions || categoryQuestions.length === 0) {
+      devWarn('⚠️ No questions provided for category reset')
+      return
+    }
+
+    devLog(`🔄 Resetting usage for category: ${categoryId}`)
+
+    const usageData = await this.getUsageData()
+    let resetCount = 0
+
+    // Reset only the questions from this category
+    categoryQuestions.forEach(question => {
+      const questionId = this.getQuestionId(question)
+      if (usageData[questionId] !== undefined && usageData[questionId] > 0) {
+        usageData[questionId] = 0
+        resetCount++
+      }
+    })
+
+    if (resetCount > 0) {
+      // Update local cache immediately
+      this.localCache = usageData
+      // Save to Firebase immediately (important operation)
+      await this.saveUsageData(usageData, true)
+      devLog(`✅ Reset ${resetCount} questions for category: ${categoryId}`)
+    } else {
+      devLog(`ℹ️ No used questions found for category: ${categoryId}`)
+    }
+  }
+
+  /**
    * Clear all usage data for current user (reset questions)
    */
   async clearAllUsageData() {

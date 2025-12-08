@@ -39,8 +39,12 @@ service cloud.firestore {
 
     // ===== GAMES COLLECTION =====
     // Users can read and write their own games
+    // Admins can read ALL games for analytics
     match /games/{gameId} {
-      allow read, write: if request.auth != null &&
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.userId ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      allow write: if request.auth != null &&
         request.auth.uid == resource.data.userId;
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.userId;
@@ -271,6 +275,15 @@ service cloud.firestore {
       // Only admins can delete notifications
       allow delete: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // ===== CATEGORY STATS =====
+    // Pre-calculated category analytics (time-bucketed)
+    match /categoryStats/{bucketId} {
+      // Allow authenticated users to read stats (for analytics page)
+      allow read: if request.auth != null;
+      // Allow authenticated users to write (for game tracking)
+      allow write: if request.auth != null;
     }
 
     // ===== DEFAULT DENY =====

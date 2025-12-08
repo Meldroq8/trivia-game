@@ -411,9 +411,7 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           <button
             onClick={() => {
               if (aiNotes.suggestedQuestion) setEditedText(aiNotes.suggestedQuestion)
-              // Note: We don't apply suggestedAnswer anymore for difficulty adjustments
-              // since the answer is linked to an image and should not change
-              if (aiNotes.suggestedAnswer && !hasDifficultyMismatch) setEditedAnswer(aiNotes.suggestedAnswer)
+              if (aiNotes.suggestedAnswer) setEditedAnswer(aiNotes.suggestedAnswer)
               setIsEditing(true)
             }}
             className={`text-white text-sm font-medium py-1.5 px-4 rounded-lg ${

@@ -1,18 +1,30 @@
-import { GoogleGenAI } from "@google/genai"
 import { devLog, prodError } from '../utils/devLog'
+import { getAuth } from 'firebase/auth'
 
 /**
- * Service for verifying trivia questions using Gemini 2.5 Pro API
+ * Service for verifying trivia questions using Claude Opus 4.5 API
+ * Uses Firebase Functions as a secure proxy to keep API keys server-side
  * Checks grammar, factual accuracy, and answer correctness
  * Supports both Arabic and English content
  */
 class QuestionVerificationService {
   constructor() {
-    this.apiKey = import.meta.env.VITE_GEMINI_API_KEY
-    this.ai = null
-    this.model = "gemini-2.5-pro"
     this.maxRetries = 3
     this.baseDelay = 2000 // 2 seconds base delay for retries
+    // Firebase Functions URL
+    this.functionBaseUrl = 'https://us-central1-lamah-357f3.cloudfunctions.net'
+  }
+
+  /**
+   * Get auth token for Firebase Functions
+   */
+  async getAuthToken() {
+    const auth = getAuth()
+    const user = auth.currentUser
+    if (!user) {
+      throw new Error('User not authenticated')
+    }
+    return await user.getIdToken()
   }
 
   /**
@@ -23,7 +35,7 @@ class QuestionVerificationService {
   }
 
   /**
-   * Execute API call with automatic retry on rate limit (429) errors
+   * Execute API call with automatic retry on rate limit errors
    */
   async executeWithRetry(apiCall, context = '') {
     let lastError = null
@@ -36,15 +48,13 @@ class QuestionVerificationService {
         const errorMessage = error.message || ''
 
         // Check if it's a rate limit error (429)
-        if (errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('quota')) {
-          // Extract retry delay from error if available
-          const retryMatch = errorMessage.match(/retry.*?(\d+\.?\d*)s/i)
-          let waitTime = retryMatch ? parseFloat(retryMatch[1]) * 1000 : this.baseDelay * attempt
+        if (errorMessage.includes('429') || errorMessage.includes('rate') || errorMessage.includes('overloaded')) {
+          let waitTime = this.baseDelay * attempt
 
           // Cap at 60 seconds max
           waitTime = Math.min(waitTime, 60000)
 
-          devLog(`⏳ Rate limit hit${context ? ` (${context})` : ''}. Attempt ${attempt}/${this.maxRetries}. Waiting ${Math.round(waitTime/1000)}s...`)
+          devLog(`Rate limit hit${context ? ` (${context})` : ''}. Attempt ${attempt}/${this.maxRetries}. Waiting ${Math.round(waitTime/1000)}s...`)
 
           if (attempt < this.maxRetries) {
             await this.sleep(waitTime)
@@ -61,13 +71,61 @@ class QuestionVerificationService {
   }
 
   /**
-   * Initialize the AI client
+   * Call Claude API via Firebase Function (secure, server-side)
    */
-  initialize() {
-    if (!this.ai) {
-      this.ai = new GoogleGenAI({ apiKey: this.apiKey })
+  async callClaude(prompt, maxTokens = 4096) {
+    const token = await this.getAuthToken()
+
+    const response = await fetch(`${this.functionBaseUrl}/claudeVerifyQuestion`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        prompt,
+        maxTokens
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(error.error || `API request failed with status ${response.status}`)
     }
-    return this.ai
+
+    const data = await response.json()
+    return {
+      text: data.text || ''
+    }
+  }
+
+  /**
+   * Call Claude API for batch operations via Firebase Function
+   */
+  async callClaudeBatch(prompt, maxTokens = 8192) {
+    const token = await this.getAuthToken()
+
+    const response = await fetch(`${this.functionBaseUrl}/claudeVerifyBatch`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        prompt,
+        maxTokens
+      })
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
+      throw new Error(error.error || `API request failed with status ${response.status}`)
+    }
+
+    const data = await response.json()
+    return {
+      text: data.text || ''
+    }
   }
 
   /**
@@ -185,8 +243,6 @@ class QuestionVerificationService {
     if (toVerify.length === 0) return skippedResults
 
     try {
-      this.initialize()
-
       // Build the batch prompt
       const questionsText = toVerify.map((q, idx) => {
         const answerText = Array.isArray(q.answer) ? q.answer[0] : (q.answer || '')
@@ -207,7 +263,7 @@ ${questionsText}
 1. هل السؤال كامل ومفهوم؟ (ليس ناقص أو مقطوع)
 2. هل الإجابة كاملة؟ (ليست ناقصة أو فارغة)
 3. هل توجد أخطاء إملائية واضحة؟
-4. ابحث في الإنترنت وتحقق: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
+4. تحقق من معرفتك: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
 5. هل مستوى صعوبة السؤال يتناسب مع الصعوبة المحددة؟
 
 📊 مستويات الصعوبة:
@@ -216,14 +272,14 @@ ${questionsText}
 - hard (صعب): أسئلة تحتاج معرفة متخصصة أو تفاصيل دقيقة
 
 🚨 تحذير مهم جداً:
-- اقرأ السؤال بدقة شديدة قبل البحث
-- ابحث عن الإجابة الصحيحة للسؤال المطروح بالضبط
+- اقرأ السؤال بدقة شديدة قبل التحقق
+- تحقق من الإجابة الصحيحة للسؤال المطروح بالضبط
 - لا تخلط بين دول أو أشخاص أو أحداث مختلفة!
-- مثال: إذا السؤال عن "الكويت" لا تبحث عن "الإمارات"
+- مثال: إذا السؤال عن "الكويت" لا تخلط مع "الإمارات"
 
 ✅ متى تختار "pass" (تم التحقق):
 - السؤال والإجابة كاملين
-- الإجابة صحيحة بعد التحقق من الإنترنت
+- الإجابة صحيحة بعد التحقق
 - لا توجد أخطاء إملائية واضحة
 - مستوى الصعوبة متناسب
 
@@ -231,7 +287,7 @@ ${questionsText}
 - السؤال ناقص أو غير مكتمل
 - الإجابة فارغة أو ناقصة
 - أخطاء إملائية واضحة
-- الإجابة خاطئة بعد التحقق من الإنترنت
+- الإجابة خاطئة بعد التحقق
 - مستوى الصعوبة غير متناسب مع السؤال
 
 ⚠️ قاعدة الاقتراحات المهمة:
@@ -290,18 +346,12 @@ ${questionsText}
 ]`
 
       const response = await this.executeWithRetry(
-        () => this.ai.models.generateContent({
-          model: this.model,
-          contents: prompt,
-          config: {
-            tools: [{ googleSearch: {} }]
-          }
-        }),
+        () => this.callClaude(prompt),
         `batch of ${toVerify.length} questions`
       )
 
       const results = this.parseBatchResponse(response, toVerify)
-      devLog(`✅ Batch verified ${results.length} questions`)
+      devLog(`Batch verified ${results.length} questions`)
 
       // Combine skipped results with verified results
       return [...skippedResults, ...results]
@@ -340,7 +390,33 @@ ${questionsText}
         text = jsonMatch[0]
       }
 
-      const parsed = JSON.parse(text)
+      let parsed
+      try {
+        parsed = JSON.parse(text)
+      } catch (jsonErr) {
+        devLog('Initial JSON parse failed, attempting repairs...', jsonErr.message)
+        // Try to repair common JSON issues
+        let repaired = text
+          // Remove trailing commas
+          .replace(/,(\s*[}\]])/g, '$1')
+          // Fix unquoted property names
+          .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)/g, '$1"$2"$3')
+          // Fix single quotes to double quotes
+          .replace(/'/g, '"')
+          // Remove any control characters
+          .replace(/[\x00-\x1F\x7F]/g, '')
+
+        try {
+          parsed = JSON.parse(repaired)
+        } catch (repairErr) {
+          // Last resort: extract individual objects
+          devLog('Repair failed, extracting individual objects...')
+          parsed = this.extractObjectsFromText(text, questions)
+          if (parsed.length === 0) {
+            throw new Error('Could not parse JSON response')
+          }
+        }
+      }
 
       if (!Array.isArray(parsed)) {
         throw new Error('Response is not an array')
@@ -368,25 +444,64 @@ ${questionsText}
       })
 
     } catch (parseError) {
-      devLog('Failed to parse batch response:', parseError.message)
-      // Fallback: return flag status for all questions
-      return questions.map(question => ({
-        questionId: question.id,
-        questionText: question.text,
-        answer: question.answer,
-        difficulty: question.difficulty,
-        status: 'flag',
-        grammarIssues: [],
-        factualAccuracy: 'uncertain',
-        difficultyMatch: true,
-        actualDifficulty: question.difficulty || 'medium',
-        suggestedQuestion: null,
-        suggestedAnswer: null,
-        notes: 'تعذر تحليل الاستجابة',
-        sources: [],
-        verifiedAt: new Date().toISOString()
-      }))
+      devLog('Failed to parse batch response:', parseError.message, 'Text:', text.substring(0, 500))
+      // Try to extract at least status from the text
+      return questions.map(question => {
+        const hasPass = text.toLowerCase().includes('pass') || text.includes('verified')
+        return {
+          questionId: question.id,
+          questionText: question.text,
+          answer: question.answer,
+          difficulty: question.difficulty,
+          status: hasPass ? 'pass' : 'flag',
+          grammarIssues: [],
+          factualAccuracy: 'uncertain',
+          difficultyMatch: true,
+          actualDifficulty: question.difficulty || 'medium',
+          suggestedQuestion: null,
+          suggestedAnswer: null,
+          notes: `تعذر تحليل الاستجابة بشكل كامل`,
+          sources: [],
+          verifiedAt: new Date().toISOString()
+        }
+      })
     }
+  }
+
+  /**
+   * Extract individual JSON objects from malformed text
+   */
+  extractObjectsFromText(text, questions) {
+    const results = []
+
+    // Try to match individual objects with id and status
+    const objectRegex = /\{\s*"id"\s*:\s*"([^"]+)"[\s\S]*?"status"\s*:\s*"([^"]+)"[\s\S]*?\}/g
+    let match
+
+    while ((match = objectRegex.exec(text)) !== null) {
+      const id = match[1]
+      const fullMatch = match[0]
+
+      // Extract other fields from this object
+      const statusMatch = fullMatch.match(/"status"\s*:\s*"([^"]+)"/)
+      const notesMatch = fullMatch.match(/"notes"\s*:\s*"([^"]*)"/)
+      const factualMatch = fullMatch.match(/"factualAccuracy"\s*:\s*"([^"]+)"/)
+      const diffMatch = fullMatch.match(/"actualDifficulty"\s*:\s*"([^"]+)"/)
+      const suggestedQMatch = fullMatch.match(/"suggestedQuestion"\s*:\s*"([^"]*)"/)
+      const suggestedAMatch = fullMatch.match(/"suggestedAnswer"\s*:\s*"([^"]*)"/)
+
+      results.push({
+        id: id,
+        status: statusMatch ? statusMatch[1] : 'flag',
+        notes: notesMatch ? notesMatch[1] : '',
+        factualAccuracy: factualMatch ? factualMatch[1] : 'uncertain',
+        actualDifficulty: diffMatch ? diffMatch[1] : 'medium',
+        suggestedQuestion: suggestedQMatch && suggestedQMatch[1] !== 'null' ? suggestedQMatch[1] : null,
+        suggestedAnswer: suggestedAMatch && suggestedAMatch[1] !== 'null' ? suggestedAMatch[1] : null
+      })
+    }
+
+    return results
   }
 
   /**
@@ -398,7 +513,7 @@ ${questionsText}
     try {
       // Skip instruction questions - auto-approve them
       if (this.isInstructionQuestion(question)) {
-        devLog('⏭️ Skipping instruction question:', question.text?.substring(0, 50))
+        devLog('Skipping instruction question:', question.text?.substring(0, 50))
         return {
           questionId: question.id,
           questionText: question.text,
@@ -413,9 +528,6 @@ ${questionsText}
         }
       }
 
-      this.initialize()
-
-      const langContext = this.getLanguageContext(question)
       const categoryName = question.categoryName || question.categoryId || 'عام'
       // Handle answer that might be an array
       const answerText = Array.isArray(question.answer) ? question.answer[0] : (question.answer || '')
@@ -432,7 +544,7 @@ ${questionsText}
 1. هل السؤال كامل ومفهوم؟ (ليس ناقص أو مقطوع)
 2. هل الإجابة كاملة؟ (ليست ناقصة أو فارغة)
 3. هل توجد أخطاء إملائية واضحة؟
-4. ابحث في الإنترنت وتحقق: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
+4. تحقق من معرفتك: هل الإجابة صحيحة لهذا السؤال بالتحديد؟
 5. هل مستوى صعوبة السؤال يتناسب مع الصعوبة المحددة؟
 
 📊 مستويات الصعوبة:
@@ -441,8 +553,8 @@ ${questionsText}
 - hard (صعب): أسئلة تحتاج معرفة متخصصة أو تفاصيل دقيقة
 
 🚨 تحذير مهم جداً:
-- اقرأ السؤال بدقة شديدة قبل البحث
-- ابحث عن الإجابة الصحيحة للسؤال المطروح بالضبط
+- اقرأ السؤال بدقة شديدة قبل التحقق
+- تحقق من الإجابة الصحيحة للسؤال المطروح بالضبط
 - لا تخلط بين دول أو أشخاص أو أحداث مختلفة!
 
 ✅ متى تختار "pass":
@@ -509,18 +621,12 @@ ${questionsText}
 }`
 
       const response = await this.executeWithRetry(
-        () => this.ai.models.generateContent({
-          model: this.model,
-          contents: prompt,
-          config: {
-            tools: [{ googleSearch: {} }] // Enable web search for fact-checking
-          }
-        }),
+        () => this.callClaude(prompt),
         `question: ${question.text?.substring(0, 30)}...`
       )
 
       const result = this.parseResponse(response, question)
-      devLog('✅ Question verified:', question.text?.substring(0, 50) + '...')
+      devLog('Question verified:', question.text?.substring(0, 50) + '...')
       return result
 
     } catch (error) {
@@ -632,7 +738,7 @@ ${questionsText}
       items: []
     }
 
-    devLog(`🔍 Starting batch verification of ${questions.length} questions...`)
+    devLog(`Starting batch verification of ${questions.length} questions...`)
 
     for (let i = 0; i < questions.length; i++) {
       const question = questions[i]
@@ -682,7 +788,7 @@ ${questionsText}
       }
     }
 
-    devLog(`✅ Batch verification complete: ${results.passed} passed, ${results.flagged} flagged, ${results.errors} errors`)
+    devLog(`Batch verification complete: ${results.passed} passed, ${results.flagged} flagged, ${results.errors} errors`)
     return results
   }
 
@@ -691,19 +797,11 @@ ${questionsText}
    */
   async quickFactCheck(questionText, answer) {
     try {
-      this.initialize()
-
       const prompt = `Fact check: Is "${answer}" the correct answer to "${questionText}"?
-Search the web and respond with just: YES, NO, or UNCERTAIN`
+Respond with just: YES, NO, or UNCERTAIN`
 
       const response = await this.executeWithRetry(
-        () => this.ai.models.generateContent({
-          model: this.model,
-          contents: prompt,
-          config: {
-            tools: [{ googleSearch: {} }]
-          }
-        }),
+        () => this.callClaude(prompt, 100),
         'quick fact check'
       )
 
@@ -724,8 +822,6 @@ Search the web and respond with just: YES, NO, or UNCERTAIN`
    */
   async suggestImprovements(question) {
     try {
-      this.initialize()
-
       const prompt = `You are a trivia question editor. Improve this question for clarity and accuracy:
 
 Question: ${question.text}
@@ -745,10 +841,7 @@ Respond in JSON format:
 }`
 
       const response = await this.executeWithRetry(
-        () => this.ai.models.generateContent({
-          model: this.model,
-          contents: prompt
-        }),
+        () => this.callClaude(prompt),
         'suggest improvements'
       )
 
@@ -796,7 +889,7 @@ Respond in JSON format:
     let currentDist = calcDist(results)
 
     if (isBalanced(currentDist)) {
-      devLog('✅ Distribution already balanced, skipping rebalance')
+      devLog('Distribution already balanced, skipping rebalance')
       return results
     }
 
@@ -812,7 +905,7 @@ Respond in JSON format:
         else if (delta < 0) deficit[diff] = Math.abs(delta)
       }
 
-      // Prioritize adjacent moves: easy↔medium, medium↔hard
+      // Prioritize adjacent moves: easy<->medium, medium<->hard
       const adjacentPairs = [
         ['easy', 'medium'],
         ['medium', 'hard']
@@ -839,7 +932,7 @@ Respond in JSON format:
         }
       }
 
-      // Handle any remaining (easy↔hard if needed)
+      // Handle any remaining (easy<->hard if needed)
       if (excess['easy'] && deficit['hard']) {
         const count = Math.min(excess['easy'], deficit['hard'])
         moves.push({ from: 'easy', to: 'hard', count })
@@ -853,15 +946,13 @@ Respond in JSON format:
     }
 
     const moves = calcMoves(currentDist)
-    devLog('📊 Required moves:', moves)
+    devLog('Required moves:', moves)
 
     if (moves.length === 0) {
       return results
     }
 
     try {
-      this.initialize()
-
       // Build specific move requests
       for (const move of moves) {
         // Get questions in the 'from' category
@@ -893,11 +984,8 @@ ${candidatesText}
 ["id1", "id2", ...]`
 
         const response = await this.executeWithRetry(
-          () => this.ai.models.generateContent({
-            model: this.model,
-            contents: prompt
-          }),
-          `picking ${move.count} questions: ${move.from}→${move.to}`
+          () => this.callClaude(prompt),
+          `picking ${move.count} questions: ${move.from}->${move.to}`
         )
 
         let text = response.text || ''
@@ -928,84 +1016,18 @@ ${candidatesText}
               ...q,
               suggestedDifficulty: move.to,
               needsChange: move.to !== q.currentDifficulty,
-              reason: `${q.reason || ''} → نُقل من ${move.from} إلى ${move.to} للتوازن`
+              reason: `${q.reason || ''} -> نُقل من ${move.from} إلى ${move.to} للتوازن`
             }
           }
           return q
         })
 
-        // If AI didn't pick enough, retry once with remaining candidates
-        if (moved < move.count) {
-          const remaining = move.count - moved
-          devLog(`⚠️ AI picked ${moved}/${move.count}, retrying for ${remaining} more...`)
-
-          // Get remaining candidates (not already moved)
-          const remainingCandidates = results.filter(q =>
-            q.suggestedDifficulty === move.from && !selectedIds.includes(q.questionId)
-          )
-
-          if (remainingCandidates.length > 0) {
-            const retryCandidatesText = remainingCandidates.map((q, idx) => {
-              return `[${idx + 1}] ID: ${q.questionId}
-السؤال: ${q.questionText}`
-            }).join('\n\n')
-
-            const retryPrompt = `اختر ${remaining} أسئلة إضافية لتحويلها من "${move.from}" إلى "${move.to}"
-
-الأسئلة المتبقية:
-${retryCandidatesText}
-
-🔴 يجب اختيار ${remaining} سؤال بالضبط! أجب بـ JSON array فقط:
-["id1", "id2", ...]`
-
-            try {
-              const retryResponse = await this.executeWithRetry(
-                () => this.ai.models.generateContent({
-                  model: this.model,
-                  contents: retryPrompt
-                }),
-                `retry picking ${remaining} questions`
-              )
-
-              let retryText = retryResponse.text || ''
-              retryText = retryText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-              const retryJsonMatch = retryText.match(/\[[\s\S]*\]/)
-              if (retryJsonMatch) retryText = retryJsonMatch[0]
-
-              let retryIds = []
-              try {
-                retryIds = JSON.parse(retryText)
-              } catch {
-                const idMatches = retryText.matchAll(/"([^"]+)"/g)
-                for (const m of idMatches) retryIds.push(m[1])
-              }
-
-              // Apply retry picks
-              let retryMoved = 0
-              results = results.map(q => {
-                if (retryMoved < remaining && retryIds.includes(q.questionId) && q.suggestedDifficulty === move.from) {
-                  retryMoved++
-                  return {
-                    ...q,
-                    suggestedDifficulty: move.to,
-                    needsChange: move.to !== q.currentDifficulty,
-                    reason: `${q.reason || ''} → نُقل من ${move.from} إلى ${move.to} للتوازن`
-                  }
-                }
-                return q
-              })
-
-              devLog(`✅ Retry picked ${retryMoved} more questions`)
-            } catch (retryErr) {
-              devLog(`⚠️ Retry failed, accepting slight imbalance: ${retryErr.message}`)
-            }
-          }
-        }
+        devLog(`Moved ${moved} questions from ${move.from} to ${move.to}`)
       }
 
       // Final verification
       const finalDist = calcDist(results)
-      devLog('✅ Final distribution:', finalDist)
+      devLog('Final distribution:', finalDist)
 
       return results
 
@@ -1025,8 +1047,6 @@ ${retryCandidatesText}
     if (!questions || questions.length === 0) return []
 
     try {
-      this.initialize()
-
       // Calculate current distribution and target
       const total = questions.length
       const targetPerDifficulty = Math.floor(total / 3)
@@ -1082,10 +1102,7 @@ ${questionsText}
 ]`
 
       const response = await this.executeWithRetry(
-        () => this.ai.models.generateContent({
-          model: this.model,
-          contents: prompt
-        }),
+        () => this.callClaude(prompt),
         `difficulty analysis batch of ${questions.length}`
       )
 

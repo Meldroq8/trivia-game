@@ -17,11 +17,12 @@ import gamePreloader from '../utils/preloader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 import { debounce } from '../utils/debounce'
 import ConfirmExitModal from '../components/ConfirmExitModal'
+import { trackGameStart } from '../services/categoryStatsService'
 
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings, isAdmin } = useAuth()
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
@@ -53,6 +54,39 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const [sponsorLogo, setSponsorLogo] = useState(null)
   const [sponsorLogoLoaded, setSponsorLogoLoaded] = useState(false)
   const [showSponsorLogo, setShowSponsorLogo] = useState(true)
+
+  // Analytics tracking state
+  const [gameStartTracked, setGameStartTracked] = useState(false)
+
+  // Track game start for analytics (only once per game session)
+  useEffect(() => {
+    // Skip tracking for admin users (testing games)
+    if (isAdmin) {
+      devLog('📊 Skipping game start tracking (admin user)')
+      return
+    }
+
+    // Only track if:
+    // 1. We have selected categories
+    // 2. Game hasn't been tracked yet
+    // 3. No questions have been answered yet (fresh game start)
+    // 4. Not a page refresh mid-game
+    const isFreshGameStart = gameState.selectedCategories?.length > 0 &&
+                             !gameStartTracked &&
+                             gameState.usedQuestions?.size === 0
+
+    if (isFreshGameStart) {
+      devLog('📊 Tracking game start for analytics...')
+      trackGameStart(gameState.selectedCategories, user?.uid)
+        .then(() => {
+          setGameStartTracked(true)
+          devLog('✅ Game start tracked for analytics')
+        })
+        .catch(error => {
+          prodError('Failed to track game start:', error)
+        })
+    }
+  }, [gameState.selectedCategories, gameState.usedQuestions?.size, gameStartTracked, user?.uid, isAdmin])
 
   // Helper function to get optimized media URL (CloudFront → Firebase → local fallback chain)
   const getOptimizedMediaUrl = (originalUrl, size = 'medium', context = 'category') => {

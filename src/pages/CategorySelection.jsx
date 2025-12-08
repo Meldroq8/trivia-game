@@ -16,7 +16,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [availableCategories, setAvailableCategories] = useState([])
   const [loadingError, setLoadingError] = useState(null)
   const [gameData, setGameData] = useState(null)
-  const [questionCounts, setQuestionCounts] = useState({})
+  const [questionCounts, setQuestionCounts] = useState({}) // Display counts (divided by 6)
+  const [rawQuestionCounts, setRawQuestionCounts] = useState({}) // Actual available questions
   const [masterCategories, setMasterCategories] = useState([])
 
   // Set page title
@@ -427,6 +428,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
 
     const counts = {}
+    const rawCounts = {}
 
     // Count questions for regular categories
     for (const categoryId of Object.keys(gameData.questions)) {
@@ -437,26 +439,74 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
         devLog(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
 
-        // Divide by 6 for the 6 question slots per category
+        // Store raw count for gray-out logic
+        rawCounts[categoryId] = availableQuestions.length
+
+        // Divide by 6 for the 6 question slots per category (display only)
         counts[categoryId] = Math.round(availableQuestions.length / 6)
       } catch (error) {
         prodError('Error calculating question count for category:', categoryId, error)
         counts[categoryId] = 0
+        rawCounts[categoryId] = 0
       }
     }
 
     // Special handling for Mystery Category - keep ? for question count only
     if (gameData.categories && gameData.categories.some(cat => cat.id === 'mystery')) {
       counts['mystery'] = '?' // Show question mark for mystery category count
+      rawCounts['mystery'] = 999 // Mystery always available
     }
 
     devLog('📊 Final question counts:', counts)
+    devLog('📊 Raw question counts:', rawCounts)
     setQuestionCounts(counts)
+    setRawQuestionCounts(rawCounts)
   }
 
   // Get remaining questions count from state (safe, no async calls)
   const getRemainingQuestions = (categoryId) => {
     return questionCounts[categoryId] || 0
+  }
+
+  // Check if category needs reset (less than 6 available questions)
+  const categoryNeedsReset = (categoryId) => {
+    const rawCount = rawQuestionCounts[categoryId]
+    if (rawCount === undefined) return false
+    return rawCount < 6
+  }
+
+  // Handle category reset
+  const handleCategoryReset = async (e, categoryId) => {
+    e.stopPropagation() // Prevent category selection
+
+    if (!gameData || !gameData.questions[categoryId]) {
+      devWarn('No questions found for category reset:', categoryId)
+      return
+    }
+
+    devLog(`🔄 Resetting category: ${categoryId}`)
+
+    try {
+      const categoryQuestions = gameData.questions[categoryId]
+      await questionUsageTracker.resetCategoryUsage(categoryId, categoryQuestions)
+
+      // Dynamically refresh counts for this category
+      const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
+
+      setRawQuestionCounts(prev => ({
+        ...prev,
+        [categoryId]: availableQuestions.length
+      }))
+
+      setQuestionCounts(prev => ({
+        ...prev,
+        [categoryId]: Math.round(availableQuestions.length / 6)
+      }))
+
+      devLog(`✅ Category ${categoryId} reset complete. Available: ${availableQuestions.length}`)
+    } catch (error) {
+      prodError('Error resetting category:', error)
+    }
   }
 
   // Responsive styling system
@@ -768,7 +818,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                           <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
                           {master.categories.map((category) => {
                             const selected = isSelected(category.id)
-                            const canSelect = selectedCategories.length < 6 || selected
+                            const needsReset = categoryNeedsReset(category.id)
+                            const canSelect = (selectedCategories.length < 6 || selected) && !needsReset
 
                             return (
                               <button
@@ -777,16 +828,33 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 onClick={() => canSelect && toggleCategory(category.id)}
                                 disabled={!canSelect}
                                 className={`
-                                  relative p-0 rounded-lg font-bold transition-all duration-200 transform hover:scale-105 overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
+                                  relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
                                   text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
-                                  ${selected
-                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
+                                  ${needsReset
+                                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
+                                    : selected
+                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500 hover:scale-105'
                                     : canSelect
-                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 hover:border-red-300 dark:hover:border-red-500 hover:shadow-lg'
+                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 hover:border-red-300 dark:hover:border-red-500 hover:shadow-lg hover:scale-105'
                                     : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                                   }
                                 `}
                               >
+                                {/* Reset overlay for exhausted categories */}
+                                {needsReset && (
+                                  <div
+                                    className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-lg cursor-pointer"
+                                    onClick={(e) => handleCategoryReset(e, category.id)}
+                                  >
+                                    <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 md:p-4 transition-colors shadow-lg">
+                                      <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                    </div>
+                                    <span className="text-white text-xs md:text-sm mt-2 font-bold">إعادة تعيين</span>
+                                  </div>
+                                )}
+
                                 {/* Main content area with background image */}
                                 <BackgroundImage
                                   src={category.imageUrl}
@@ -794,14 +862,18 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   context="category"
                                   categoryId={category.id}
                                   className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
-                                    selected
+                                    needsReset
+                                      ? 'bg-gray-400 dark:bg-slate-600'
+                                      : selected
                                       ? 'bg-red-600 dark:bg-red-700'
                                       : canSelect
                                       ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
                                       : 'bg-gray-300 dark:bg-slate-700'
                                   }`}
                                   fallbackGradient={
-                                    selected
+                                    needsReset
+                                      ? 'from-gray-400 to-gray-500'
+                                      : selected
                                       ? 'from-red-600 to-red-700'
                                       : canSelect
                                       ? 'from-white to-gray-50'
@@ -810,15 +882,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 >
                                   {/* Overlay for better text readability when image is present */}
                                   {category.imageUrl && (
-                                    <div className="absolute inset-0 bg-black/30 rounded-t-lg"></div>
+                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
                                   )}
-                                  {selected && (
+                                  {selected && !needsReset && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
                                       ✓
                                     </div>
                                   )}
                                   {/* Question count - top left corner, opposite of checkmark */}
-                                  <div className="absolute top-2 left-2 bg-blue-600 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
+                                  <div className={`absolute top-2 left-2 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20 ${
+                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                  }`}>
                                     {getRemainingQuestions(category.id)}
                                   </div>
                                   {/* Show emoji/icon only when no background image */}
@@ -833,7 +907,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                                 {/* Bottom bar with category name */}
                                 <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
-                                  selected
+                                  needsReset
+                                    ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
+                                    : selected
                                     ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
                                     : canSelect
                                     ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'

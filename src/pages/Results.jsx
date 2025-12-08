@@ -3,17 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LogoDisplay from '../components/LogoDisplay'
 import { devLog, devWarn, prodError } from '../utils/devLog'
+import { trackGameFinish } from '../services/categoryStatsService'
 
 function Results({ gameState, setGameState }) {
   const [confettiPieces, setConfettiPieces] = useState([])
   const [showStats, setShowStats] = useState(false)
   const [gameAlreadySaved, setGameAlreadySaved] = useState(false)
+  const [statsAlreadyTracked, setStatsAlreadyTracked] = useState(false)
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
     height: window.innerHeight
   })
   const navigate = useNavigate()
-  const { updateGameStats, isAuthenticated, loading } = useAuth()
+  const { updateGameStats, isAuthenticated, loading, isAdmin } = useAuth()
 
   // Set page title
   useEffect(() => {
@@ -120,6 +122,28 @@ function Results({ gameState, setGameState }) {
       }
     }
   }, [gameState, isAuthenticated, updateGameStats, gameAlreadySaved, loading])
+
+  // Track game finish for category analytics
+  useEffect(() => {
+    // Skip tracking for admin users (testing games)
+    if (isAdmin) {
+      devLog('📊 Skipping game finish tracking (admin user)')
+      return
+    }
+
+    if (!statsAlreadyTracked && gameState && gameState.gameHistory?.length > 0) {
+      devLog('📊 Tracking game finish for category analytics...')
+      setStatsAlreadyTracked(true)
+
+      trackGameFinish(gameState)
+        .then(() => {
+          devLog('✅ Game finish tracked for analytics')
+        })
+        .catch(error => {
+          prodError('❌ Error tracking game finish:', error)
+        })
+    }
+  }, [gameState, statsAlreadyTracked, isAdmin])
 
   // Determine winner
   const winner = team1.score > team2.score ? 'team1' : team2.score > team1.score ? 'team2' : 'draw'

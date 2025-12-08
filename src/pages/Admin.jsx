@@ -27,6 +27,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import VerificationDashboard from '../components/VerificationDashboard'
+import { getCategoryStats, migrateExistingGames } from '../services/categoryStatsService'
 
 function Admin() {
   // Load saved tab from localStorage or default to 'categories'
@@ -38,7 +39,7 @@ function Admin() {
   const [showAIModal, setShowAIModal] = useState(false)
   const [aiEditingCategory, setAiEditingCategory] = useState(null)
   const navigate = useNavigate()
-  const { isAdmin, isModerator, isAdminOrModerator, user, isAuthenticated, loading, userProfile, getAllUsers, updateUserRole, searchUsers } = useAuth()
+  const { isAdmin, isModerator, isAdminOrModerator, user, isAuthenticated, loading, userProfile, getAllUsers, updateUserRole, searchUsers, getAllGames } = useAuth()
 
   // Set page title
   useEffect(() => {
@@ -266,6 +267,18 @@ function Admin() {
           )}
           {isAdmin && (
             <button
+              onClick={() => changeTab('analytics')}
+              className={`flex-1 py-4 px-6 font-bold ${
+                activeTab === 'analytics'
+                  ? 'bg-green-600 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              📊 تحليل الفئات
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => changeTab('settings')}
               className={`flex-1 py-4 px-6 font-bold ${
                 activeTab === 'settings'
@@ -289,6 +302,7 @@ function Admin() {
           {activeTab === 'invites' && isAdmin && <InviteCodesManager user={user} />}
           {activeTab === 'media' && isAdminOrModerator && <MediaUploadManager />}
           {activeTab === 'verification' && isAdmin && <VerificationDashboard userId={user?.uid} />}
+          {activeTab === 'analytics' && isAdmin && <CategoryAnalyticsManager getAllGames={getAllGames} getAllUsers={getAllUsers} />}
           {activeTab === 'settings' && isAdmin && <SettingsManager isAdmin={isAdmin} isModerator={isModerator} />}
         </div>
       </div>
@@ -7974,6 +7988,529 @@ function MasterCategoriesManager({ isAdmin, isModerator }) {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Category Analytics Manager Component
+function CategoryAnalyticsManager({ getAllGames, getAllUsers }) {
+  const [loading, setLoading] = useState(true)
+  const [categoryStats, setCategoryStats] = useState([])
+  const [timeFilter, setTimeFilter] = useState('all') // 'today', 'week', 'month', 'all'
+  const [categories, setCategories] = useState([])
+  const [totalGames, setTotalGames] = useState(0)
+  const [gamesCompleted, setGamesCompleted] = useState(0)
+  const [migrating, setMigrating] = useState(false)
+  const [migrationResult, setMigrationResult] = useState(null)
+  const [adminUserIds, setAdminUserIds] = useState(new Set())
+  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [failedQuestions, setFailedQuestions] = useState([])
+  const [loadingFailedQuestions, setLoadingFailedQuestions] = useState(false)
+
+  // Load categories for name resolution and admin users for migration
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        // Load categories
+        const data = await GameDataLoader.loadGameData()
+        setCategories(data.categories || [])
+
+        // Load admin users for migration filtering
+        const users = await getAllUsers()
+        const adminIds = new Set(
+          users
+            .filter(user => user.isAdmin === true)
+            .map(user => user.id || user.uid)
+        )
+        setAdminUserIds(adminIds)
+        devLog('📊 Admin users for migration:', adminIds.size)
+      } catch (error) {
+        prodError('Error loading initial data:', error)
+      }
+    }
+    loadInitialData()
+  }, [getAllUsers])
+
+  // Load pre-calculated stats from Firestore
+  useEffect(() => {
+    const loadStats = async () => {
+      if (categories.length === 0) {
+        // Wait for categories to load for name resolution
+        return
+      }
+
+      try {
+        setLoading(true)
+
+        // Fetch pre-calculated stats based on filter
+        const stats = await getCategoryStats(timeFilter)
+
+        setTotalGames(stats.totalGames || 0)
+        setGamesCompleted(stats.gamesCompleted || 0)
+
+        // Transform stats for display
+        const categoryData = stats.categories || {}
+        const statsArray = Object.entries(categoryData).map(([categoryId, data]) => ({
+          categoryId,
+          timesSelected: data.timesSelected || 0,
+          questionsAnswered: data.questionsAnswered || 0,
+          correctAnswers: data.correctAnswers || 0,
+          totalPoints: data.totalPoints || 0,
+          playPercentage: stats.totalGames > 0
+            ? ((data.timesSelected / stats.totalGames) * 100).toFixed(1)
+            : 0,
+          successRate: data.questionsAnswered > 0
+            ? ((data.correctAnswers / data.questionsAnswered) * 100).toFixed(1)
+            : 0,
+          avgPointsPerQuestion: data.questionsAnswered > 0
+            ? Math.round(data.totalPoints / data.questionsAnswered)
+            : 0
+        }))
+
+        // Filter out deleted categories
+        const filteredStats = statsArray.filter(stat => {
+          const categoryId = stat.categoryId
+          if (!categoryId) return false
+
+          // Check if category exists
+          const categoryExists = categories.some(c =>
+            c.id === categoryId ||
+            c.name === categoryId ||
+            c.id?.toLowerCase() === categoryId?.toLowerCase() ||
+            c.name?.toLowerCase() === categoryId?.toLowerCase()
+          )
+
+          // If it looks like a Firebase ID and doesn't exist, filter it out
+          if (!categoryExists && categoryId.length > 15 && /^[a-zA-Z0-9]+$/.test(categoryId)) {
+            return false
+          }
+
+          return true
+        })
+
+        // Sort by times selected (most played first)
+        filteredStats.sort((a, b) => b.timesSelected - a.timesSelected)
+        setCategoryStats(filteredStats)
+
+        devLog(`📊 Loaded pre-calculated stats: ${filteredStats.length} categories, ${stats.totalGames} games`)
+      } catch (error) {
+        prodError('Error loading category stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadStats()
+  }, [timeFilter, categories])
+
+  // Handle migration of existing games
+  const handleMigration = async () => {
+    if (!window.confirm('هل تريد ترحيل بيانات الألعاب السابقة؟ هذا سيستغرق بعض الوقت.')) {
+      return
+    }
+
+    try {
+      setMigrating(true)
+      setMigrationResult(null)
+
+      const result = await migrateExistingGames(getAllGames, adminUserIds)
+      setMigrationResult(result)
+
+      if (result.success) {
+        devLog('✅ Migration completed successfully')
+        // Refresh stats after migration
+        const stats = await getCategoryStats(timeFilter)
+        setTotalGames(stats.totalGames || 0)
+        setGamesCompleted(stats.gamesCompleted || 0)
+      }
+    } catch (error) {
+      prodError('Migration error:', error)
+      setMigrationResult({ success: false, error: error.message })
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  // Load failed questions for a category
+  const handleCategoryClick = async (categoryId, categoryName) => {
+    try {
+      setLoadingFailedQuestions(true)
+      setSelectedCategory({ id: categoryId, name: categoryName })
+      setFailedQuestions([])
+
+      // Calculate date range based on filter
+      let startDate = null
+      let endDate = new Date()
+
+      if (timeFilter === 'today') {
+        startDate = new Date()
+        startDate.setHours(0, 0, 0, 0)
+      } else if (timeFilter === 'week') {
+        startDate = new Date()
+        startDate.setDate(startDate.getDate() - 7)
+      } else if (timeFilter === 'month') {
+        startDate = new Date()
+        startDate.setMonth(startDate.getMonth() - 1)
+      }
+
+      // Fetch games
+      const allGames = await getAllGames(
+        startDate && endDate ? { startDate, endDate } : {}
+      )
+
+      // Filter out admin games
+      const userGames = allGames.filter(game => {
+        const userId = game.userId || game.gameData?.userId
+        return !adminUserIds.has(userId)
+      })
+
+      // Extract failed questions for this category
+      const failedQuestionsMap = new Map()
+
+      userGames.forEach(game => {
+        const gameHistory = game.gameData?.gameHistory || []
+
+        gameHistory.forEach(entry => {
+          const entryCategoryId = entry.category
+
+          // Check if this is the category we're looking for (by ID or name)
+          if (!entryCategoryId) return
+          if (entryCategoryId !== categoryId && entryCategoryId !== categoryName) return
+
+          // Check if question was NOT answered (failed)
+          if (!entry.winner || entry.winner === 'none' || entry.winner === '') {
+            // Skip entries without question text (old games before fix)
+            if (!entry.question) return
+
+            const questionKey = entry.question
+            const answer = entry.answer || 'غير معروف'
+            const difficulty = entry.difficulty || 'غير محدد'
+            const points = entry.basePoints || entry.points || 0
+
+            if (failedQuestionsMap.has(questionKey)) {
+              failedQuestionsMap.get(questionKey).failCount++
+            } else {
+              failedQuestionsMap.set(questionKey, {
+                questionText: questionKey,
+                answer,
+                difficulty,
+                points,
+                failCount: 1
+              })
+            }
+          }
+        })
+      })
+
+      // Convert to array and sort by fail count
+      const failedArray = Array.from(failedQuestionsMap.values())
+        .sort((a, b) => b.failCount - a.failCount)
+
+      setFailedQuestions(failedArray)
+      devLog(`📊 Found ${failedArray.length} failed questions for category: ${categoryName}`)
+    } catch (error) {
+      prodError('Error loading failed questions:', error)
+    } finally {
+      setLoadingFailedQuestions(false)
+    }
+  }
+
+  const closeFailedQuestionsModal = () => {
+    setSelectedCategory(null)
+    setFailedQuestions([])
+  }
+
+  const getDifficultyArabic = (difficulty) => {
+    const difficultyMap = {
+      'easy': 'سهل',
+      'medium': 'متوسط',
+      'hard': 'صعب'
+    }
+    return difficultyMap[difficulty?.toLowerCase()] || difficulty || 'غير محدد'
+  }
+
+  const getCategoryName = (categoryId) => {
+    if (!categoryId) return 'غير معروف'
+
+    // Try to find by ID first
+    let category = categories.find(c => c.id === categoryId)
+    if (category?.name) return category.name
+
+    // Try to find by name (in case categoryId is actually the name)
+    category = categories.find(c => c.name === categoryId)
+    if (category?.name) return category.name
+
+    // Try partial match (category name might be stored differently)
+    category = categories.find(c =>
+      c.id?.toLowerCase() === categoryId?.toLowerCase() ||
+      c.name?.toLowerCase() === categoryId?.toLowerCase()
+    )
+    if (category?.name) return category.name
+
+    // If it looks like a Firebase ID (random string), show as unknown
+    if (categoryId.length > 15 && /^[a-zA-Z0-9]+$/.test(categoryId)) {
+      return `فئة محذوفة`
+    }
+
+    // Return the ID with underscores replaced
+    return categoryId.replace(/_/g, ' ')
+  }
+
+  const getTimeFilterLabel = (filter) => {
+    switch (filter) {
+      case 'today': return 'اليوم'
+      case 'week': return 'هذا الأسبوع'
+      case 'month': return 'هذا الشهر'
+      case 'all': return 'الكل'
+      default: return 'الكل'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+        <p className="mt-4 text-gray-900">جاري تحميل الإحصائيات...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">📊 تحليل الفئات</h2>
+          <p className="text-gray-600 mt-1">
+            إجمالي الألعاب: {totalGames} | مكتملة: {gamesCompleted} | الفئات المُلعبة: {categoryStats.length}
+          </p>
+        </div>
+        <button
+          onClick={handleMigration}
+          disabled={migrating}
+          className={`px-4 py-2 rounded-lg font-bold transition-colors ${
+            migrating
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-purple-600 hover:bg-purple-700 text-white'
+          }`}
+        >
+          {migrating ? '⏳ جاري الترحيل...' : '🔄 ترحيل البيانات السابقة'}
+        </button>
+      </div>
+
+      {/* Migration Result */}
+      {migrationResult && (
+        <div className={`p-4 rounded-lg ${migrationResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          {migrationResult.success ? (
+            <p>✅ تم ترحيل {migrationResult.gamesProcessed} لعبة بنجاح! تم إنشاء {migrationResult.bucketsCreated} سجل.</p>
+          ) : (
+            <p>❌ خطأ في الترحيل: {migrationResult.error}</p>
+          )}
+        </div>
+      )}
+
+      {/* Time Filter Buttons */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-4">
+        <div className="flex flex-wrap gap-2">
+          {['today', 'week', 'month', 'all'].map(filter => (
+            <button
+              key={filter}
+              onClick={() => setTimeFilter(filter)}
+              className={`px-4 py-2 rounded-lg font-bold transition-colors ${
+                timeFilter === filter
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {getTimeFilterLabel(filter)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Category Stats List */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg overflow-hidden">
+        {categoryStats.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <div className="text-4xl mb-4">📊</div>
+            <p className="text-xl">لا توجد بيانات للفترة المحددة</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {categoryStats.map((stat, index) => (
+              <div
+                key={stat.categoryId}
+                className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                onClick={() => handleCategoryClick(stat.categoryId, getCategoryName(stat.categoryId))}
+                title="اضغط لعرض الأسئلة التي لم يتم الإجابة عليها"
+              >
+                <div className="flex items-start gap-4">
+                  {/* Rank Badge */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg ${
+                    index === 0 ? 'bg-yellow-500' :
+                    index === 1 ? 'bg-gray-400' :
+                    index === 2 ? 'bg-orange-600' : 'bg-gray-300'
+                  }`}>
+                    {index + 1}
+                  </div>
+
+                  {/* Category Info */}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">
+                      {getCategoryName(stat.categoryId)}
+                    </h3>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
+                      <div
+                        className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(stat.playPercentage, 100)}%` }}
+                      ></div>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div className="bg-blue-50 rounded-lg p-2">
+                        <div className="text-blue-800 font-bold text-lg">{stat.timesSelected}</div>
+                        <div className="text-blue-600 text-xs">مرة اختيار ({stat.playPercentage}%)</div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-2">
+                        <div className="text-purple-800 font-bold text-lg">{stat.correctAnswers}/{stat.questionsAnswered}</div>
+                        <div className="text-purple-600 text-xs">إجابة صحيحة</div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-2">
+                        <div className="text-green-800 font-bold text-lg">{stat.successRate}%</div>
+                        <div className="text-green-600 text-xs">نسبة الإجابة</div>
+                      </div>
+                      <div className="bg-orange-50 rounded-lg p-2">
+                        <div className="text-orange-800 font-bold text-lg">{stat.totalPoints.toLocaleString()}</div>
+                        <div className="text-orange-600 text-xs">نقطة (متوسط {stat.avgPointsPerQuestion})</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Summary Stats */}
+      {categoryStats.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-500 text-white rounded-2xl p-4 shadow-lg">
+            <div className="text-2xl mb-1">🎮</div>
+            <div className="text-2xl font-bold">{totalGames}</div>
+            <div className="text-sm opacity-90">ألعاب بدأت</div>
+          </div>
+          <div className="bg-green-500 text-white rounded-2xl p-4 shadow-lg">
+            <div className="text-2xl mb-1">✅</div>
+            <div className="text-2xl font-bold">{gamesCompleted}</div>
+            <div className="text-sm opacity-90">ألعاب مكتملة</div>
+          </div>
+          <div className="bg-purple-500 text-white rounded-2xl p-4 shadow-lg">
+            <div className="text-2xl mb-1">✓</div>
+            <div className="text-2xl font-bold">
+              {categoryStats.reduce((sum, s) => sum + s.correctAnswers, 0).toLocaleString()}
+            </div>
+            <div className="text-sm opacity-90">إجابة صحيحة</div>
+          </div>
+          <div className="bg-orange-500 text-white rounded-2xl p-4 shadow-lg">
+            <div className="text-2xl mb-1">🎯</div>
+            <div className="text-2xl font-bold">
+              {categoryStats.reduce((sum, s) => sum + s.totalPoints, 0).toLocaleString()}
+            </div>
+            <div className="text-sm opacity-90">إجمالي النقاط</div>
+          </div>
+        </div>
+      )}
+
+      {/* Failed Questions Modal */}
+      {selectedCategory && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-600 to-red-700 text-white p-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold">الأسئلة التي لم يتم الإجابة عليها</h3>
+                <p className="text-sm opacity-90">{selectedCategory.name}</p>
+              </div>
+              <button
+                onClick={closeFailedQuestionsModal}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {loadingFailedQuestions ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">جاري تحميل الأسئلة...</p>
+                </div>
+              ) : failedQuestions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-4xl mb-4">🎉</div>
+                  <p className="text-xl">لا توجد أسئلة فاشلة في هذه الفئة!</p>
+                  <p className="text-sm mt-2">جميع الأسئلة تم الإجابة عليها بنجاح</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 mb-4">
+                    إجمالي الأسئلة: {failedQuestions.length} | مرتبة حسب عدد مرات الفشل
+                  </p>
+                  {failedQuestions.map((q, index) => (
+                    <div
+                      key={index}
+                      className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:border-red-300 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Fail Count Badge */}
+                        <div className="bg-red-100 text-red-700 rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {q.failCount}×
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          {/* Question Text */}
+                          <p className="text-gray-800 font-medium mb-2 break-words">
+                            {q.questionText}
+                          </p>
+
+                          {/* Answer and Details */}
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
+                              الإجابة: {q.answer}
+                            </span>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              {getDifficultyArabic(q.difficulty)}
+                            </span>
+                            <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                              {q.points} نقطة
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t p-4 bg-gray-50">
+              <button
+                onClick={closeFailedQuestionsModal}
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
