@@ -37,6 +37,10 @@ function InstallPrompt() {
     // Don't show if already installed
     if (standalone) return
 
+    // Check if user chose to never show again
+    const neverShow = localStorage.getItem('pwa-install-never-show')
+    if (neverShow === 'true') return
+
     // Check if user dismissed before (with expiry)
     const dismissed = localStorage.getItem('pwa-install-dismissed')
     if (dismissed) {
@@ -56,10 +60,11 @@ function InstallPrompt() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
 
-    // Show banner after delay for mobile devices
+    // Show banner after delay for mobile devices only (not desktop/PC)
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                      isModernIPad
-    if (isMobile && !standalone) {
+    const isDesktop = !isMobile && window.innerWidth >= 1024
+    if (isMobile && !standalone && !isDesktop) {
       setTimeout(() => setShowBanner(true), 2000)
     }
 
@@ -88,6 +93,11 @@ function InstallPrompt() {
   const handleDismiss = () => {
     setShowBanner(false)
     localStorage.setItem('pwa-install-dismissed', Date.now().toString())
+  }
+
+  const handleNeverShow = () => {
+    setShowBanner(false)
+    localStorage.setItem('pwa-install-never-show', 'true')
   }
 
   // Don't render if already installed or banner shouldn't show
@@ -267,6 +277,16 @@ function InstallPrompt() {
                          transition-colors duration-150"
             >
               لاحقاً
+            </button>
+          </div>
+
+          {/* Never show again button */}
+          <div className="px-4 pb-3">
+            <button
+              onClick={handleNeverShow}
+              className="w-full py-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+            >
+              لا تعرض هذا مرة أخرى
             </button>
           </div>
         </div>
