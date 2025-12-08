@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx firebase deploy:*)"
+      "Bash(npx firebase deploy:*)",
+      "Bash(git reset:*)"
     ],
     "deny": [],
     "ask": []

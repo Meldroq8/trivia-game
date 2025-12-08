@@ -129,6 +129,9 @@ function Index({ setGameState }) {
     const isPortrait = height > width
     const isPC = width >= 1024 && height >= 768
     const pcScaleFactor = isPC ? 1.3 : 1.0
+    // Detect phone landscape: landscape orientation + small height (phones typically have height < 450px in landscape)
+    // Excludes tablets which have larger heights in landscape
+    const isPhoneLandscape = !isPortrait && height <= 450
 
     const basePadding = Math.max(6, Math.min(16, height * 0.015))
     const baseGap = Math.max(8, Math.min(20, height * 0.025))
@@ -143,7 +146,8 @@ function Index({ setGameState }) {
       availableWidth: width,
       availableHeight: height,
       isPortrait,
-      pcScaleFactor
+      pcScaleFactor,
+      isPhoneLandscape
     }
   }, [dimensions.width, dimensions.height])
 
@@ -171,8 +175,8 @@ function Index({ setGameState }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex items-start justify-center overflow-auto pt-8 px-4 relative z-10">
-        <div className="text-center w-full">
+      <div className={`flex-1 flex items-start justify-center overflow-auto px-4 relative z-10 ${responsiveStyles.isPhoneLandscape ? 'pt-2' : 'pt-8'}`}>
+        <div className={`w-full ${responsiveStyles.isPhoneLandscape ? '' : 'text-center'}`}>
 
           {/* Password Reset Success Message */}
           {showPasswordResetSuccess && (
@@ -189,92 +193,150 @@ function Index({ setGameState }) {
             </div>
           )}
 
-          {/* Large Logo */}
-          <div style={{ marginBottom: `${responsiveStyles.baseGap * 0.5}px` }}>
-            {settings.largeLogo ? (
-              <img
-                src={settings.largeLogo}
-                alt="شعار اللعبة"
-                className="mx-auto object-cover"
-                fetchPriority="high"
-                style={{
-                  maxWidth: (() => {
-                    const baseSize = settings.largeLogoSize === 'small' ? 384 :
-                                   settings.largeLogoSize === 'large' ? 640 : 512;
-                    const maxWidth = responsiveStyles.availableWidth < 480 ? responsiveStyles.availableWidth * 0.9 :
-                                   responsiveStyles.availableWidth < 768 ? responsiveStyles.availableWidth * 0.8 :
-                                   responsiveStyles.availableWidth * 0.6;
-                    return Math.min(baseSize, maxWidth) + 'px';
-                  })(),
-                  height: 'auto'
-                }}
-              />
-            ) : (
-              <div
-                className="mx-auto flex items-center justify-center"
-                style={{
-                  maxWidth: (() => {
-                    const baseSize = settings.largeLogoSize === 'small' ? 384 :
-                                   settings.largeLogoSize === 'large' ? 640 : 512;
-                    const maxWidth = responsiveStyles.availableWidth < 480 ? responsiveStyles.availableWidth * 0.9 :
-                                   responsiveStyles.availableWidth < 768 ? responsiveStyles.availableWidth * 0.8 :
-                                   responsiveStyles.availableWidth * 0.6;
-                    return Math.min(baseSize, maxWidth) + 'px';
-                  })(),
-                  height: 'auto'
-                }}
-              >
-                <span className="text-white font-bold text-6xl">🎯</span>
+          {/* Phone Landscape Layout: Side by side - Button left, Logo right */}
+          {responsiveStyles.isPhoneLandscape ? (
+            <div className="flex items-center justify-between gap-6 h-full px-6">
+              {/* Button and text - centered in its area */}
+              <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                {settings.showSlogan !== false && (
+                  <h1
+                    className="font-bold text-gray-800 dark:text-gray-100 text-center leading-tight"
+                    style={{ fontSize: `${responsiveStyles.titleFontSize * 0.8}px` }}
+                  >
+                    {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+                  </h1>
+                )}
+                <button
+                  onClick={handleCreateGame}
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-2xl shadow-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+                  style={{
+                    fontSize: `${Math.max(16, responsiveStyles.buttonFontSize * 1.1)}px`,
+                    padding: `${responsiveStyles.basePadding * 1.5}px ${responsiveStyles.basePadding * 3}px`
+                  }}
+                >
+                  إنشاء لعبة جديدة
+                </button>
+                <p
+                  className="text-gray-600 dark:text-gray-300 text-center"
+                  style={{ fontSize: `${Math.max(14, responsiveStyles.buttonFontSize * 0.85)}px` }}
+                >
+                  اضغط على "إنشاء لعبة جديدة" للبدء في إعداد لعبتك
+                </p>
               </div>
-            )}
-          </div>
 
-          {/* Slogan */}
-          {settings.showSlogan !== false && (
-            <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
-              <h1
-                className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
-                style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
-              >
-                {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
-              </h1>
-              <p
-                className="text-gray-600 dark:text-gray-300"
+              {/* Logo on right (in RTL this appears on left visually) */}
+              <div className="flex-shrink-0">
+                {settings.largeLogo ? (
+                  <img
+                    src={settings.largeLogo}
+                    alt="شعار اللعبة"
+                    className="object-contain"
+                    fetchPriority="high"
+                    style={{
+                      maxHeight: `${responsiveStyles.availableHeight * 0.65}px`,
+                      maxWidth: `${responsiveStyles.availableWidth * 0.35}px`,
+                      width: 'auto',
+                      height: 'auto'
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <span className="text-white font-bold text-4xl">🎯</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Normal Layout: Vertical stacked */}
+              {/* Large Logo */}
+              <div style={{ marginBottom: `${responsiveStyles.baseGap * 0.5}px` }}>
+                {settings.largeLogo ? (
+                  <img
+                    src={settings.largeLogo}
+                    alt="شعار اللعبة"
+                    className="mx-auto object-cover"
+                    fetchPriority="high"
+                    style={{
+                      maxWidth: (() => {
+                        const baseSize = settings.largeLogoSize === 'small' ? 384 :
+                                       settings.largeLogoSize === 'large' ? 640 : 512;
+                        const maxWidth = responsiveStyles.availableWidth < 480 ? responsiveStyles.availableWidth * 0.9 :
+                                       responsiveStyles.availableWidth < 768 ? responsiveStyles.availableWidth * 0.8 :
+                                       responsiveStyles.availableWidth * 0.6;
+                        return Math.min(baseSize, maxWidth) + 'px';
+                      })(),
+                      height: 'auto'
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="mx-auto flex items-center justify-center"
+                    style={{
+                      maxWidth: (() => {
+                        const baseSize = settings.largeLogoSize === 'small' ? 384 :
+                                       settings.largeLogoSize === 'large' ? 640 : 512;
+                        const maxWidth = responsiveStyles.availableWidth < 480 ? responsiveStyles.availableWidth * 0.9 :
+                                       responsiveStyles.availableWidth < 768 ? responsiveStyles.availableWidth * 0.8 :
+                                       responsiveStyles.availableWidth * 0.6;
+                        return Math.min(baseSize, maxWidth) + 'px';
+                      })(),
+                      height: 'auto'
+                    }}
+                  >
+                    <span className="text-white font-bold text-6xl">🎯</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Slogan */}
+              {settings.showSlogan !== false && (
+                <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
+                  <h1
+                    className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
+                    style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
+                  >
+                    {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+                  </h1>
+                  <p
+                    className="text-gray-600 dark:text-gray-300"
+                    style={{
+                      fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
+                      marginBottom: `${responsiveStyles.baseGap * 2}px`
+                    }}
+                  >
+                    اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
+                  </p>
+                </div>
+              )}
+
+              {/* Create Game Button */}
+              <button
+                onClick={handleCreateGame}
+                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-2xl shadow-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
                 style={{
-                  fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
-                  marginBottom: `${responsiveStyles.baseGap * 2}px`
+                  fontSize: `${responsiveStyles.buttonFontSize}px`,
+                  padding: `${responsiveStyles.basePadding * 1.5}px ${responsiveStyles.basePadding * 3}px`
                 }}
               >
-                اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
-              </p>
-            </div>
+                إنشاء لعبة جديدة
+              </button>
+
+              {/* Additional Info */}
+              <div style={{ marginTop: `${responsiveStyles.baseGap * 2}px` }}>
+                <p
+                  className="text-gray-500 dark:text-gray-400"
+                  style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.7)}px` }}
+                >
+                  اضغط على "إنشاء لعبة جديدة" للبدء في إعداد لعبتك
+                </p>
+              </div>
+            </>
           )}
-
-          {/* Create Game Button */}
-          <button
-            onClick={handleCreateGame}
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold rounded-2xl shadow-lg transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
-            style={{
-              fontSize: `${responsiveStyles.buttonFontSize}px`,
-              padding: `${responsiveStyles.basePadding * 1.5}px ${responsiveStyles.basePadding * 3}px`
-            }}
-          >
-            إنشاء لعبة جديدة
-          </button>
-
-          {/* Additional Info */}
-          <div style={{ marginTop: `${responsiveStyles.baseGap * 2}px` }}>
-            <p
-              className="text-gray-500 dark:text-gray-400"
-              style={{ fontSize: `${Math.max(12, responsiveStyles.buttonFontSize * 0.7)}px` }}
-            >
-              اضغط على "إنشاء لعبة جديدة" للبدء في إعداد لعبتك
-            </p>
-          </div>
 
           {/* Leaderboard */}
           {(
-            <div style={{ marginTop: `${responsiveStyles.baseGap * 3}px` }}>
+            <div className="text-center" style={{ marginTop: `${responsiveStyles.isPhoneLandscape ? responsiveStyles.baseGap : responsiveStyles.baseGap * 3}px` }}>
               <h3
                 className="font-bold text-gray-800 dark:text-gray-100 mb-4"
                 style={{ fontSize: `${Math.max(16, responsiveStyles.titleFontSize * 0.6)}px` }}
