@@ -28,16 +28,28 @@ export const blockUnauthorizedSignup = beforeUserCreated(
     const db = getFirestore()
 
     // SECURITY CHECK 1: Verify App Check token
-    // If App Check is enforced and token is invalid/missing, this will be undefined
-    if (!event.appCheckToken) {
+    // Check if App Check enforcement is enabled in settings
+    let appCheckEnforced = false
+    try {
+      const settingsDoc = await db.collection('settings').doc('app-settings').get()
+      if (settingsDoc.exists) {
+        appCheckEnforced = settingsDoc.data().appCheckEnforced === true
+      }
+    } catch (error) {
+      console.error('Error reading App Check enforcement setting:', error)
+    }
+
+    // Only block if App Check is enforced AND token is missing
+    if (appCheckEnforced && !event.appCheckToken) {
       console.error('BLOCKED: Signup attempt without valid App Check token')
       throw new Error('Unauthorized: This action can only be performed from the official website.')
     }
 
-    // Log App Check validation success
-    console.log('App Check validated for signup:', {
+    // Log App Check status
+    console.log('App Check status for signup:', {
       email: event.data.email,
-      appCheckToken: event.appCheckToken ? 'valid' : 'missing'
+      appCheckToken: event.appCheckToken ? 'valid' : 'missing',
+      appCheckEnforced: appCheckEnforced
     })
 
     // SECURITY CHECK 2: Check if signups are enabled in app settings
