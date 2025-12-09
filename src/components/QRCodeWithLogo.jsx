@@ -6,6 +6,27 @@ import { useState, useEffect, useRef } from 'react'
 let cachedLogoUrl = null
 let logoLoadPromise = null
 
+// Preload function to be called early (e.g., from GameBoard)
+export const preloadQRLogo = async (getAppSettings) => {
+  if (cachedLogoUrl) return cachedLogoUrl
+
+  if (logoLoadPromise) return logoLoadPromise
+
+  logoLoadPromise = (async () => {
+    try {
+      const settings = await getAppSettings()
+      const url = settings?.logo || null
+      cachedLogoUrl = url
+      return url
+    } catch (error) {
+      console.error('Error preloading logo:', error)
+      return null
+    }
+  })()
+
+  return logoLoadPromise
+}
+
 function QRCodeWithLogo({ questionId, size = 250, mode = 'answer' }) {
   const [logoUrl, setLogoUrl] = useState(cachedLogoUrl)
   const [logoLoading, setLogoLoading] = useState(!cachedLogoUrl)

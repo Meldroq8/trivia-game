@@ -11,7 +11,7 @@ import BackgroundImage from '../components/BackgroundImage'
 import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet, getOptimizedMediaUrl as getOptimizedMediaUrlUtil } from '../utils/mediaUrlConverter'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
-import QRCodeWithLogo from '../components/QRCodeWithLogo'
+import QRCodeWithLogo, { preloadQRLogo } from '../components/QRCodeWithLogo'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import gamePreloader from '../utils/preloader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
@@ -42,6 +42,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   useEffect(() => {
     document.title = 'راس براس - لعبة جارية'
   }, [])
+
+  // Preload QR code logo for faster display when questions are shown
+  useEffect(() => {
+    if (getAppSettings) {
+      preloadQRLogo(getAppSettings)
+      devLog('🔄 Preloading QR code logo...')
+    }
+  }, [getAppSettings])
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
