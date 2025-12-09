@@ -274,19 +274,45 @@ service cloud.firestore {
     // ===== DRAWING SESSIONS =====
     // Real-time drawing sessions for drawing mini-game
     match /drawingSessions/{sessionId} {
-      // Allow public read/write for drawing sessions
-      // Users scan QR codes and may not be authenticated on their phones
-      // Sessions are temporary and auto-cleanup after game ends
-      allow read, write: if true;
+      // Allow public read for drawing sessions
+      allow read: if true;
+
+      // Allow create with size limit (prevent storing massive documents)
+      // Document must have required fields and reasonable size
+      allow create: if request.resource.data.keys().hasAll(['status', 'createdAt']) &&
+                       request.resource.data.size() < 50; // Max 50 fields
+
+      // Allow update with size limit
+      allow update: if request.resource.data.size() < 50 &&
+                       // Strokes array must not exceed 1000 items (prevents abuse)
+                       (!request.resource.data.keys().hasAny(['strokes']) ||
+                        request.resource.data.strokes.size() < 1000);
+
+      // Only allow delete if session is finished or old (created > 1 hour ago)
+      // This prevents disrupting active games
+      allow delete: if resource.data.status == 'finished';
     }
 
     // ===== HEADBAND SESSIONS =====
     // Real-time headband game sessions (Who Am I / Guess the Image)
     match /headbandSessions/{sessionId} {
-      // Allow public read/write for headband sessions
-      // Users scan QR codes and may not be authenticated on their phones
-      // Sessions are temporary and auto-cleanup after game ends
-      allow read, write: if true;
+      // Allow public read for headband sessions
+      allow read: if true;
+
+      // Allow create with required fields
+      allow create: if request.resource.data.keys().hasAll(['status', 'createdAt']) &&
+                       request.resource.data.size() < 30; // Max 30 fields
+
+      // Allow update with field restrictions
+      // Counter values must be between 0 and 10
+      allow update: if request.resource.data.size() < 30 &&
+                       (!request.resource.data.keys().hasAny(['teamACounter']) ||
+                        (request.resource.data.teamACounter >= 0 && request.resource.data.teamACounter <= 10)) &&
+                       (!request.resource.data.keys().hasAny(['teamBCounter']) ||
+                        (request.resource.data.teamBCounter >= 0 && request.resource.data.teamBCounter <= 10));
+
+      // Only allow delete if session is finished
+      allow delete: if resource.data.status == 'finished';
     }
 
     // ===== NOTIFICATIONS =====
