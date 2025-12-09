@@ -45,16 +45,15 @@ export class AuthService {
       // Update user profile
       await updateProfile(user, { displayName })
 
-      // Check if this is the first user (make them admin)
-      const isFirstUser = email === 'f17@live.at' // You can change this email
-
       // Create user document in Firestore
+      // Note: isAdmin is NEVER set to true on signup - this is enforced by Firestore rules
+      // Admins must be manually assigned via the database or by existing admins
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         email: user.email,
         displayName: displayName,
         createdAt: new Date(),
-        isAdmin: isFirstUser, // First specific user becomes admin
+        isAdmin: false, // Always false - Firestore rules prevent isAdmin:true on create
         gameStats: {
           gamesPlayed: 0,
           totalScore: 0,
