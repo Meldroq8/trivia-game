@@ -22,6 +22,7 @@ import DrawingService from '../services/drawingService'
 import DrawingCanvas from '../components/DrawingCanvas'
 import HeadbandService from '../services/headbandService'
 import HeadbandDisplay, { HeadbandAnswerDisplay } from '../components/HeadbandDisplay'
+import CharadeService from '../services/charadeService'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -394,6 +395,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   // Headband mini-game state
   const [headbandSession, setHeadbandSession] = useState(null)
   const headbandUnsubscribeRef = useRef(null)
+
+  // Charade mini-game state
+  const [charadeSession, setCharadeSession] = useState(null)
+  const charadeUnsubscribeRef = useRef(null)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -879,6 +884,81 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       if (headbandUnsubscribeRef.current) {
         headbandUnsubscribeRef.current()
         headbandUnsubscribeRef.current = null
+      }
+    }
+  }, [currentQuestion?.id, gameData, user?.uid])
+
+  // Initialize and subscribe to charade session for charades mini-games
+  useEffect(() => {
+    if (!currentQuestion || !gameData) return
+
+    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+    const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+    const isCharadesMode = isQrMiniGame && miniGameType === 'charades'
+
+    if (!isCharadesMode) {
+      // Cleanup any existing charade session if switching away from charades mode
+      if (charadeUnsubscribeRef.current) {
+        charadeUnsubscribeRef.current()
+        charadeUnsubscribeRef.current = null
+      }
+      setCharadeSession(null)
+      return
+    }
+
+    // Create charade session - include user ID to prevent collisions between different games
+    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!questionId || !user?.uid) return
+    const sessionId = `${questionId}_${user.uid}`
+
+    const initCharadeSession = async () => {
+      try {
+        devLog('🎭 Initializing charade session with ID:', sessionId)
+
+        // Get question data
+        const question = currentQuestion?.question || currentQuestion
+
+        // Create session in Firestore
+        await CharadeService.createSession(sessionId, {
+          questionId: questionId,
+          answer: question?.answer || '',
+          answerImageUrl: question?.answerImageUrl || question?.answerImage || '',
+          answerAudioUrl: question?.answerAudioUrl || '',
+          answerVideoUrl: question?.answerVideoUrl || '',
+          questionText: question?.text || '',
+          difficulty: question?.difficulty || 'medium',
+          points: question?.points || 400
+        })
+
+        devLog('🎭 Charade session created successfully:', sessionId)
+        devLog('🎭 QR Code URL should be:', `${window.location.origin}/answer-view/${sessionId}`)
+
+        // Subscribe to session updates
+        const unsubscribe = CharadeService.subscribeToSession(sessionId, (sessionData) => {
+          if (sessionData) {
+            setCharadeSession(sessionData)
+            devLog('🎭 Charade session updated:', sessionData.status)
+          }
+        })
+
+        charadeUnsubscribeRef.current = unsubscribe
+      } catch (error) {
+        prodError('Error initializing charade session:', error)
+      }
+    }
+
+    initCharadeSession()
+
+    // Cleanup on unmount or question change
+    return () => {
+      if (charadeUnsubscribeRef.current) {
+        charadeUnsubscribeRef.current()
+        charadeUnsubscribeRef.current = null
       }
     }
   }, [currentQuestion?.id, gameData, user?.uid])
@@ -2510,14 +2590,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                             }}
                           >
                             <QRCodeWithLogo
-                              questionId={
-                                // For drawing/headband mode, use sessionId (includes userId for unique sessions)
-                                // For charades/answer mode, use raw questionId (AnswerViewPage expects just the question ID)
-                                (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing' ||
-                                 category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
-                                  ? sessionId
-                                  : questionId
-                              }
+                              questionId={sessionId}
                               size={styles.isPC
                                 ? Math.min(Math.max(150, styles.imageAreaHeight * 0.5), 350)  // PC: 50%, max 350px
                                 : Math.min(Math.max(80, styles.imageAreaHeight * 0.35), 180)  // Mobile: 35%, max 180px

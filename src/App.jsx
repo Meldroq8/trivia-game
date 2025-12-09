@@ -581,7 +581,7 @@ function App() {
               element={<Results gameState={gameState} setGameState={setGameState} />}
             />
             <Route
-              path="/answer-view/:questionId"
+              path="/answer-view/:sessionId"
               element={<AnswerViewPage />}
             />
             <Route

@@ -50,7 +50,7 @@ export default defineConfig({
           // Admin page (large, rarely accessed by regular users)
           'admin': ['./src/pages/Admin.jsx'],
           // AI services (only used in admin)
-          'ai-services': ['./src/services/aiService.js']
+          'ai-services': ['./src/services/aiServiceSecure.js']
         },
         // More aggressive cache busting with build timestamp
         entryFileNames: (chunkInfo) => {

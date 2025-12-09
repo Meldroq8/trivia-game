@@ -92,15 +92,16 @@ service cloud.firestore {
     }
 
     // ===== MODERATOR AND ADMIN COLLECTIONS =====
-    // Questions collection - allow public read access for the trivia game, only admins to write
+    // Questions collection - require authentication for read access (protects question data)
+    // Phone users see answers via charadeSessions collection instead
     match /questions/{questionId} {
-      allow read: if true; // Public read access for trivia game
+      allow read: if request.auth != null; // Require authentication to read questions
       allow write: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
 
       // Nested questions subcollection
       match /questions/{nestedQuestionId} {
-        allow read: if true; // Public read access for trivia game
+        allow read: if request.auth != null; // Require authentication to read questions
         allow write: if request.auth != null &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
       }
@@ -310,6 +311,24 @@ service cloud.firestore {
                         (request.resource.data.teamACounter >= 0 && request.resource.data.teamACounter <= 10)) &&
                        (!request.resource.data.keys().hasAny(['teamBCounter']) ||
                         (request.resource.data.teamBCounter >= 0 && request.resource.data.teamBCounter <= 10));
+
+      // Only allow delete if session is finished
+      allow delete: if resource.data.status == 'finished';
+    }
+
+    // ===== CHARADE SESSIONS =====
+    // Real-time charade game sessions (act out the answer)
+    // Allows phone users to see answer without directly accessing questions collection
+    match /charadeSessions/{sessionId} {
+      // Allow public read for charade sessions (phone users scan QR to see answer)
+      allow read: if true;
+
+      // Allow create with required fields
+      allow create: if request.resource.data.keys().hasAll(['status', 'createdAt']) &&
+                       request.resource.data.size() < 20; // Max 20 fields
+
+      // Allow update with size limit
+      allow update: if request.resource.data.size() < 20;
 
       // Only allow delete if session is finished
       allow delete: if resource.data.status == 'finished';

@@ -1,50 +1,55 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
+import CharadeService from '../services/charadeService'
 import LogoDisplay from '../components/LogoDisplay'
 import SmartImage from '../components/SmartImage'
 import AudioPlayer from '../components/AudioPlayer'
-import { prodError } from '../utils/devLog'
+import { prodError, devLog } from '../utils/devLog'
 
 function AnswerViewPage() {
-  const { questionId } = useParams()
+  const { sessionId } = useParams()
   const [answer, setAnswer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    const loadAnswer = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+    if (!sessionId) {
+      setError('رابط غير صالح')
+      setLoading(false)
+      return
+    }
 
-        // Load question to get answer data
-        const questions = await FirebaseQuestionsService.getAllQuestions()
-        const question = questions.find(q => q.id === questionId)
+    devLog('🎭 AnswerViewPage: Subscribing to session:', sessionId)
 
-        if (!question) {
-          setError('السؤال غير موجود')
-          return
-        }
-
-        setAnswer({
-          text: question.answer,
-          imageUrl: question.answerImageUrl,
-          audioUrl: question.answerAudioUrl,
-          videoUrl: question.answerVideoUrl
-        })
-      } catch (err) {
-        prodError('Error loading answer:', err)
-        setError('حدث خطأ أثناء تحميل الإجابة')
-      } finally {
+    // Subscribe to real-time session updates
+    const unsubscribe = CharadeService.subscribeToSession(sessionId, (sessionData) => {
+      if (!sessionData) {
+        setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
         setLoading(false)
+        return
+      }
+
+      if (sessionData.status === 'finished') {
+        setError('انتهت هذه الجلسة')
+        setLoading(false)
+        return
+      }
+
+      setAnswer({
+        text: sessionData.answer,
+        imageUrl: sessionData.answerImageUrl,
+        audioUrl: sessionData.answerAudioUrl,
+        videoUrl: sessionData.answerVideoUrl
+      })
+      setLoading(false)
+    })
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
       }
     }
-
-    if (questionId) {
-      loadAnswer()
-    }
-  }, [questionId])
+  }, [sessionId])
 
   if (loading) {
     return (
