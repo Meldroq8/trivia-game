@@ -11,11 +11,26 @@ service cloud.firestore {
 
     // Users can only access their own data
     match /users/{userId} {
-      // Public read access for leaderboard display
+      // Public read access for leaderboard display (limited fields exposed by frontend)
       allow read: if true;
 
-      // Only authenticated users can write their own data
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // Users can CREATE their own profile on signup
+      // SECURITY:
+      // 1. Cannot set isAdmin or isModerator to true on creation
+      // 2. Signup must be enabled in app settings (server-side check!)
+      allow create: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.isAdmin != true &&
+        request.resource.data.isModerator != true &&
+        // Check if signups are enabled (defaults to true if not set)
+        (get(/databases/$(database)/documents/settings/app-settings).data.signUpEnabled != false);
+
+      // Users can UPDATE their own data BUT cannot modify protected fields
+      // SECURITY: Prevents users from making themselves admin/moderator
+      allow update: if request.auth != null &&
+        request.auth.uid == userId &&
+        // Ensure isAdmin field is not being changed (or doesn't exist in update)
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAdmin', 'isModerator']));
 
       // Allow admins to update any user's role (for user management)
       allow update: if request.auth != null &&
@@ -121,9 +136,10 @@ service cloud.firestore {
 
     // ===== LOADER SYSTEM =====
     // User roles collection
+    // SECURITY: Only admins can assign roles - users cannot set their own role
     match /user_roles/{userId} {
       allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId ||
+      allow write: if request.auth != null &&
                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
 
@@ -131,9 +147,13 @@ service cloud.firestore {
     match /invite_codes/{codeId} {
       // Allow unauthenticated read for invite code validation
       allow read: if true;
+      // Only admins can create/delete invite codes
       allow create: if request.auth != null &&
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow update: if request.auth != null; // For marking as used
+      // SECURITY: Only allow updating 'used' and 'usedAt' fields, and only if not already used
+      allow update: if request.auth != null &&
+                      resource.data.used != true &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedAt', 'usedBy']);
       allow delete: if request.auth != null &&
                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
     }
