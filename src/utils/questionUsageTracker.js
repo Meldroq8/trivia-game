@@ -388,7 +388,8 @@ class QuestionUsageTracker {
 
     const totalTracked = Object.keys(usageData).length
     const usedQuestions = Object.values(usageData).filter(count => count > 0).length
-    const unusedQuestions = totalTracked - usedQuestions
+    // Fix: unusedQuestions should be poolSize - usedQuestions, not totalTracked - usedQuestions
+    const unusedQuestions = poolSize - usedQuestions
     const completionPercentage = poolSize > 0 ? parseFloat((usedQuestions / poolSize * 100).toFixed(1)) : 0
 
     return {
