@@ -11,6 +11,8 @@ function AnswerViewPage() {
   const [answer, setAnswer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isReady, setIsReady] = useState(false)
+  const [markingReady, setMarkingReady] = useState(false)
 
   useEffect(() => {
     if (!sessionId) {
@@ -41,6 +43,7 @@ function AnswerViewPage() {
         audioUrl: sessionData.answerAudioUrl,
         videoUrl: sessionData.answerVideoUrl
       })
+      setIsReady(sessionData.playerReady || false)
       setLoading(false)
     })
 
@@ -50,6 +53,21 @@ function AnswerViewPage() {
       }
     }
   }, [sessionId])
+
+  const handleReady = async () => {
+    if (markingReady || isReady) return
+
+    setMarkingReady(true)
+    try {
+      await CharadeService.markPlayerReady(sessionId)
+      setIsReady(true)
+      devLog('🎭 Player marked as ready')
+    } catch (error) {
+      prodError('Error marking ready:', error)
+    } finally {
+      setMarkingReady(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -123,6 +141,31 @@ function AnswerViewPage() {
                 />
               </div>
             )}
+
+            {/* Ready button */}
+            <div className="mt-8 flex justify-center">
+              {isReady ? (
+                <div className="bg-green-500 text-white px-8 py-4 rounded-full text-2xl font-bold flex items-center gap-3 shadow-lg">
+                  <span>جاهز</span>
+                  <span className="text-3xl">✓</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleReady}
+                  disabled={markingReady}
+                  className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-10 py-5 rounded-full text-2xl font-bold shadow-xl transform transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {markingReady ? (
+                    <div className="flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                      <span>جاري...</span>
+                    </div>
+                  ) : (
+                    <span>جاهز</span>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </main>

@@ -121,6 +121,25 @@ export class CharadeService {
       throw error
     }
   }
+
+  /**
+   * Mark player as ready (phone user pressed ready button)
+   * This triggers the timer on the main screen
+   * @param {string} sessionId
+   */
+  static async markPlayerReady(sessionId) {
+    try {
+      await updateDoc(doc(db, 'charadeSessions', sessionId), {
+        playerReady: true,
+        playerReadyAt: serverTimestamp(),
+        lastHeartbeat: serverTimestamp()
+      })
+      devLog('🎭 Charade player marked as ready:', sessionId)
+    } catch (error) {
+      prodError('Error marking charade player ready:', error)
+      throw error
+    }
+  }
 }
 
 export default CharadeService

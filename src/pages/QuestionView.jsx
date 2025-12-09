@@ -399,6 +399,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   // Charade mini-game state
   const [charadeSession, setCharadeSession] = useState(null)
   const charadeUnsubscribeRef = useRef(null)
+  const charadeTimerInitializedRef = useRef(false)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -942,7 +943,19 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         const unsubscribe = CharadeService.subscribeToSession(sessionId, (sessionData) => {
           if (sessionData) {
             setCharadeSession(sessionData)
-            devLog('🎭 Charade session updated:', sessionData.status)
+            devLog('🎭 Charade session updated:', sessionData.status, 'playerReady:', sessionData.playerReady)
+
+            // Start QR timer when player becomes ready (ONLY ONCE using ref)
+            if (sessionData.playerReady && !charadeTimerInitializedRef.current) {
+              charadeTimerInitializedRef.current = true
+              setQrTimerStarted(true)
+              setQrTimerPaused(false)
+              // Set timer based on points/difficulty
+              const points = currentQuestion?.question?.points || currentQuestion?.points || 400
+              const timeLimit = points === 200 ? 90 : points === 600 ? 45 : 60
+              setQrTimeRemaining(timeLimit)
+              devLog('🎭 Charade player ready, timer started:', timeLimit)
+            }
           }
         })
 
@@ -960,6 +973,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         charadeUnsubscribeRef.current()
         charadeUnsubscribeRef.current = null
       }
+      charadeTimerInitializedRef.current = false // Reset timer flag on cleanup
     }
   }, [currentQuestion?.id, gameData, user?.uid])
 
