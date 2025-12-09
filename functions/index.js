@@ -1,4 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https'
+import { beforeUserCreated } from 'firebase-functions/v2/identity'
 import { defineSecret } from 'firebase-functions/params'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -12,6 +13,68 @@ import { join } from 'path'
 
 // Initialize Firebase Admin
 initializeApp()
+
+// ===== SECURITY: Blocking Function for User Signup =====
+// This function runs BEFORE a user account is created in Firebase Auth
+// It enforces:
+// 1. App Check validation (only requests from your website are allowed)
+// 2. signUpEnabled setting from Firestore (admin toggle)
+export const blockUnauthorizedSignup = beforeUserCreated(
+  {
+    // Consume App Check token to verify request comes from your website
+    consumeAppCheckToken: true,
+  },
+  async (event) => {
+    const db = getFirestore()
+
+    // SECURITY CHECK 1: Verify App Check token
+    // If App Check is enforced and token is invalid/missing, this will be undefined
+    if (!event.appCheckToken) {
+      console.error('BLOCKED: Signup attempt without valid App Check token')
+      throw new Error('Unauthorized: This action can only be performed from the official website.')
+    }
+
+    // Log App Check validation success
+    console.log('App Check validated for signup:', {
+      email: event.data.email,
+      appCheckToken: event.appCheckToken ? 'valid' : 'missing'
+    })
+
+    // SECURITY CHECK 2: Check if signups are enabled in app settings
+    try {
+      const settingsDoc = await db.collection('settings').doc('app-settings').get()
+
+      if (settingsDoc.exists) {
+        const settings = settingsDoc.data()
+
+        // If signUpEnabled is explicitly false, block the signup
+        if (settings.signUpEnabled === false) {
+          console.error('BLOCKED: Signup attempt while signups are disabled', {
+            email: event.data.email
+          })
+          throw new Error('Registration is currently closed. Only existing users can sign in.')
+        }
+      }
+      // If settings don't exist or signUpEnabled is not set, allow signup (default behavior)
+
+    } catch (error) {
+      // If it's our own error (signup disabled), rethrow it
+      if (error.message.includes('Registration is currently closed') ||
+          error.message.includes('Unauthorized')) {
+        throw error
+      }
+
+      // For other errors (e.g., Firestore unavailable), log but allow signup
+      // This prevents a Firestore outage from blocking all signups
+      console.error('Error checking signup settings:', error)
+    }
+
+    console.log('Signup allowed for:', event.data.email)
+
+    // Return nothing to allow the signup to proceed
+    return
+  }
+)
 
 // Define secrets for AWS credentials
 const awsAccessKeyId = defineSecret('AWS_ACCESS_KEY_ID')

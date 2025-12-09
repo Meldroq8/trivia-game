@@ -109,6 +109,8 @@ jobs:
         # AWS Configuration (credentials are in Firebase secrets, not exposed to frontend)
         VITE_AWS_REGION: ${{ secrets.VITE_AWS_REGION }}
         VITE_AWS_S3_BUCKET: ${{ secrets.VITE_AWS_S3_BUCKET }}
+        # Firebase App Check - reCAPTCHA Enterprise Site Key
+        VITE_RECAPTCHA_SITE_KEY: ${{ secrets.VITE_RECAPTCHA_SITE_KEY }}
         # Note: API keys (OpenAI, Google Search, Anthropic) are now stored in Firebase Functions secrets
         # and accessed server-side only - they are NOT needed in frontend build
       run: npm run build

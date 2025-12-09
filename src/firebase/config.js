@@ -3,6 +3,7 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,6 +17,28 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig)
+
+// Initialize App Check with reCAPTCHA Enterprise
+// This prevents unauthorized API access (only requests from your website are allowed)
+if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+  try {
+    // Enable debug mode in development (generates debug tokens)
+    if (import.meta.env.DEV) {
+      // @ts-ignore
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+    }
+
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true
+    })
+    devLog('App Check initialized successfully')
+  } catch (error) {
+    prodError('Failed to initialize App Check:', error)
+  }
+} else {
+  devWarn('App Check not initialized: VITE_RECAPTCHA_SITE_KEY not set')
+}
 
 // Initialize Firebase services
 export const db = getFirestore(app)
