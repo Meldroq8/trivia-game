@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import aiService from '../services/aiServiceSecure'
 import S3UploadService from '../utils/s3UploadSecure'
 import { processQuestionImage } from '../utils/imageProcessor'
+import { auth } from '../firebase/config'
 
 /**
  * Modal for AI-powered question enhancement
@@ -152,44 +153,70 @@ export default function AIEnhancementModal({
       img.crossOrigin = 'anonymous'
 
       let imageLoaded = false
-      let loadedUrl = null
 
-      // Try direct URL first, then fall back to proxy
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      const proxyUrl = isLocalhost
-        ? `http://127.0.0.1:5001/lamah-357f3/us-central1/imageProxy?url=${encodeURIComponent(image.url)}`
-        : `${window.location.origin}/api/imageProxy?url=${encodeURIComponent(image.url)}`
-
-      const urls = [
-        image.url, // Try direct first
-        proxyUrl // Use proxy if CORS blocked
-      ]
-
-      for (let i = 0; i < urls.length; i++) {
-        try {
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout after 10 seconds')), 10000)
-            img.onload = () => {
-              clearTimeout(timeout)
-              imageLoaded = true
-              loadedUrl = urls[i]
-              devLog(`✅ Image loaded (${i === 0 ? 'direct' : 'via proxy'}): ${img.width}x${img.height}px`)
-              resolve()
-            }
-            img.onerror = () => {
-              clearTimeout(timeout)
-              reject(new Error('Failed to load'))
-            }
-            img.src = urls[i]
-          })
-          break // Success, exit loop
-        } catch (err) {
-          if (i === urls.length - 1) {
-            // Last attempt failed
-            throw new Error('فشل تحميل الصورة حتى مع استخدام الوكيل.\n\nجرب صورة أخرى من نتائج البحث.')
+      // Strategy 1: Try direct URL first
+      try {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout')), 10000)
+          img.onload = () => {
+            clearTimeout(timeout)
+            imageLoaded = true
+            devLog(`✅ Image loaded (direct): ${img.width}x${img.height}px`)
+            resolve()
           }
-          devLog(`⚠️ Attempt ${i + 1} failed, trying next method...`)
+          img.onerror = () => {
+            clearTimeout(timeout)
+            reject(new Error('Failed to load'))
+          }
+          img.src = image.url
+        })
+      } catch (directErr) {
+        devLog('⚠️ Direct load failed, trying authenticated proxy...')
+
+        // Strategy 2: Use authenticated proxy
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        const proxyBaseUrl = isLocalhost
+          ? 'http://127.0.0.1:5001/lamah-357f3/us-central1/imageProxy'
+          : `${window.location.origin}/api/imageProxy`
+
+        // Get auth token for the proxy request
+        const user = auth.currentUser
+        if (!user) {
+          throw new Error('يجب تسجيل الدخول لاستخدام هذه الميزة')
         }
+        const token = await user.getIdToken()
+
+        // Fetch image through authenticated proxy
+        const proxyUrl = `${proxyBaseUrl}?url=${encodeURIComponent(image.url)}`
+        const proxyResponse = await fetch(proxyUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (!proxyResponse.ok) {
+          throw new Error('فشل تحميل الصورة عبر الوكيل')
+        }
+
+        // Convert to blob URL for the image element
+        const blob = await proxyResponse.blob()
+        const blobUrl = URL.createObjectURL(blob)
+
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout')), 10000)
+          img.onload = () => {
+            clearTimeout(timeout)
+            imageLoaded = true
+            devLog(`✅ Image loaded (via proxy): ${img.width}x${img.height}px`)
+            resolve()
+          }
+          img.onerror = () => {
+            clearTimeout(timeout)
+            URL.revokeObjectURL(blobUrl) // Clean up
+            reject(new Error('Failed to load proxy image'))
+          }
+          img.src = blobUrl
+        })
       }
 
       if (!imageLoaded) {

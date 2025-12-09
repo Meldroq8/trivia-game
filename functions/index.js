@@ -1167,6 +1167,7 @@ Return ONLY 2-5 English search words. No quotes, no explanations, no punctuation
 )
 
 // CORS proxy to bypass image CORS restrictions
+// SECURITY: Requires admin authentication to prevent abuse as open proxy
 export const imageProxy = onRequest(
   {
     cors: true,
@@ -1194,10 +1195,63 @@ export const imageProxy = onRequest(
         return
       }
 
+      // SECURITY: Require authentication to prevent SSRF attacks
+      const authHeader = req.headers.authorization
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        res.status(401).send('Unauthorized: Missing token')
+        return
+      }
+
+      const idToken = authHeader.split('Bearer ')[1]
+
+      // Verify the ID token
+      let decodedToken
+      try {
+        decodedToken = await getAuth().verifyIdToken(idToken)
+      } catch (error) {
+        console.error('Token verification failed:', error)
+        res.status(401).send('Unauthorized: Invalid token')
+        return
+      }
+
+      // Check if user is admin (only admins should use this proxy)
+      const userId = decodedToken.uid
+      const db = getFirestore()
+      const userDoc = await db.collection('users').doc(userId).get()
+
+      if (!userDoc.exists || !userDoc.data().isAdmin) {
+        res.status(403).send('Forbidden: Admin access required')
+        return
+      }
+
       const imageUrl = req.query.url
 
       if (!imageUrl) {
         res.status(400).send('Missing url parameter')
+        return
+      }
+
+      // SECURITY: Validate URL to prevent SSRF to internal resources
+      let parsedUrl
+      try {
+        parsedUrl = new URL(imageUrl)
+      } catch (e) {
+        res.status(400).send('Invalid URL')
+        return
+      }
+
+      // Block internal/private IP ranges
+      const blockedHosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '192.168.']
+      const hostname = parsedUrl.hostname.toLowerCase()
+
+      if (blockedHosts.some(blocked => hostname.includes(blocked) || hostname.startsWith(blocked))) {
+        res.status(403).send('Forbidden: Cannot fetch internal resources')
+        return
+      }
+
+      // Only allow http/https protocols
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        res.status(400).send('Invalid protocol: Only HTTP/HTTPS allowed')
         return
       }
 
@@ -1213,12 +1267,24 @@ export const imageProxy = onRequest(
         return
       }
 
+      // Verify content type is an image
+      const contentType = response.headers.get('content-type') || ''
+      if (!contentType.startsWith('image/')) {
+        res.status(400).send('URL does not return an image')
+        return
+      }
+
       // Get the image as array buffer
       const arrayBuffer = await response.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
+      // Limit response size to 10MB to prevent abuse
+      if (buffer.length > 10 * 1024 * 1024) {
+        res.status(413).send('Image too large (max 10MB)')
+        return
+      }
+
       // Set appropriate headers
-      const contentType = response.headers.get('content-type') || 'image/jpeg'
       res.set('Content-Type', contentType)
       res.set('Cache-Control', 'public, max-age=86400') // Cache for 1 day
       res.set('Access-Control-Allow-Origin', '*')
