@@ -217,13 +217,35 @@ class QuestionUsageTracker {
   }
 
   /**
-   * Save the current pool size to localStorage
+   * Save the current pool size to localStorage and Firestore
    * @param {number} size - Total number of questions in the pool
    */
-  savePoolSize(size) {
+  async savePoolSize(size) {
     try {
+      // Save to localStorage for quick access
       localStorage.setItem(this.POOL_SIZE_KEY, size.toString())
-      devLog('💾 Saved question pool size:', size)
+      devLog('💾 Saved question pool size to localStorage:', size)
+
+      // Also save to Firestore if user is authenticated
+      if (this.currentUserId) {
+        const userDoc = doc(db, 'questionUsage', this.currentUserId)
+        await updateDoc(userDoc, {
+          poolSize: size,
+          lastUpdated: Date.now()
+        }).catch(async (error) => {
+          // If document doesn't exist, create it
+          if (error.code === 'not-found') {
+            await setDoc(userDoc, {
+              usageData: {},
+              poolSize: size,
+              lastUpdated: Date.now()
+            })
+          } else {
+            throw error
+          }
+        })
+        devLog('💾 Saved question pool size to Firestore:', size)
+      }
     } catch (error) {
       prodError('❌ Error saving pool size:', error)
     }
@@ -240,7 +262,7 @@ class QuestionUsageTracker {
     const currentPoolSize = totalQuestions.length
 
     devLog(`📊 Current question pool size: ${currentPoolSize}`)
-    this.savePoolSize(currentPoolSize)
+    await this.savePoolSize(currentPoolSize)
 
     // Initialize usage tracking for new questions
     const usageData = await this.getUsageData()
