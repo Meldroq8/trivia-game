@@ -7,6 +7,7 @@ let cachedLogoUrl = null
 let logoLoadPromise = null
 
 // Preload function to be called early (e.g., from GameBoard)
+// This fetches the URL AND preloads the actual image into browser cache
 export const preloadQRLogo = async (getAppSettings) => {
   if (cachedLogoUrl) return cachedLogoUrl
 
@@ -17,6 +18,13 @@ export const preloadQRLogo = async (getAppSettings) => {
       const settings = await getAppSettings()
       const url = settings?.logo || null
       cachedLogoUrl = url
+
+      // Preload the actual image into browser cache
+      if (url) {
+        const img = new Image()
+        img.src = url
+      }
+
       return url
     } catch (error) {
       console.error('Error preloading logo:', error)

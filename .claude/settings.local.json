@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npx firebase deploy:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(npm run build:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase functions:list:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nSECURITY: Add App Check to block unauthorized signups\n\n- Add Firebase App Check with reCAPTCHA Enterprise to verify requests\n  come from the official website only\n- Add beforeUserCreated blocking function that:\n  1. Validates App Check token (blocks API/Postman signups)\n  2. Checks signUpEnabled setting from admin panel\n- Update GitHub workflow to include VITE_RECAPTCHA_SITE_KEY\n- Update .env.example with App Check configuration\n\nThis prevents hackers from creating accounts via direct API calls.\nOnly signups from the official website are now allowed.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(firebase functions:log:*)",
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate blocking function to use Firestore toggle for App Check\n\n- App Check enforcement is now controlled via appCheckEnforced field\n  in Firestore settings/app-settings document\n- This allows enabling/disabling App Check without redeploying\n- Signups work normally until appCheckEnforced is set to true\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
