@@ -1204,13 +1204,16 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                         <option value="charades">🎭 تمثيل (Charades)</option>
                         <option value="drawing">🎨 رسم (Drawing)</option>
                         <option value="headband">🎯 تخمين الصورة (Headband)</option>
+                        <option value="guessword">🤔 خمن الكلمة (Guess Word)</option>
                       </select>
                       <div className="text-xs text-blue-600 mt-1">
                         {category.miniGameType === 'drawing'
                           ? '🎨 سيرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية'
                           : category.miniGameType === 'headband'
                             ? '🎯 لاعبان يتواجهان - كل واحد يحمل صورة للآخر ليخمنها'
-                            : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
+                            : category.miniGameType === 'guessword'
+                              ? '🤔 لاعب واحد يرى الكلمة والفريق يسأل أسئلة نعم/لا (15 سؤال)'
+                              : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
                       </div>
                     </div>
                   )}

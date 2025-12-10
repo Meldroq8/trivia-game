@@ -334,6 +334,26 @@ service cloud.firestore {
       allow delete: if resource.data.status == 'finished';
     }
 
+    // ===== GUESSWORD SESSIONS =====
+    // Real-time guessword game sessions (20 questions style)
+    // Single player sees word and counts team's questions
+    match /guesswordSessions/{sessionId} {
+      // Allow public read for guessword sessions (phone user scans QR to see word)
+      allow read: if true;
+
+      // Allow create with required fields
+      allow create: if request.resource.data.keys().hasAll(['status', 'createdAt']) &&
+                       request.resource.data.size() < 25; // Max 25 fields
+
+      // Allow update with size limit and question count validation
+      allow update: if request.resource.data.size() < 25 &&
+                       (!request.resource.data.keys().hasAny(['questionCount']) ||
+                        (request.resource.data.questionCount >= 0 && request.resource.data.questionCount <= 15));
+
+      // Only allow delete if session is finished
+      allow delete: if resource.data.status == 'finished';
+    }
+
     // ===== NOTIFICATIONS =====
     // User notifications for report resolutions, etc.
     match /notifications/{notificationId} {

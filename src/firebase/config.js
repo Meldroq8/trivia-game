@@ -22,10 +22,11 @@ const app = initializeApp(firebaseConfig)
 // This prevents unauthorized API access (only requests from your website are allowed)
 if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
   try {
-    // Enable debug mode in development (generates debug tokens)
+    // Enable debug mode in development with a fixed token
+    // Register this token ONCE in Firebase Console > App Check > Manage debug tokens
     if (import.meta.env.DEV) {
-      // @ts-ignore
-      self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+      // @ts-ignore - Fixed token from env, works across all browsers/devices in dev
+      self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true
     }
 
     initializeAppCheck(app, {

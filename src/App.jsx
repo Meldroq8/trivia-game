@@ -18,6 +18,7 @@ import PasswordReset from './pages/PasswordReset'
 import AuthAction from './pages/AuthAction'
 import DrawingGame from './pages/DrawingGame'
 import HeadbandGame from './pages/HeadbandGame'
+import GuessWordGame from './pages/GuessWordGame'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -615,6 +616,10 @@ function App() {
             <Route
               path="/headband/:sessionId"
               element={<HeadbandGame />}
+            />
+            <Route
+              path="/guessword/:sessionId"
+              element={<GuessWordGame />}
             />
             <Route
               path="/loader/:inviteCode"

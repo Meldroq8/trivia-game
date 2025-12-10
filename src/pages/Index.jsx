@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Header from '../components/Header'
+import AuthModal from '../components/AuthModal'
 import { useAuth } from '../hooks/useAuth'
 import { debounce } from '../utils/debounce'
 import { devLog, devWarn, prodError } from '../utils/devLog'
@@ -8,7 +9,8 @@ import { devLog, devWarn, prodError } from '../utils/devLog'
 function Index({ setGameState }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getAppSettings, getPublicLeaderboard, updateLeaderboard } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings, getPublicLeaderboard, updateLeaderboard } = useAuth()
+  const [showAuthModal, setShowAuthModal] = useState(false)
   const [settings, setSettings] = useState(() => {
     try {
       const cachedSettings = localStorage.getItem('app_settings')
@@ -152,6 +154,13 @@ function Index({ setGameState }) {
   }, [dimensions.width, dimensions.height])
 
   const handleCreateGame = () => {
+    // Check if user is authenticated before proceeding
+    if (!isAuthenticated) {
+      // Show auth modal instead of navigating
+      setShowAuthModal(true)
+      return
+    }
+
     // Clear game state for a fresh game
     setGameState(prev => ({
       ...prev,
@@ -536,6 +545,12 @@ function Index({ setGameState }) {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal for Sign In/Sign Up */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   )
 }

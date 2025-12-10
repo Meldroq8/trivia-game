@@ -23,6 +23,8 @@ import DrawingCanvas from '../components/DrawingCanvas'
 import HeadbandService from '../services/headbandService'
 import HeadbandDisplay, { HeadbandAnswerDisplay } from '../components/HeadbandDisplay'
 import CharadeService from '../services/charadeService'
+import GuessWordService from '../services/guessWordService'
+import GuessWordDisplay from '../components/GuessWordDisplay'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -400,6 +402,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [charadeSession, setCharadeSession] = useState(null)
   const charadeUnsubscribeRef = useRef(null)
   const charadeTimerInitializedRef = useRef(false)
+
+  // GuessWord mini-game state
+  const [guesswordSession, setGuesswordSession] = useState(null)
+  const guesswordUnsubscribeRef = useRef(null)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -974,6 +980,78 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         charadeUnsubscribeRef.current = null
       }
       charadeTimerInitializedRef.current = false // Reset timer flag on cleanup
+    }
+  }, [currentQuestion?.id, gameData, user?.uid])
+
+  // Initialize and subscribe to guessword session for guessword mini-games
+  useEffect(() => {
+    if (!currentQuestion || !gameData) return
+
+    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+    const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+    const isGuesswordMode = isQrMiniGame && miniGameType === 'guessword'
+
+    if (!isGuesswordMode) {
+      // Cleanup any existing guessword session if switching away from guessword mode
+      if (guesswordUnsubscribeRef.current) {
+        guesswordUnsubscribeRef.current()
+        guesswordUnsubscribeRef.current = null
+      }
+      setGuesswordSession(null)
+      return
+    }
+
+    // Create guessword session - include user ID to prevent collisions between different games
+    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!questionId || !user?.uid) return
+    const sessionId = `${questionId}_${user.uid}`
+
+    const initGuesswordSession = async () => {
+      try {
+        devLog('🎯 Initializing guessword session with ID:', sessionId)
+
+        // Get question data
+        const question = currentQuestion?.question || currentQuestion
+
+        // Create session in Firestore
+        await GuessWordService.createSession(sessionId, {
+          questionId: questionId,
+          answer: question?.answer || '',
+          questionText: question?.text || '',
+          difficulty: question?.difficulty || 'medium',
+          points: question?.points || 400
+        })
+
+        devLog('🎯 GuessWord session created successfully:', sessionId)
+        devLog('🎯 QR Code URL should be:', `${window.location.origin}/guessword/${sessionId}`)
+
+        // Subscribe to session updates
+        const unsubscribe = GuessWordService.subscribeToSession(sessionId, (sessionData) => {
+          if (sessionData) {
+            setGuesswordSession(sessionData)
+            devLog('🎯 GuessWord session updated:', sessionData.status, 'count:', sessionData.questionCount)
+          }
+        })
+
+        guesswordUnsubscribeRef.current = unsubscribe
+      } catch (error) {
+        prodError('Error initializing guessword session:', error)
+      }
+    }
+
+    initGuesswordSession()
+
+    // Cleanup on unmount or question change
+    return () => {
+      if (guesswordUnsubscribeRef.current) {
+        guesswordUnsubscribeRef.current()
+        guesswordUnsubscribeRef.current = null
+      }
     }
   }, [currentQuestion?.id, gameData, user?.uid])
 
@@ -2434,6 +2512,26 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     )
                   }
 
+                  // Check if this is guessword mode and player is ready
+                  const isGuesswordModeActive = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) && miniGameType === 'guessword'
+                  const isGuesswordActive = isGuesswordModeActive && guesswordSession?.status === 'playing'
+
+                  // Show guessword counter circles when player is ready
+                  if (isGuesswordActive) {
+                    return (
+                      <div className="flex flex-col justify-center items-center w-full h-full p-4 md:p-8">
+                        {/* Explanation text */}
+                        <p className="text-center text-gray-700 dark:text-gray-300 text-sm md:text-lg mb-3 md:mb-6 font-medium">
+                          🟢 أخضر = أسئلة متبقية | 🔴 أحمر = أسئلة مستخدمة
+                        </p>
+                        <GuessWordDisplay
+                          questionCount={guesswordSession?.questionCount || 0}
+                          maxQuestions={guesswordSession?.maxQuestions || 15}
+                        />
+                      </div>
+                    )
+                  }
+
                   // Show normal question content
                   return (
                     <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
@@ -2612,6 +2710,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               mode={
                                 (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing') ? 'drawing' :
                                 (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband') ? 'headband' :
+                                (category?.miniGameType === 'guessword' || originalCategory?.miniGameType === 'guessword') ? 'guessword' :
                                 'answer'
                               }
                             />
@@ -2698,10 +2797,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   const miniGameTypeForTimer = category?.miniGameType || originalCategory?.miniGameType || 'charades'
                   const isDrawingModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'drawing'
                   const isHeadbandModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'headband'
+                  const isGuesswordModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'guessword'
 
                   if (isQrMiniGame) {
                     // Headband Mode - No timer at all (counter-based game)
                     if (isHeadbandModeForTimer) {
+                      return null
+                    }
+
+                    // GuessWord Mode - No timer at all (counter-based game, similar to headband)
+                    if (isGuesswordModeForTimer) {
                       return null
                     }
 
