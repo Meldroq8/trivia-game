@@ -344,9 +344,12 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   const [masterCategories, setMasterCategories] = useState([])
 
   useEffect(() => {
+    // Don't load until admin/moderator status is confirmed
+    if (!isAdmin && !isModerator) return
+
     // Load directly from Firebase - no localStorage dependency
     loadDataFromFirebase()
-  }, [])
+  }, [isAdmin, isModerator])
 
   const loadDataFromFirebase = async () => {
     try {

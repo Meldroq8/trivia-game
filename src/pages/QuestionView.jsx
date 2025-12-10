@@ -704,6 +704,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
   // Load game data for category settings (force refresh to get latest QR settings)
   useEffect(() => {
+    // Don't load data until auth check is complete and user is authenticated
+    if (loading || !isAuthenticated) {
+      return
+    }
+
     const loadGameData = async () => {
       try {
         const data = await GameDataLoader.loadGameData(true) // Force refresh to get latest category settings
@@ -714,7 +719,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       }
     }
     loadGameData()
-  }, [currentQuestion?.id]) // Reload when question changes to get fresh settings
+  }, [currentQuestion?.id, loading, isAuthenticated]) // Reload when question changes or auth ready
 
   // In preview mode, use preview categories as fallback while gameData loads
   useEffect(() => {

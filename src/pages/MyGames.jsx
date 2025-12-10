@@ -55,6 +55,9 @@ function MyGames({ gameState, setGameState }) {
 
   // Load categories from Firebase
   useEffect(() => {
+    // Don't load data until auth check is complete and user is authenticated
+    if (authLoading || !isAuthenticated) return
+
     const loadCategories = async () => {
       try {
         const gameData = await GameDataLoader.loadGameData()
@@ -67,7 +70,7 @@ function MyGames({ gameState, setGameState }) {
       }
     }
     loadCategories()
-  }, [])
+  }, [authLoading, isAuthenticated])
 
   // Load user's games
   useEffect(() => {

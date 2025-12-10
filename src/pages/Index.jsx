@@ -56,20 +56,30 @@ function Index({ setGameState }) {
   }, [])
 
   useEffect(() => {
-    const loadSettings = async () => {
+    const loadSettings = async (retryCount = 0) => {
       try {
         const appSettings = await getAppSettings()
-        if (appSettings) {
+        if (appSettings && Object.keys(appSettings).length > 0) {
           setSettings(appSettings)
           // Cache settings for instant loading next time
           localStorage.setItem('app_settings', JSON.stringify(appSettings))
+          devLog('✅ Settings loaded successfully')
+        } else if (retryCount < 3) {
+          // Retry after a delay if settings are empty (App Check might not be ready)
+          devLog(`⏳ Settings empty, retrying in ${(retryCount + 1) * 500}ms...`)
+          setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
+          return
         }
 
         // Load leaderboard data in background (non-blocking)
         loadLeaderboard()
       } catch (error) {
         prodError('Error loading settings:', error)
-        // Don't block UI on settings error - continue showing cached settings
+        // Retry on error (App Check might not be ready yet)
+        if (retryCount < 3) {
+          devLog(`⏳ Settings error, retrying in ${(retryCount + 1) * 500}ms...`)
+          setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
+        }
       }
     }
 

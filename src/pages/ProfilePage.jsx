@@ -50,8 +50,10 @@ function ProfilePage() {
 
   // Load game data and stats
   useEffect(() => {
+    // Don't load data until auth check is complete and user is authenticated
+    if (authLoading || !isAuthenticated || !user?.uid) return
+
     const loadData = async () => {
-      if (!user?.uid) return
 
       try {
         setLoading(true)
@@ -77,7 +79,7 @@ function ProfilePage() {
     }
 
     loadData()
-  }, [user])
+  }, [user, authLoading, isAuthenticated])
 
   // Handle window resize
   useEffect(() => {

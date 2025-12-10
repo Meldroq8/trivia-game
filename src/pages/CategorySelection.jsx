@@ -112,6 +112,11 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   }, [isAuthenticated, authLoading, navigate])
 
   useEffect(() => {
+    // Don't load data until auth check is complete and user is authenticated
+    if (authLoading || !isAuthenticated) {
+      return
+    }
+
     // Load categories from Firebase with local cache
     const loadData = async () => {
       try {
@@ -180,7 +185,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
 
     loadData()
-  }, [user])
+  }, [user, authLoading, isAuthenticated])
 
   // Load question counts when game data is available
   useEffect(() => {

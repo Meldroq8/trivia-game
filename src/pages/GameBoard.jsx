@@ -380,6 +380,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
   // Load game data from Firebase - runs once per mount
   useEffect(() => {
+    // Don't load data until auth check is complete and user is authenticated
+    if (authLoading || !isAuthenticated) {
+      return
+    }
+
     const loadGameData = async () => {
       try {
         setLoadingError(null)
@@ -433,7 +438,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
 
     loadGameData()
-  }, []) // Run once on mount - component fully unmounts when switching routes
+  }, [authLoading, isAuthenticated]) // Run when auth is ready
 
   useEffect(() => {
     // Only wait for essential data for dimensions - don't block on everything

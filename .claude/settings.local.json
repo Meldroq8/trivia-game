@@ -13,7 +13,9 @@
       "Bash(curl:*)",
       "Bash(node -e:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nUpdate blocking function to use Firestore toggle for App Check\n\n- App Check enforcement is now controlled via appCheckEnforced field\n  in Firestore settings/app-settings document\n- This allows enabling/disabling App Check without redeploying\n- Signups work normally until appCheckEnforced is set to true\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npx firebase-tools:*)",
+      "Bash(set GOOGLE_CLOUD_PROJECT=lamah-357f3:*)"
     ],
     "deny": [],
     "ask": []
