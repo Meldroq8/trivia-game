@@ -23,14 +23,24 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
   useEffect(() => {
     let unsubscribe = null
 
+    // Preload image into browser cache
+    const preloadImage = (url) => {
+      if (url) {
+        const img = new Image()
+        img.src = url
+      }
+    }
+
     const loadLogo = async () => {
       try {
         // Load initial settings in background
         const settings = await getAppSettings()
         if (settings?.logo && settings.logo !== logoSrc) {
           setLogoSrc(settings.logo)
-          // Cache for instant loading next time
+          // Cache URL for instant loading next time
           localStorage.setItem('app_logo_url', settings.logo)
+          // Preload actual image into browser cache
+          preloadImage(settings.logo)
         }
         if (settings?.logoSize && settings.logoSize !== logoSize) {
           setLogoSize(settings.logoSize)
@@ -45,6 +55,7 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
             setLogoSrc(newLogo)
             if (newLogo) {
               localStorage.setItem('app_logo_url', newLogo)
+              preloadImage(newLogo)
             } else {
               localStorage.removeItem('app_logo_url')
             }
@@ -59,6 +70,11 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
         prodError('Error loading logo:', error)
         // Don't change UI on error - keep showing cached/current logo
       }
+    }
+
+    // Preload cached image immediately on mount
+    if (logoSrc) {
+      preloadImage(logoSrc)
     }
 
     loadLogo()
