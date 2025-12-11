@@ -5,6 +5,14 @@ import { getAuth } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 
+// IMPORTANT: Set debug token BEFORE any Firebase initialization
+// This must happen at the top level, before initializeApp()
+if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG_TOKEN) {
+  // @ts-ignore - Debug token for development
+  self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN
+  devLog('App Check debug token set for development')
+}
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -22,13 +30,6 @@ const app = initializeApp(firebaseConfig)
 // This prevents unauthorized API access (only requests from your website are allowed)
 if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
   try {
-    // Enable debug mode in development with a fixed token
-    // Register this token ONCE in Firebase Console > App Check > Manage debug tokens
-    if (import.meta.env.DEV) {
-      // @ts-ignore - Fixed token from env, works across all browsers/devices in dev
-      self.FIREBASE_APPCHECK_DEBUG_TOKEN = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true
-    }
-
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
       isTokenAutoRefreshEnabled: true
