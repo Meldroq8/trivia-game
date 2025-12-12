@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ReactDOM from 'react-dom'
 import { getTextDirection } from '../utils/textDirection'
 
 /**
@@ -11,6 +12,7 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
   const [editedAnswer, setEditedAnswer] = useState(question.answer || '')
   const [isLoading, setIsLoading] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [mediaPreview, setMediaPreview] = useState({ show: false, type: null, url: null })
 
   const aiNotes = question.aiNotes || {}
   const status = question.verificationStatus || 'unverified'
@@ -190,6 +192,74 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
               </span>
             </div>
           </>
+        )}
+
+        {/* Question Media buttons */}
+        {(question.imageUrl || question.audioUrl || question.videoUrl) && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">وسائط السؤال:</span>
+            {question.imageUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'image', url: question.imageUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+              >
+                <span>🖼️</span>
+                <span>صورة</span>
+              </button>
+            )}
+            {question.audioUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'audio', url: question.audioUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded text-xs hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
+              >
+                <span>🔊</span>
+                <span>صوت</span>
+              </button>
+            )}
+            {question.videoUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'video', url: question.videoUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+              >
+                <span>🎬</span>
+                <span>فيديو</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Answer Media buttons */}
+        {(question.answerImageUrl || question.answerAudioUrl || question.answerVideoUrl) && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">وسائط الإجابة:</span>
+            {question.answerImageUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'image', url: question.answerImageUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+              >
+                <span>🖼️</span>
+                <span>صورة</span>
+              </button>
+            )}
+            {question.answerAudioUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'audio', url: question.answerAudioUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+              >
+                <span>🔊</span>
+                <span>صوت</span>
+              </button>
+            )}
+            {question.answerVideoUrl && (
+              <button
+                onClick={() => setMediaPreview({ show: true, type: 'video', url: question.answerVideoUrl })}
+                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+              >
+                <span>🎬</span>
+                <span>فيديو</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -430,6 +500,59 @@ function QuestionReviewCard({ question, onApprove, onDelete, onReVerify }) {
           </button>
         )}
       </div>
+
+      {/* Media Preview Modal - Portal to body to avoid scroll issues */}
+      {mediaPreview.show && typeof document !== 'undefined' && ReactDOM.createPortal(
+        <div
+          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          onClick={() => setMediaPreview({ show: false, type: null, url: null })}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-white dark:bg-slate-800 rounded-xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setMediaPreview({ show: false, type: null, url: null })}
+              className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+            >
+              ✕
+            </button>
+
+            {/* Media content */}
+            <div className="p-4">
+              {mediaPreview.type === 'image' && (
+                <img
+                  src={mediaPreview.url}
+                  alt="Preview"
+                  className="max-w-full max-h-[80vh] object-contain mx-auto"
+                />
+              )}
+              {mediaPreview.type === 'audio' && (
+                <div className="p-8 flex flex-col items-center gap-4">
+                  <div className="text-6xl">🔊</div>
+                  <audio
+                    src={mediaPreview.url}
+                    controls
+                    autoPlay
+                    className="w-full max-w-md"
+                  />
+                </div>
+              )}
+              {mediaPreview.type === 'video' && (
+                <video
+                  src={mediaPreview.url}
+                  controls
+                  autoPlay
+                  className="max-w-full max-h-[80vh] mx-auto"
+                />
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

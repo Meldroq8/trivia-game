@@ -429,9 +429,10 @@ function DifficultyBalancer({ categories, categoryMap }) {
                           </span>
                         </div>
 
-                        {/* Media buttons */}
+                        {/* Question Media buttons */}
                         {(q.imageUrl || q.audioUrl || q.videoUrl) && (
                           <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">وسائط السؤال:</span>
                             {q.imageUrl && (
                               <button
                                 onClick={() => setMediaPreview({ show: true, type: 'image', url: q.imageUrl })}
@@ -454,6 +455,40 @@ function DifficultyBalancer({ categories, categoryMap }) {
                               <button
                                 onClick={() => setMediaPreview({ show: true, type: 'video', url: q.videoUrl })}
                                 className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                              >
+                                <span>🎬</span>
+                                <span>فيديو</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Answer Media buttons */}
+                        {(q.answerImageUrl || q.answerAudioUrl || q.answerVideoUrl) && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">وسائط الإجابة:</span>
+                            {q.answerImageUrl && (
+                              <button
+                                onClick={() => setMediaPreview({ show: true, type: 'image', url: q.answerImageUrl })}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                              >
+                                <span>🖼️</span>
+                                <span>صورة</span>
+                              </button>
+                            )}
+                            {q.answerAudioUrl && (
+                              <button
+                                onClick={() => setMediaPreview({ show: true, type: 'audio', url: q.answerAudioUrl })}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
+                              >
+                                <span>🔊</span>
+                                <span>صوت</span>
+                              </button>
+                            )}
+                            {q.answerVideoUrl && (
+                              <button
+                                onClick={() => setMediaPreview({ show: true, type: 'video', url: q.answerVideoUrl })}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
                               >
                                 <span>🎬</span>
                                 <span>فيديو</span>
