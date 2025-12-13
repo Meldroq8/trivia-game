@@ -96,11 +96,7 @@ export class AuthService {
   // Send password reset email
   static async resetPassword(email) {
     try {
-      const actionCodeSettings = {
-        url: 'https://rasbras.com/?passwordReset=success',
-        handleCodeInApp: false
-      }
-      await sendPasswordResetEmail(auth, email, actionCodeSettings)
+      await sendPasswordResetEmail(auth, email)
       devLog('Password reset email sent to:', email)
     } catch (error) {
       prodError('Error sending password reset email:', error)
