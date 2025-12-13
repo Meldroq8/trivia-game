@@ -96,13 +96,10 @@ export class AuthService {
   // Send password reset email
   static async resetPassword(email) {
     try {
-      // Configure continue URL - where user goes after resetting password
       const actionCodeSettings = {
-        // After successful reset on Firebase page, redirect to homepage with success param
-        url: `${window.location.origin}/?passwordReset=success`,
+        url: 'https://rasbras.com/?passwordReset=success',
         handleCodeInApp: false
       }
-
       await sendPasswordResetEmail(auth, email, actionCodeSettings)
       devLog('Password reset email sent to:', email)
     } catch (error) {
