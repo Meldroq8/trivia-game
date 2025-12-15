@@ -25,6 +25,7 @@ import HeadbandDisplay, { HeadbandAnswerDisplay } from '../components/HeadbandDi
 import CharadeService from '../services/charadeService'
 import GuessWordService from '../services/guessWordService'
 import GuessWordDisplay from '../components/GuessWordDisplay'
+import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/responsiveStyles'
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -38,44 +39,23 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const W = window.innerWidth || 375 // Fallback width
       const H = window.innerHeight || 667 // Fallback height
 
-      // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
-      const isPC = W >= 1024 && H >= 768 // Desktop/laptop detection
-      const pcScaleFactor = isPC ? 2.0 : 1.0 // 200% scaling for PC, normal for mobile/tablet
-
       // Use dynamic viewport height for better mobile support
       const actualVH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : H
 
-      // Device and orientation detection
-      const isUltraNarrow = W < 950 // Phones and small tablets
-      const isMobileLayout = W < 768
-      const isLandscape = W > actualVH // Landscape orientation
-      const isShortScreen = actualVH < 500 // Z Fold and short screens - height-based detection!
-      const isTallScreen = actualVH > 900 // Tall screens can use more space
+      // Use shared utility for consistent header sizing across pages
+      const sharedHeaderStyles = getHeaderStyles(W, actualVH)
+      const { globalScaleFactor, headerFontSize, buttonPadding, headerPadding, isPC, baseGap: sharedBaseGap, headerBaseFontSize } = sharedHeaderStyles
+      const calculatedHeaderHeight = sharedHeaderStyles.headerHeight
 
-      // Calculate header sizing first - matching Header component
-      const globalScaleFactor = Math.max(0.8, Math.min(1.2, W / 400))
-      let headerBaseFontSize = 16
-      if (actualVH <= 390) {
-        headerBaseFontSize = 14
-      } else if (actualVH <= 430) {
-        headerBaseFontSize = 15
-      } else if (actualVH <= 568) {
-        headerBaseFontSize = 16
-      } else if (actualVH <= 667) {
-        headerBaseFontSize = 17
-      } else if (actualVH <= 812) {
-        headerBaseFontSize = 18
-      } else if (actualVH <= 896) {
-        headerBaseFontSize = 19
-      } else if (actualVH <= 1024) {
-        headerBaseFontSize = 20
-      } else {
-        headerBaseFontSize = isPC ? 24 : 20
-      }
-      const buttonPadding = Math.max(8, globalScaleFactor * 12)
-      const headerFontSize = headerBaseFontSize * globalScaleFactor
-      const headerPadding = Math.max(8, buttonPadding * 0.25)
-      const calculatedHeaderHeight = Math.max(56, headerFontSize * 3)
+      // PC Auto-scaling factor
+      const pcScaleFactor = getPCScaleFactor(W, H)
+
+      // Device and orientation detection - use shared utility
+      const deviceFlags = getDeviceFlags(W, actualVH)
+      const { isUltraNarrow, isMobileLayout, isLandscape, isPortrait, isPhone, isTablet, isTabletPortrait, isPhonePortrait, isPhoneLandscape, isShortScreen, isTallScreen } = deviceFlags
+
+      // Use shared baseGap for consistency
+      const baseGap = sharedBaseGap
 
       // More accurate space calculation - use calculated header height
       const actualHeaderHeight = calculatedHeaderHeight
@@ -231,7 +211,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
       // Option F: Reduce media height on phone landscape when tolerance badge present
       // This prevents overlap with timer while maintaining text readability
-      const isPhoneLandscape = isLandscape && !isPC && actualVH <= 450
+      // isPhoneLandscape is already available from getDeviceFlags()
       if (isPhoneLandscape) {
         // Apply 85% scaling to give more breathing room for tolerance badge
         imageAreaHeight = Math.floor(imageAreaHeight * 0.85)
@@ -271,14 +251,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const scoringFontSize = baseFontSize * 0.9 * globalScaleFactor
 
       // Return calculated responsive values with error fallbacks
-      const baseGap = isMobileLayout ? 6 : 8 // Smaller gaps for slimmer appearance
-
       return {
         isShortScreen,
         isTallScreen,
         isMobileLayout,
         isUltraNarrow,
         isLandscape,
+        isPhonePortrait,
+        isPhoneLandscape,
         isPC,
         globalScaleFactor,
         availableHeight,
@@ -412,6 +392,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
   const [activeTimer, setActiveTimer] = useState({ active: false, type: null, team: null, timeLeft: 0, paused: false })
   const [burgerMenuOpen, setBurgerMenuOpen] = useState(false)
+  const [sponsorLogo, setSponsorLogo] = useState(null)
+  const [sponsorLogoLoaded, setSponsorLogoLoaded] = useState(false)
   const { isAuthenticated, loading, user, saveGameState, getAppSettings } = useAuth()
 
   // Mini game rules state
@@ -434,7 +416,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   })
   const containerRef = useRef(null)
   const headerRef = useRef(null)
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 375,
+    height: typeof window !== 'undefined' ? window.innerHeight : 667
+  })
   const [headerHeight, setHeaderHeight] = useState(0)
 
   // Set page title
@@ -442,20 +427,41 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     document.title = 'راس براس - سؤال'
   }, [])
 
-  // Load mini game rules from settings
+  // Enable pinch-to-zoom on this page for phones/tablets
   useEffect(() => {
-    const loadMiniGameRules = async () => {
+    const viewport = document.querySelector('meta[name="viewport"]')
+    const originalContent = viewport?.getAttribute('content')
+
+    // Enable zoom
+    if (viewport) {
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes')
+    }
+
+    // Restore original viewport settings on unmount
+    return () => {
+      if (viewport && originalContent) {
+        viewport.setAttribute('content', originalContent)
+      }
+    }
+  }, [])
+
+  // Load mini game rules and sponsor logo from settings
+  useEffect(() => {
+    const loadSettings = async () => {
       try {
         const settings = await getAppSettings()
         if (settings?.miniGameRules) {
           setMiniGameRules(settings.miniGameRules)
+        }
+        if (settings?.sponsorLogo) {
+          setSponsorLogo(settings.sponsorLogo)
         }
       } catch (error) {
         // Use default rules if loading fails
         devLog('Using default mini game rules')
       }
     }
-    loadMiniGameRules()
+    loadSettings()
   }, [getAppSettings])
 
   // Report modal state
@@ -463,8 +469,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [hasReported, setHasReported] = useState(false)
   const [checkingReport, setCheckingReport] = useState(false)
 
-  // Memoized responsive styles
-  const styles = useMemo(() => getResponsiveStyles(), [])
+  // Memoized responsive styles - recalculate when dimensions change
+  const styles = useMemo(() => getResponsiveStyles(), [dimensions])
 
   // Set user ID for question tracker when user changes
   useEffect(() => {
@@ -1872,57 +1878,117 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       {/* Header - Copy from GameBoard */}
       <div
         ref={headerRef}
-        className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-hidden shadow-lg"
+        className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-[9998] overflow-visible relative shadow-lg"
         style={{
           padding: `${styles.headerPadding}px`,
           height: `${styles.headerHeight}px`
         }}
       >
-        <div className="flex justify-between items-center h-full md:px-12 lg:px-16 xl:px-20 2xl:px-28">
-          <div className="flex items-center" style={{ gap: `${styles.baseGap}px` }}>
-            <LogoDisplay />
-            <span className="font-bold text-white" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
-              دور:
-            </span>
-            <span
-              className="font-bold text-white"
-              style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}
-            >
-              {gameState.currentTurn === 'team1'
-                ? gameState.team1?.name || 'الفريق 1'
-                : gameState.currentTurn === 'team2'
-                ? gameState.team2?.name || 'الفريق 2'
-                : 'غير محدد'}
-            </span>
-            <button
-              onClick={() => setGameState(prev => ({
-                ...prev,
-                currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
-              }))}
-              className="hover:bg-white/10 text-white rounded-lg transition-colors flex items-center justify-center p-1"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9">
-                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
-              </svg>
-            </button>
-          </div>
+        {styles.isPhonePortrait ? (
+          /* Portrait Mode: Header with team turn and hamburger menu */
+          <div className="flex justify-between items-center h-full">
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
+              <LogoDisplay />
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+                   style={{
+                     gap: `${styles.headerFontSize * 0.3}px`,
+                     padding: `${styles.headerFontSize * 0.2}px ${styles.headerFontSize * 0.5}px`
+                   }}>
+                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>دور:</span>
+                <span className="font-bold text-white leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
+                  {gameState.currentTurn === 'team1'
+                    ? gameState.team1?.name || 'الفريق 1'
+                    : gameState.currentTurn === 'team2'
+                    ? gameState.team2?.name || 'الفريق 2'
+                    : 'غير محدد'}
+                </span>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
+                  }))}
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
 
-          <div className="flex-1 text-center flex items-center justify-center px-2" style={{ gap: `${styles.baseGap}px` }}>
-            <h1 className="font-bold text-center" style={{
-              fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - ((gameState.gameName?.length || 0) > 15 ? ((gameState.gameName?.length || 0) - 15) * 1.5 : 0))}px`,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '100%'
-            }}>
-              {gameState.gameName}
-            </h1>
-          </div>
+            <div className="flex items-center flex-1 justify-center px-2">
+              <h1 className="font-bold text-center truncate max-w-full" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
+                {gameState.gameName}
+              </h1>
+            </div>
 
-          {/* Navigation - Responsive */}
-          <div className="relative">
-            {/* Landscape Mode - Show all buttons */}
-            <div className="hidden landscape:flex" style={{ gap: `${styles.baseGap}px` }}>
+            <div className="flex items-center gap-2 portrait-menu relative">
+              <button
+                onClick={toggleDarkMode}
+                className="text-white hover:text-red-200 transition-colors p-1"
+                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
+              >
+                {isDarkMode ? '☀️' : '🌙'}
+              </button>
+              <button
+                onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 text-lg sm:text-xl"
+              >
+                ☰
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Landscape Mode: Original full header */
+          <div className={`flex justify-between items-center h-full ${styles.isPhoneLandscape ? 'px-2' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
+              <LogoDisplay />
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+                   style={{
+                     gap: `${styles.headerFontSize * 0.3}px`,
+                     padding: `${styles.headerFontSize * 0.25}px ${styles.headerFontSize * 0.6}px`
+                   }}>
+                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
+                  دور:
+                </span>
+                <span
+                  className="font-bold text-white leading-none"
+                  style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}
+                >
+                  {gameState.currentTurn === 'team1'
+                    ? gameState.team1?.name || 'الفريق 1'
+                    : gameState.currentTurn === 'team2'
+                    ? gameState.team2?.name || 'الفريق 2'
+                    : 'غير محدد'}
+                </span>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
+                  }))}
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 text-center flex items-center justify-center px-2" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
+              <h1 className="font-bold text-center" style={{
+                fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - ((gameState.gameName?.length || 0) > 15 ? ((gameState.gameName?.length || 0) - 15) * 1.5 : 0))}px`,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%'
+              }}>
+                {gameState.gameName}
+              </h1>
+            </div>
+
+            {/* Navigation - Landscape */}
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <button
                 onClick={toggleDarkMode}
                 className="text-white hover:text-red-200 transition-colors p-2"
@@ -1952,31 +2018,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 انهاء
               </button>
             </div>
-
-            {/* Portrait Mode - Burger Menu */}
-            <div className="landscape:hidden burger-menu-container flex items-center gap-2">
-              <button
-                onClick={toggleDarkMode}
-                className="text-white hover:text-red-200 transition-colors p-2"
-                title={isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}
-              >
-                {isDarkMode ? '☀️' : '🌙'}
-              </button>
-              <button
-                onClick={() => setBurgerMenuOpen(!burgerMenuOpen)}
-                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors flex items-center justify-center"
-                style={{
-                  fontSize: `${styles.headerFontSize * 1}px`,
-                  width: '32px',
-                  height: '32px'
-                }}
-              >
-                ☰
-              </button>
-
-            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Burger Menu Dropdown - Outside header to avoid overflow clipping */}
@@ -2157,7 +2200,51 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               </div>
             </section>
+
+            {/* Sponsor Logo - landscape/desktop only (inside sidebar) */}
+            {sponsorLogo && (styles.isLandscape || styles.isPC) && (
+              <div className={`w-full flex justify-center items-center mt-auto pt-2 ${sponsorLogoLoaded ? '' : 'hidden'}`}
+                   style={{ maxWidth: `${styles.teamSectionWidth}px` }}>
+                <img
+                  src={sponsorLogo}
+                  alt="Sponsor Logo"
+                  className="object-contain"
+                  style={{
+                    maxWidth: `${styles.teamSectionWidth * 0.95}px`,
+                    maxHeight: styles.isShortScreen
+                      ? `${Math.min(60, styles.availableHeight * 0.15)}px`
+                      : styles.isMobileLayout
+                        ? `${Math.min(80, styles.availableHeight * 0.2)}px`
+                        : styles.isPC
+                          ? `${Math.min(140, styles.availableHeight * 0.18)}px`
+                          : `${Math.min(100, styles.availableHeight * 0.18)}px`
+                  }}
+                  onLoad={() => setSponsorLogoLoaded(true)}
+                />
+              </div>
+            )}
           </div>
+
+          {/* Sponsor Logo - portrait mode only (centered, full width, below teams) */}
+          {sponsorLogo && !styles.isLandscape && !styles.isPC && (
+            <div className={`w-full flex justify-center items-center py-1 order-first ${sponsorLogoLoaded ? '' : 'hidden'}`}
+                 style={{ maxWidth: `${styles.availableWidth}px` }}>
+              <img
+                src={sponsorLogo}
+                alt="Sponsor Logo"
+                className="object-contain"
+                style={{
+                  maxWidth: styles.isUltraNarrow
+                    ? `${Math.min(styles.availableWidth * 0.3, 120)}px`
+                    : `${Math.min(styles.availableWidth * 0.4, 200)}px`,
+                  maxHeight: styles.isMobileLayout
+                    ? `${Math.min(50, styles.availableHeight * 0.06)}px`
+                    : `${Math.min(70, styles.availableHeight * 0.08)}px`
+                }}
+                onLoad={() => setSponsorLogoLoaded(true)}
+              />
+            </div>
+          )}
 
           {/* Main Question Area - xl:col-span-9 */}
           <div className="xl:col-span-9 xl:order-2 landscape:flex-1 max-xl:row-start-1 h-full relative gamemain_section max-xl:mb-7 landscape:mb-0 barcode-box barcode-more bg-[#f5f5dc] dark:bg-slate-900"
@@ -2698,7 +2785,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           maxWidth: styles.isPC ? '100%' : '90%'
                         }}
                       >
-                        <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 lg:scale-150">
+                        <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 xl:scale-125 2xl:scale-150">
                           {/* QR Code */}
                           <div
                             className="bg-white dark:bg-slate-800 rounded-lg shadow-xl flex-shrink-0 portrait:scale-90"

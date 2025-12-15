@@ -15,7 +15,8 @@ import {
   limit,
   writeBatch,
   arrayUnion,
-  serverTimestamp
+  serverTimestamp,
+  increment
 } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { createProgressTracker } from './progressTracker'
@@ -448,6 +449,55 @@ export class FirebaseQuestionsService {
   }
 
   /**
+   * Get category count from Firebase (lightweight query for cache validation)
+   * @returns {Promise<number>} Number of categories
+   */
+  static async getCategoryCount() {
+    try {
+      const categoriesRef = collection(db, this.COLLECTIONS.CATEGORIES)
+      const snapshot = await getDocs(categoriesRef)
+      return snapshot.size
+    } catch (error) {
+      prodError('Error getting category count:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get the current data version from Firebase (for cache validation)
+   * @returns {Promise<number>} Current data version
+   */
+  static async getDataVersion() {
+    try {
+      const versionDoc = await getDoc(doc(db, 'settings', 'dataVersion'))
+      if (versionDoc.exists()) {
+        return versionDoc.data().version || 0
+      }
+      return 0
+    } catch (error) {
+      prodError('Error getting data version:', error)
+      return 0
+    }
+  }
+
+  /**
+   * Increment the data version (call this when categories change)
+   * @returns {Promise<void>}
+   */
+  static async incrementDataVersion() {
+    try {
+      const versionRef = doc(db, 'settings', 'dataVersion')
+      await setDoc(versionRef, {
+        version: increment(1),
+        lastUpdated: serverTimestamp()
+      }, { merge: true })
+      devLog('📈 Data version incremented')
+    } catch (error) {
+      prodError('Error incrementing data version:', error)
+    }
+  }
+
+  /**
    * Create a new category
    * @param {Object} categoryData - The category data
    * @returns {Promise<string>} The document ID of the created category
@@ -469,6 +519,8 @@ export class FirebaseQuestionsService {
 
       const docRef = await addDoc(collection(db, this.COLLECTIONS.CATEGORIES), categoryWithTimestamp)
       devLog(`✅ Category created with ID: ${docRef.id}`)
+      // Increment data version so clients refresh their cache
+      await this.incrementDataVersion()
       return docRef.id
     } catch (error) {
       prodError('Error creating category:', error)
@@ -484,6 +536,7 @@ export class FirebaseQuestionsService {
    */
   static async saveCategory(categoryData, categoryId = null) {
     try {
+      let resultId
       if (categoryData.id) {
         // Update existing category
         const categoryRef = doc(db, this.COLLECTIONS.CATEGORIES, categoryData.id)
@@ -491,7 +544,7 @@ export class FirebaseQuestionsService {
           ...categoryData,
           updatedAt: serverTimestamp()
         })
-        return categoryData.id
+        resultId = categoryData.id
       } else if (categoryId) {
         // Create new category with specific ID
         const categoryRef = doc(db, this.COLLECTIONS.CATEGORIES, categoryId)
@@ -503,7 +556,7 @@ export class FirebaseQuestionsService {
         // Remove categoryId from the data to avoid storing it as a field
         delete categoryWithTimestamp.categoryId
         await setDoc(categoryRef, categoryWithTimestamp)
-        return categoryId
+        resultId = categoryId
       } else {
         // Create new category with auto-generated ID
         const categoryWithTimestamp = {
@@ -514,8 +567,11 @@ export class FirebaseQuestionsService {
         // Remove categoryId from the data to avoid storing it as a field
         delete categoryWithTimestamp.categoryId
         const docRef = await addDoc(collection(db, this.COLLECTIONS.CATEGORIES), categoryWithTimestamp)
-        return docRef.id
+        resultId = docRef.id
       }
+      // Increment data version so clients refresh their cache
+      await this.incrementDataVersion()
+      return resultId
     } catch (error) {
       prodError('Error saving category:', error)
       throw error
@@ -870,6 +926,9 @@ export class FirebaseQuestionsService {
 
       // Commit the batch
       await batch.commit()
+
+      // Increment data version so clients refresh their cache
+      await this.incrementDataVersion()
 
       devLog(`✅ Category ${categoryId} deleted with ${deletedQuestionsCount} questions`)
 

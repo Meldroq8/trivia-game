@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AuthService } from '../firebase/authService'
 
 export const useAuth = () => {
@@ -99,7 +99,7 @@ export const useAuth = () => {
     }
   }
 
-  const getUserGames = async () => {
+  const getUserGames = useCallback(async () => {
     if (user) {
       try {
         return await AuthService.getUserGames(user.uid)
@@ -109,9 +109,9 @@ export const useAuth = () => {
       }
     }
     return []
-  }
+  }, [user])
 
-  const deleteGame = async (gameId) => {
+  const deleteGame = useCallback(async (gameId) => {
     if (user) {
       try {
         return await AuthService.deleteGame(gameId)
@@ -120,7 +120,7 @@ export const useAuth = () => {
         throw error
       }
     }
-  }
+  }, [user])
 
   return {
     user,

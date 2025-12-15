@@ -8,7 +8,8 @@ import { FirebaseQuestionsService } from './firebaseQuestions'
 export class GameDataLoader {
   static CACHE_KEY = 'triviaData'
   static CACHE_TIMESTAMP_KEY = 'triviaDataTimestamp'
-  static CACHE_DURATION = 30 * 60 * 1000 // 30 minutes in milliseconds - longer cache for faster loading
+  static CACHE_VERSION_KEY = 'triviaDataVersion'
+  static CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours - categories rarely change
 
   /**
    * Load questions and categories with Firebase-first approach
@@ -21,8 +22,14 @@ export class GameDataLoader {
     try {
       // FAST PATH: Check if we should use cache (instant loading)
       if (!forceRefresh && this.isCacheValid()) {
-        devLog('📦 Using cached data for instant loading')
-        return this.getFromCache()
+        // Quick version check - compare category count with Firebase
+        const cacheStillValid = await this.verifyCacheVersion()
+        if (cacheStillValid) {
+          devLog('📦 Using cached data for instant loading')
+          return this.getFromCache()
+        } else {
+          devLog('🔄 Cache invalidated - new categories detected')
+        }
       }
 
       // BACKGROUND LOADING: Load from Firebase
@@ -37,8 +44,8 @@ export class GameDataLoader {
       // Transform Firebase data to expected format
       const gameData = this.transformFirebaseData(questions, categories, masterCategories)
 
-      // Note: localStorage caching disabled for large datasets
-      // All data is stored in Firebase Firestore, media files in CloudFront
+      // Cache for faster subsequent loads
+      await this.saveToCache(gameData)
 
       devLog('✅ Game data loaded from Firebase:', {
         categories: gameData.categories.length,
@@ -209,7 +216,7 @@ export class GameDataLoader {
   }
 
   /**
-   * Check if cached data is still valid
+   * Check if cached data is still valid (time-based)
    * @returns {boolean} True if cache is valid
    */
   static isCacheValid() {
@@ -218,6 +225,33 @@ export class GameDataLoader {
 
     const age = Date.now() - parseInt(timestamp)
     return age < this.CACHE_DURATION
+  }
+
+  /**
+   * Quick verification that cache is still valid by checking data version
+   * This is a fast check that only reads a single document from Firebase
+   * @returns {Promise<boolean>} True if cache version matches Firebase
+   */
+  static async verifyCacheVersion() {
+    try {
+      const cachedVersion = localStorage.getItem(this.CACHE_VERSION_KEY)
+      if (!cachedVersion) return false
+
+      // Quick version check from Firebase (single document read)
+      const currentVersion = await FirebaseQuestionsService.getDataVersion()
+      const cachedVersionNum = parseInt(cachedVersion)
+
+      if (currentVersion !== cachedVersionNum) {
+        devLog(`🔄 Data version changed: ${cachedVersionNum} → ${currentVersion}`)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      // If version check fails, still use cache (better than slow load)
+      devWarn('⚠️ Version check failed, using cache anyway:', error.message)
+      return true
+    }
   }
 
   /**
@@ -240,7 +274,7 @@ export class GameDataLoader {
    * Save data to cache
    * @param {Object} data - Game data to cache
    */
-  static saveToCache(data) {
+  static async saveToCache(data) {
     try {
       const dataString = JSON.stringify(data)
       const dataSizeKB = (dataString.length / 1024).toFixed(2)
@@ -254,7 +288,10 @@ export class GameDataLoader {
 
       localStorage.setItem(this.CACHE_KEY, dataString)
       localStorage.setItem(this.CACHE_TIMESTAMP_KEY, Date.now().toString())
-      devLog(`💾 Data cached locally (${dataSizeKB} KB)`)
+      // Save current data version for quick validation
+      const currentVersion = await FirebaseQuestionsService.getDataVersion()
+      localStorage.setItem(this.CACHE_VERSION_KEY, currentVersion.toString())
+      devLog(`💾 Data cached locally (${dataSizeKB} KB, version ${currentVersion})`)
     } catch (error) {
       prodError('Error saving to cache:', error)
       // If quota exceeded, clear cache and try again with empty state
@@ -271,6 +308,7 @@ export class GameDataLoader {
   static clearCache() {
     localStorage.removeItem(this.CACHE_KEY)
     localStorage.removeItem(this.CACHE_TIMESTAMP_KEY)
+    localStorage.removeItem(this.CACHE_VERSION_KEY)
     devLog('🗑️ Cache cleared')
   }
 

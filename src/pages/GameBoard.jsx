@@ -18,6 +18,7 @@ import { devLog, devWarn, prodError } from '../utils/devLog'
 import { debounce } from '../utils/debounce'
 import ConfirmExitModal from '../components/ConfirmExitModal'
 import { trackGameStart } from '../services/categoryStatsService'
+import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/responsiveStyles'
 
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -27,7 +28,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const footerRef = useRef(null)
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 375,
+    height: typeof window !== 'undefined' ? window.innerHeight : 667
+  })
   const [headerHeight, setHeaderHeight] = useState(0)
   const [footerHeight, setFooterHeight] = useState(0)
   const [gameData, setGameData] = useState(null)
@@ -1130,12 +1134,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const isPhone = W <= 768 // Phone detection
     const isUltraNarrow = W < 400 // Very narrow phones (Z Fold, etc.)
     const isNormalPhone = W >= 400 && W <= 500 // Normal phones
-    const isPhonePortrait = isPhone && isPortrait
+    const isPhoneLandscape = !isPortrait && H <= 500 // Phone in landscape (short height indicates phone)
 
     // Portrait mode detection (debug logs removed for performance)
 
     // PC Auto-scaling: Apply 2x scaling for desktop/PC users for better visibility
     const isTablet = (W >= 768 && W <= 1024) || (H >= 768 && H <= 1024) // Tablet detection (iPads, etc.)
+    const isTabletPortrait = isTablet && isPortrait // Tablet in portrait mode (like iPad Air 820x1100)
+    const isPhonePortrait = (isPhone && isPortrait) || isTabletPortrait // Include tablet portrait in phone portrait layout
     const isPC = W > 1024 && H > 768 && !isTablet // Desktop/laptop detection (exclude tablets)
     const pcScaleFactor = isPC ? 2.0 : 1.0 // 200% scaling for PC, normal for mobile/tablet
 
@@ -1465,33 +1471,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       return candidateSize * pcScaleFactor
     }
 
-    // Header sizing - matching QuestionView's exact calculation
-    let headerBaseFontSize = 16
-    const actualVH = H
-
-    if (actualVH <= 390) {
-      headerBaseFontSize = 14
-    } else if (actualVH <= 430) {
-      headerBaseFontSize = 15
-    } else if (actualVH <= 568) {
-      headerBaseFontSize = 16
-    } else if (actualVH <= 667) {
-      headerBaseFontSize = 17
-    } else if (actualVH <= 812) {
-      headerBaseFontSize = 18
-    } else if (actualVH <= 896) {
-      headerBaseFontSize = 19
-    } else if (actualVH <= 1024) {
-      headerBaseFontSize = 20
-    } else {
-      headerBaseFontSize = isPC ? 24 : 20
-    }
-
-    const globalScaleFactor = 1.0
-    const headerFontSize = headerBaseFontSize * globalScaleFactor
-    const buttonPadding = Math.max(8, globalScaleFactor * 12)
-    const headerPadding = Math.max(8, buttonPadding * 0.25)
-    const calculatedHeaderHeight = Math.max(56, headerFontSize * 3)
+    // Header sizing - using shared utility for consistency with QuestionView
+    const sharedHeaderStyles = getHeaderStyles(W, H)
+    const { globalScaleFactor, headerFontSize, buttonPadding, headerPadding, baseGap: sharedBaseGap } = sharedHeaderStyles
+    const calculatedHeaderHeight = sharedHeaderStyles.headerHeight
 
     const baseFooterButtonSize = Math.max(30, Math.min(60, H * 0.08)) * pcScaleFactor
     const footerButtonSize = isUltraNarrow ? baseFooterButtonSize * 0.9 : baseFooterButtonSize // Reduce by 10% for ultra-narrow
@@ -1554,7 +1537,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       const spacePerTeam = (availableFooterWidth - logoSafeZone) / 2
 
       // Each team has: Score + gap + 3×Perk + 3×gaps between perks
-      const baseGap = 8
+      const baseGap = sharedBaseGap
       const totalPerks = 3
       const totalGaps = 1 + (totalPerks - 1) // gap after score + gaps between perks
 
@@ -1615,7 +1598,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       actualHeaderHeight: headerHeight || 80,
       actualFooterHeight: footerHeight || 100,
       padding: padding,
-      isPhonePortrait: isPhonePortrait // Keep for portrait-specific styling adjustments
+      isPhonePortrait: isPhonePortrait, // Keep for portrait-specific styling adjustments
+      isPhoneLandscape: isPhoneLandscape // Phone in landscape mode
     }
   }
 
@@ -1689,22 +1673,37 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         {styles.isPhonePortrait ? (
           /* Portrait Mode: Header with team turn and hamburger menu */
           <div className="flex justify-between items-center h-full">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <LogoDisplay />
-              <div className="flex items-center gap-1">
-                <span className="text-xs sm:text-sm md:text-base">دور:</span>
-                <span className="font-bold text-sm sm:text-base md:text-lg" dir="auto">
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+                   style={{
+                     gap: `${styles.headerFontSize * 0.3}px`,
+                     padding: `${styles.headerFontSize * 0.2}px ${styles.headerFontSize * 0.5}px`
+                   }}>
+                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>دور:</span>
+                <span className="font-bold text-white leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
                   {gameState.currentTurn === 'team1'
                     ? gameState.team1.name
                     : gameState.currentTurn === 'team2'
                     ? gameState.team2.name
                     : 'لا يوجد'}
                 </span>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
+                  }))}
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
             <div className="flex items-center flex-1 justify-center px-2">
-              <h1 className="font-bold text-center text-sm sm:text-base md:text-lg truncate max-w-full" dir="auto">
+              <h1 className="font-bold text-center truncate max-w-full" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
                 {gameState.gameName}
               </h1>
             </div>
@@ -1727,39 +1726,51 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           </div>
         ) : (
           /* Landscape Mode: Original full header */
-          <div className="flex justify-between items-center h-full md:px-12 lg:px-16 xl:px-20 2xl:px-28">
-            <div className="flex items-center gap-3">
+          <div className={`flex justify-between items-center h-full ${styles.isPhoneLandscape ? 'px-2' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <LogoDisplay />
-              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl">
-                دور:
-              </span>
-              <span className="font-bold text-white text-sm md:text-base lg:text-lg xl:text-xl" dir="auto">
-                {gameState.currentTurn === 'team1'
-                  ? gameState.team1.name
-                  : gameState.currentTurn === 'team2'
-                  ? gameState.team2.name
-                  : 'لا يوجد'}
-              </span>
-              <button
-                onClick={() => setGameState(prev => ({
-                  ...prev,
-                  currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
-                }))}
-                className="hover:bg-white/10 text-white rounded-lg transition-colors flex items-center justify-center p-1"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9">
-                  <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
-                </svg>
-              </button>
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+                   style={{
+                     gap: `${styles.headerFontSize * 0.3}px`,
+                     padding: `${styles.headerFontSize * 0.25}px ${styles.headerFontSize * 0.6}px`
+                   }}>
+                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
+                  دور:
+                </span>
+                <span className="font-bold text-white leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
+                  {gameState.currentTurn === 'team1'
+                    ? gameState.team1.name
+                    : gameState.currentTurn === 'team2'
+                    ? gameState.team2.name
+                    : 'لا يوجد'}
+                </span>
+                <button
+                  onClick={() => setGameState(prev => ({
+                    ...prev,
+                    currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
+                  }))}
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
+                    <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <h1 className="font-bold text-center text-base md:text-lg lg:text-xl xl:text-2xl" dir="auto">
+            <div className="flex-1 text-center flex items-center justify-center px-2" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
+              <h1 className="font-bold text-center" style={{
+                fontSize: `${Math.max(styles.headerFontSize * 0.7, styles.headerFontSize * 1.2 - ((gameState.gameName?.length || 0) > 15 ? ((gameState.gameName?.length || 0) - 15) * 1.5 : 0))}px`,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '100%'
+              }} dir="auto">
                 {gameState.gameName}
               </h1>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <button
                 onClick={toggleDarkMode}
                 className="text-white hover:text-red-200 transition-colors p-2"
@@ -1767,16 +1778,18 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               >
                 {isDarkMode ? '☀️' : '🌙'}
               </button>
-              <PresentationModeToggle className="text-sm md:text-base" />
+              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors text-sm md:text-base"
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{ fontSize: `${styles.headerFontSize * 0.75}px`, padding: '4px 8px' }}
               >
                 الرجوع للوحة
               </button>
               <button
                 onClick={() => setShowExitModal(true)}
-                className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors text-sm md:text-base"
+                className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
+                style={{ fontSize: `${styles.headerFontSize * 0.75}px`, padding: '4px 8px' }}
               >
                 انهاء
               </button>
@@ -1984,12 +1997,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             {/* First Row: Team Names */}
             <div className="flex items-center w-full justify-between mb-2">
               {/* Team 1 Name wrapper matching controls width */}
-              <div className="flex items-center relative" style={{ gap: '4px' }}>
+              <div className="flex items-center relative" style={{ gap: '2px' }}>
                 {/* Invisible structure matching controls below */}
                 <div className="footer-element-portrait invisible">placeholder</div>
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
                 {/* Team name overlaying all */}
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
                   {gameState.team1.name}
@@ -1997,11 +2010,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </div>
 
               {/* Team 2 Name wrapper matching controls width */}
-              <div className="flex items-center relative" style={{ gap: '4px' }}>
+              <div className="flex items-center relative" style={{ gap: '2px' }}>
                 {/* Invisible structure matching controls below */}
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
-                <div className="w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 invisible"></div>
                 <div className="footer-element-portrait invisible">placeholder</div>
                 {/* Team name overlaying all */}
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold px-3 py-1 text-center text-[11px] sm:text-xs md:text-sm shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
@@ -2013,7 +2026,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             {/* Second Row: All Controls */}
             <div className="flex items-center w-full justify-between">
               {/* Team 1 Controls */}
-              <div className="flex items-center" style={{ gap: '4px' }}>
+              <div className="flex items-center" style={{ gap: '2px' }}>
                 {/* Score with integrated +/- buttons */}
                 <div className="footer-element-portrait bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-xs sm:text-sm md:text-base text-red-700 px-6 py-1">
                   <button
@@ -2064,7 +2077,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   return (
                     <div
                       key={`team1-${perkId}`}
-                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
@@ -2081,7 +2094,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </div>
 
               {/* Team 2 Controls */}
-              <div className="flex items-center" style={{ gap: '4px' }}>
+              <div className="flex items-center" style={{ gap: '2px' }}>
                 {/* Team 2 Perks - Dynamic based on selection */}
                 {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
                   const isQuestionViewOnly = ['phone', 'search', 'twoAnswers'].includes(perkId)
@@ -2094,7 +2107,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   return (
                     <div
                       key={`team2-${perkId}`}
-                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[18px] h-[18px] sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-9 xl:h-9 ${
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
@@ -2174,14 +2187,14 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             )}
 
             {/* First Row: Team Names Only */}
-            <div className="flex items-center w-full justify-between mb-2 md:px-12 lg:px-16 xl:px-20 2xl:px-28">
+            <div className={`flex items-center w-full justify-between mb-2 ${styles.isPhoneLandscape ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
               {/* Team 1 Name wrapper matching controls width */}
-              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4 relative">
+              <div className="flex items-center flex-shrink-0 gap-1 md:gap-2 relative">
                 {/* Invisible structure matching controls below */}
                 <div className="footer-element-landscape invisible">placeholder</div>
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
                 {/* Team name overlaying all */}
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
                   {gameState.team1.name}
@@ -2189,11 +2202,11 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               </div>
 
               {/* Team 2 Name wrapper matching controls width */}
-              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4 relative">
+              <div className="flex items-center flex-shrink-0 gap-1 md:gap-2 relative">
                 {/* Invisible structure matching controls below */}
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
-                <div className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
+                <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 invisible"></div>
                 <div className="footer-element-landscape invisible">placeholder</div>
                 {/* Team name overlaying all */}
                 <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full font-bold text-center px-4 py-1 md:py-2 text-sm md:text-base lg:text-lg xl:text-xl shadow-md truncate absolute top-0 left-0 right-0 flex items-center justify-center" style={{ zIndex: 10 }} dir="auto">
@@ -2203,9 +2216,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Second Row: Score & Perks */}
-            <div className="flex items-center w-full justify-between md:px-12 lg:px-16 xl:px-20 2xl:px-28">
+            <div className={`flex items-center w-full justify-between ${styles.isPhoneLandscape ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
               {/* Team 1 Controls (Left) */}
-              <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
+              <div className="flex items-center flex-shrink-0 gap-1 md:gap-2">
                 {/* Score with integrated +/- buttons */}
                 <div className="footer-element-landscape bg-white dark:bg-slate-800 border-2 border-gray-300 dark:border-slate-600 rounded-full flex items-center justify-between font-bold relative text-base md:text-lg lg:text-xl text-red-700 px-8 py-1 md:py-2">
                   <button
@@ -2244,7 +2257,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   </button>
                 </div>
               {/* Team 1 Perks - Dynamic based on selection */}
-              <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-1 md:gap-2">
                 {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
                   const isQuestionViewOnly = ['phone', 'search', 'twoAnswers'].includes(perkId)
                   const isUsed = (gameState.perkUsage?.team1?.[perkId] || 0) >= 1
@@ -2256,7 +2269,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   return (
                     <div
                       key={`team1-pc-${perkId}`}
-                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
@@ -2274,9 +2287,9 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Team 2 Controls (Right) */}
-            <div className="flex items-center flex-shrink-0 gap-2 md:gap-4">
+            <div className="flex items-center flex-shrink-0 gap-1 md:gap-2">
               {/* Team 2 Perks - Dynamic based on selection */}
-              <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-1 md:gap-2">
                 {(gameState.selectedPerks || ['double', 'phone', 'search']).map(perkId => {
                   const isQuestionViewOnly = ['phone', 'search', 'twoAnswers'].includes(perkId)
                   const isUsed = (gameState.perkUsage?.team2?.[perkId] || 0) >= 1
@@ -2288,7 +2301,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   return (
                     <div
                       key={`team2-pc-${perkId}`}
-                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 ${
+                      className={`border-2 rounded-full flex items-center justify-center transition-colors w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 ${
                         isQuestionViewOnly || isUsed || isLockedByOpponent
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate

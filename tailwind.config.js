@@ -11,9 +11,10 @@ export default {
         arabic: ['Tajawal','Cairo','Tahoma','Arial','sans-serif'],
       },
       colors: {
-        primary: { DEFAULT: '#7C3AED' },
+        primary: { DEFAULT: '#DC2626' },
         accent: { DEFAULT: '#22D3EE' },
         dark: { DEFAULT: '#0B1020' },
+        page: { DEFAULT: '#f7f2e6' },
       },
       boxShadow: {
         soft: '0 10px 25px rgba(0,0,0,0.25)',

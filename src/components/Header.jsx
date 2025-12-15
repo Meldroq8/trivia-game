@@ -5,6 +5,7 @@ import { useDarkMode } from '../hooks/useDarkMode'
 import LogoDisplay from './LogoDisplay'
 import HeaderAuth from './HeaderAuth'
 import NotificationBell from './NotificationBell'
+import { getHeaderStyles, getDeviceFlags } from '../utils/responsiveStyles'
 
 /**
  * Unified responsive header component for all pages
@@ -28,8 +29,8 @@ function Header({
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
+    width: typeof window !== 'undefined' ? window.innerWidth : 375,
+    height: typeof window !== 'undefined' ? window.innerHeight : 667
   })
   const [showMobileMenu, setShowMobileMenu] = useState(false)
 
@@ -44,10 +45,12 @@ function Header({
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  // Close mobile menu when clicking outside
+  // Close mobile menu when clicking outside - only register when menu is open
   useEffect(() => {
+    if (!showMobileMenu) return
+
     const handleClickOutside = (event) => {
-      if (showMobileMenu && !event.target.closest('.mobile-menu-container')) {
+      if (!event.target.closest('.mobile-menu-container')) {
         setShowMobileMenu(false)
       }
     }
@@ -56,57 +59,32 @@ function Header({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showMobileMenu])
 
-  // Calculate responsive styles - matching QuestionView's sizing
+  // Calculate responsive styles - using shared utility for consistency
   const getResponsiveStyles = () => {
     const { width, height } = dimensions
-    const isPortrait = height > width
+
+    // Use shared utility for consistent header sizing across all pages
+    const sharedHeaderStyles = getHeaderStyles(width, height)
+    const deviceFlags = getDeviceFlags(width, height)
+
+    const { headerFontSize, buttonPadding, headerPadding, baseGap, headerHeight } = sharedHeaderStyles
+    const { isPortrait, isMobileLayout, isPC } = deviceFlags
+
     const isMobile = width < 768
     const isTablet = width >= 768 && width < 1024
-    const isPC = width >= 1024
-
-    // Base font size calculation matching QuestionView
-    let baseFontSize = 16
-    const actualVH = height
-
-    if (actualVH <= 390) {
-      baseFontSize = 14
-    } else if (actualVH <= 430) {
-      baseFontSize = 15
-    } else if (actualVH <= 568) {
-      baseFontSize = 16
-    } else if (actualVH <= 667) {
-      baseFontSize = 17
-    } else if (actualVH <= 812) {
-      baseFontSize = 18
-    } else if (actualVH <= 896) {
-      baseFontSize = 19
-    } else if (actualVH <= 1024) {
-      baseFontSize = 20
-    } else {
-      baseFontSize = isPC ? 24 : 20
-    }
-
-    // Match QuestionView's globalScaleFactor
-    const globalScaleFactor = 1.0
-
-    const headerFontSize = baseFontSize * globalScaleFactor
-    const buttonPadding = Math.max(8, globalScaleFactor * 12)
-
-    // Compact padding matching QuestionView
-    const basePadding = Math.max(8, buttonPadding * 0.25)
-    const baseGap = isMobile ? 8 : 12
 
     return {
       headerFontSize,
-      baseFontSize,
-      basePadding,
+      baseFontSize: sharedHeaderStyles.headerBaseFontSize,
+      basePadding: headerPadding,
       baseGap,
       buttonPadding,
+      headerHeight,
       isPortrait,
       isMobile,
       isTablet,
       isPC,
-      showHamburger: isPortrait || isMobile
+      showHamburger: isPortrait || isMobileLayout
     }
   }
 
@@ -139,7 +117,7 @@ function Header({
       className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 shadow-lg"
       style={{
         padding: `${styles.basePadding}px`,
-        height: `${Math.max(56, styles.headerFontSize * 3)}px`
+        height: `${styles.headerHeight}px`
       }}
     >
       <div className="flex justify-between items-center h-full">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import LogoDisplay from '../components/LogoDisplay'
+import Header from '../components/Header'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function ProfilePage() {
@@ -15,7 +15,10 @@ function ProfilePage() {
   const { user, isAuthenticated, loading: authLoading, changePassword } = useAuth()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 375,
+    height: typeof window !== 'undefined' ? window.innerHeight : 667
+  })
   const [headerHeight, setHeaderHeight] = useState(0)
 
   // Password change state
@@ -84,10 +87,10 @@ function ProfilePage() {
   // Handle window resize
   useEffect(() => {
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setDimensions({ width: rect.width, height: rect.height })
-      }
+      setDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      })
 
       if (headerRef.current) {
         const headerRect = headerRef.current.getBoundingClientRect()
@@ -189,8 +192,8 @@ function ProfilePage() {
   // Responsive scaling system (similar to GameBoard and QuestionView)
   const getResponsiveStyles = () => {
     try {
-      const W = window.innerWidth || 375
-      const H = window.innerHeight || 667
+      const W = dimensions.width || 375
+      const H = dimensions.height || 667
 
       // PC Auto-scaling - reduced scale factor for better appearance
       const isPC = W >= 1024 && H >= 768
@@ -296,7 +299,7 @@ function ProfilePage() {
     }
   }
 
-  const styles = useMemo(() => getResponsiveStyles(), [dimensions, headerHeight])
+  const styles = useMemo(() => getResponsiveStyles(), [dimensions])
 
   // Check authentication FIRST before showing any content
   if (!isAuthenticated) {
@@ -327,52 +330,13 @@ function ProfilePage() {
     )
   }
 
-  // Calculate responsive header height
-  const getHeaderHeight = () => {
-    const height = window.innerHeight
-    const isPC = window.innerWidth >= 1024 && height >= 768
-
-    let baseFontSize = 16
-    if (height <= 390) baseFontSize = 14
-    else if (height <= 430) baseFontSize = 15
-    else if (height <= 568) baseFontSize = 16
-    else if (height <= 667) baseFontSize = 17
-    else if (height <= 812) baseFontSize = 18
-    else if (height <= 896) baseFontSize = 19
-    else if (height <= 1024) baseFontSize = 20
-    else baseFontSize = isPC ? 24 : 20
-
-    return Math.max(56, baseFontSize * 3)
-  }
-
   return (
     <div ref={containerRef} className="bg-amber-50 dark:bg-slate-900 flex flex-col" style={{
       minHeight: '100vh',
       overflow: 'auto'
     }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden shadow-lg" style={{
-        padding: '8px',
-        height: getHeaderHeight() + 'px'
-      }}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto h-full px-4">
-          <div className="flex items-center gap-3">
-            <LogoDisplay />
-          </div>
-
-          <div className="flex-1 text-center">
-            <h1 className="text-2xl font-bold">الملف الشخصي</h1>
-          </div>
-
-          <button
-            onClick={() => navigate('/')}
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
-          >
-            <span className="md:hidden text-xl">←</span>
-            <span className="hidden md:inline">العودة للرئيسية</span>
-          </button>
-        </div>
-      </div>
+      <Header title="الملف الشخصي" />
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 max-w-6xl">

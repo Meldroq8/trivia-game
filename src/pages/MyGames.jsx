@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import LogoDisplay from '../components/LogoDisplay'
+import Header from '../components/Header'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 
@@ -13,8 +13,12 @@ function MyGames({ gameState, setGameState }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [gameToDelete, setGameToDelete] = useState(null)
   const [indexError, setIndexError] = useState(null)
-  const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const [dimensions, setDimensions] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 375,
+    height: typeof window !== 'undefined' ? window.innerHeight : 667
+  })
   const [categories, setCategories] = useState([])
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false)
   const navigate = useNavigate()
   const { isAuthenticated, user, getUserGames, deleteGame, loading: authLoading } = useAuth()
 
@@ -53,89 +57,120 @@ function MyGames({ gameState, setGameState }) {
     }
   }, [authLoading, isAuthenticated, navigate])
 
-  // Load categories from Firebase
+  // Load categories and games in PARALLEL for faster loading
   useEffect(() => {
     // Don't load data until auth check is complete and user is authenticated
-    if (authLoading || !isAuthenticated) return
+    if (authLoading || !isAuthenticated || !user) return
 
-    const loadCategories = async () => {
+    const loadAllData = async () => {
+      setLoading(true)
+      setIndexError(null)
+
+      // Check for cached categories first
+      const CACHE_KEY = 'trivia_categories_cache'
+      const CACHE_EXPIRY_KEY = 'trivia_categories_cache_expiry'
+      const CACHE_DURATION = 30 * 60 * 1000 // 30 minutes
+
+      let cachedCategories = null
       try {
-        const gameData = await GameDataLoader.loadGameData()
-        if (gameData && gameData.categories) {
-          setCategories(gameData.categories)
-          devLog('📂 Loaded categories for MyGames:', gameData.categories)
+        const cached = sessionStorage.getItem(CACHE_KEY)
+        const expiry = sessionStorage.getItem(CACHE_EXPIRY_KEY)
+        if (cached && expiry && Date.now() < parseInt(expiry, 10)) {
+          cachedCategories = JSON.parse(cached)
+          devLog('📦 Using cached categories:', cachedCategories.length, 'categories')
         }
-      } catch (error) {
-        prodError('❌ Error loading categories:', error)
+      } catch (e) {
+        devWarn('⚠️ Cache read error:', e)
       }
-    }
-    loadCategories()
-  }, [authLoading, isAuthenticated])
 
-  // Load user's games
-  useEffect(() => {
-    const loadGames = async () => {
-      if (!isAuthenticated || !user) return
+      // If we have cached categories, use them immediately and skip loading
+      if (cachedCategories) {
+        setCategories(cachedCategories)
+        setCategoriesLoaded(true)
+      }
 
-      try {
-        setLoading(true)
-        setIndexError(null)
-        devLog('🎮 Loading user games...')
-        const userGames = await getUserGames()
-        devLog('📖 Loaded games:', userGames)
-
-        // Deduplicate games by ID (remove duplicates from Firebase rate limiting)
-        const uniqueGames = userGames.reduce((acc, game) => {
-          // Use game ID if available, otherwise fallback to name+timestamp
-          const key = game.id || `${game.gameName}_${new Date(game.createdAt).getTime()}`
-          if (!acc.has(key)) {
-            acc.set(key, game)
-          }
-          return acc
-        }, new Map())
-
-        // Sort games by date (newest first) and calculate progress
-        const sortedGames = Array.from(uniqueGames.values())
-          .filter(game => game.gameData && game.gameData.selectedCategories)
-          .map(game => {
-            // Handle usedQuestions - it might be an array or Set from Firebase
-            let usedQuestionsSize = 0
-            if (game.gameData.usedQuestions) {
-              if (Array.isArray(game.gameData.usedQuestions)) {
-                usedQuestionsSize = game.gameData.usedQuestions.length
-              } else if (typeof game.gameData.usedQuestions === 'object') {
-                // If it's a Firebase object, convert to array and get length
-                usedQuestionsSize = Object.keys(game.gameData.usedQuestions).length
-              } else if (game.gameData.usedQuestions.size !== undefined) {
-                // If it's a Set
-                usedQuestionsSize = game.gameData.usedQuestions.size
+      // Load categories (if not cached) and games in parallel
+      const [categoriesResult, gamesResult] = await Promise.allSettled([
+        // Load categories (skip if cached)
+        cachedCategories
+          ? Promise.resolve(cachedCategories)
+          : GameDataLoader.loadGameData().then(gameData => {
+              if (gameData && gameData.categories) {
+                setCategories(gameData.categories)
+                // Cache categories
+                try {
+                  sessionStorage.setItem(CACHE_KEY, JSON.stringify(gameData.categories))
+                  sessionStorage.setItem(CACHE_EXPIRY_KEY, String(Date.now() + CACHE_DURATION))
+                  devLog('💾 Cached categories for 30 minutes')
+                } catch (e) {
+                  devWarn('⚠️ Cache write error:', e)
+                }
+                devLog('📂 Loaded categories for MyGames:', gameData.categories)
               }
+              return gameData?.categories || []
+            }),
+        // Load games
+        getUserGames().then(userGames => {
+          devLog('🎮 Loading user games...')
+          devLog('📖 Loaded games:', userGames)
+
+          // Deduplicate games by ID (remove duplicates from Firebase rate limiting)
+          const uniqueGames = userGames.reduce((acc, game) => {
+            const key = game.id || `${game.gameName}_${new Date(game.createdAt).getTime()}`
+            if (!acc.has(key)) {
+              acc.set(key, game)
             }
+            return acc
+          }, new Map())
 
-            const totalQuestions = game.gameData.selectedCategories?.length * 6 || 0
+          // Sort games by date (newest first) and calculate progress
+          const sortedGames = Array.from(uniqueGames.values())
+            .filter(game => game.gameData && game.gameData.selectedCategories)
+            .map(game => {
+              let usedQuestionsSize = 0
+              if (game.gameData.usedQuestions) {
+                if (Array.isArray(game.gameData.usedQuestions)) {
+                  usedQuestionsSize = game.gameData.usedQuestions.length
+                } else if (typeof game.gameData.usedQuestions === 'object') {
+                  usedQuestionsSize = Object.keys(game.gameData.usedQuestions).length
+                } else if (game.gameData.usedQuestions.size !== undefined) {
+                  usedQuestionsSize = game.gameData.usedQuestions.size
+                }
+              }
 
-            return {
-              ...game,
-              totalQuestions,
-              answeredQuestions: usedQuestionsSize,
-              isComplete: game.isComplete || (usedQuestionsSize >= totalQuestions && totalQuestions > 0)
-            }
-          })
-          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              const totalQuestions = game.gameData.selectedCategories?.length * 6 || 0
 
-        setGames(sortedGames)
-      } catch (error) {
-        prodError('❌ Error loading games:', error)
-        if (error.message && error.message.includes('requires an index')) {
-          setIndexError(error)
-        }
-      } finally {
-        setLoading(false)
+              return {
+                ...game,
+                totalQuestions,
+                answeredQuestions: usedQuestionsSize,
+                isComplete: game.isComplete || (usedQuestionsSize >= totalQuestions && totalQuestions > 0)
+              }
+            })
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+          setGames(sortedGames)
+          return sortedGames
+        })
+      ])
+
+      // Handle errors
+      if (categoriesResult.status === 'rejected') {
+        prodError('❌ Error loading categories:', categoriesResult.reason)
       }
+      if (gamesResult.status === 'rejected') {
+        prodError('❌ Error loading games:', gamesResult.reason)
+        if (gamesResult.reason?.message?.includes('requires an index')) {
+          setIndexError(gamesResult.reason)
+        }
+      }
+
+      setCategoriesLoaded(true)
+      setLoading(false)
     }
 
-    loadGames()
-  }, [isAuthenticated, user])
+    loadAllData()
+  }, [authLoading, isAuthenticated, user, getUserGames])
 
   const handleGameSelect = (game) => {
     devLog('🎯 Game selected:', game)
@@ -305,42 +340,13 @@ function MyGames({ gameState, setGameState }) {
     return 'text-red-600'
   }
 
-  if (authLoading || loading) {
+  // Consolidated loading and auth checks - wait for both games AND categories to load
+  if (authLoading || loading || !categoriesLoaded) {
     return (
       <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">{authLoading ? 'جاري التحقق من تسجيل الدخول...' : 'جاري تحميل ألعابك...'}</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Calculate responsive header height
-  const getHeaderHeight = () => {
-    const height = window.innerHeight
-    const isPC = window.innerWidth >= 1024 && height >= 768
-
-    let baseFontSize = 16
-    if (height <= 390) baseFontSize = 14
-    else if (height <= 430) baseFontSize = 15
-    else if (height <= 568) baseFontSize = 16
-    else if (height <= 667) baseFontSize = 17
-    else if (height <= 812) baseFontSize = 18
-    else if (height <= 896) baseFontSize = 19
-    else if (height <= 1024) baseFontSize = 20
-    else baseFontSize = isPC ? 24 : 20
-
-    return Math.max(56, baseFontSize * 3)
-  }
-
-  // Don't render page content while checking authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <h1 className="text-xl font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
         </div>
       </div>
     )
@@ -354,29 +360,7 @@ function MyGames({ gameState, setGameState }) {
   return (
     <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900">
       {/* Header */}
-      <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-600 text-white flex-shrink-0 sticky top-0 z-10 overflow-hidden shadow-lg" style={{
-        padding: '8px',
-        height: getHeaderHeight() + 'px'
-      }}>
-        <div className="flex items-center justify-between max-w-6xl mx-auto h-full px-4">
-          <div className="flex items-center gap-3">
-            <LogoDisplay />
-          </div>
-
-          <div className="flex-1 text-center">
-            <h1 className="text-2xl font-bold">العابي</h1>
-          </div>
-
-          <button
-            onClick={() => navigate('/')}
-            className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
-            style={{ fontSize: `${styles.buttonFontSize}px` }}
-          >
-            <span className="md:hidden text-xl">←</span>
-            <span className="hidden md:inline">العودة للرئيسية</span>
-          </button>
-        </div>
-      </div>
+      <Header title="ألعابي" />
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -484,7 +468,7 @@ function MyGames({ gameState, setGameState }) {
                       <div className="mt-3">
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">الفئات: </span>
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {game.gameData.selectedCategories?.map((categoryId, idx) => {
+                          {game.gameData.selectedCategories?.map((categoryId) => {
                             // Map category IDs to proper Arabic names
                             const getCategoryName = (id) => {
                               const category = categories.find(cat => cat.id === id)
@@ -499,7 +483,7 @@ function MyGames({ gameState, setGameState }) {
 
                             return (
                               <span
-                                key={idx}
+                                key={categoryId}
                                 className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded-full"
                               >
                                 {getCategoryName(categoryId)}
