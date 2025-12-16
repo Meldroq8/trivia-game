@@ -42,6 +42,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [hasAutoTransitioned, setHasAutoTransitioned] = useState(false)
   const [showSidebar, setShowSidebar] = useState(false)
   const [isRandomizing, setIsRandomizing] = useState(false)
+  const [isStartingGame, setIsStartingGame] = useState(false)
 
   const navigate = useNavigate()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
@@ -189,10 +190,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
   // Load question counts when game data is available
   useEffect(() => {
-    if (gameData) {
+    if (gameData && user?.uid) {
       loadQuestionCounts()
     }
-  }, [gameData])
+  }, [gameData, user?.uid])
 
   const toggleCategory = (categoryId) => {
     setSelectedCategories(prev => {
@@ -387,12 +388,104 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   }
 
   const handleStartGame = () => {
+    // Prevent double-clicks
+    if (isStartingGame) return
+
     if (selectedCategories.length === 6 && selectedPerks.length === 3 && gameName.trim() && team1Name.trim() && team2Name.trim()) {
+      setIsStartingGame(true)
       // Build perkUsage dynamically from selected perks
       const perkUsageObj = {}
       selectedPerks.forEach(perkId => {
         perkUsageObj[perkId] = 0
       })
+
+      // Generate unique gameId for this game session
+      const newGameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      devLog('🎮 Starting new game with ID:', newGameId)
+
+      // Pre-assign questions to all button slots and mark as used (paid game - questions reserved)
+      const preAssignedQuestions = {}
+
+      if (gameData && gameData.questions) {
+        // Point values and their difficulties
+        const pointConfigs = [
+          { points: 200, difficulty: 'easy' },
+          { points: 400, difficulty: 'medium' },
+          { points: 600, difficulty: 'hard' }
+        ]
+
+        // Helper to generate question ID (use categoryId from iteration for consistency)
+        // MUST match questionUsageTracker.getQuestionId logic exactly!
+        const getQuestionId = (question, catId) => {
+          // PREFERRED: Use Firebase document ID if available (most unique)
+          if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+            return `${catId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+          }
+          // FALLBACK: Use text + answer with MORE characters
+          const text = String(question.text || question.question?.text || '')
+          const answer = String(question.answer || question.question?.answer || '')
+          return `${catId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+        }
+
+        // Debug: Log selected categories with names
+        const selectedWithNames = selectedCategories.map(id => {
+          const cat = gameData.categories?.find(c => c.id === id)
+          return { id, name: cat?.name || 'Unknown' }
+        })
+        devLog(`🎮 DEBUG Starting game with categories:`, selectedWithNames)
+
+        // For each selected category, pre-assign questions to all 6 buttons (3 point values × 2 buttons)
+        for (const categoryId of selectedCategories) {
+          const categoryQuestions = gameData.questions[categoryId]
+          if (!categoryQuestions || !Array.isArray(categoryQuestions)) continue
+
+          const category = gameData.categories?.find(c => c.id === categoryId)
+          const categoryName = category?.name || categoryId
+
+          for (const { points, difficulty } of pointConfigs) {
+            // Get questions of this difficulty
+            const difficultyQuestions = categoryQuestions.filter(q => q.difficulty === difficulty)
+
+            // Assign 2 questions per point value (buttonIndex 0 and 1)
+            for (let buttonIndex = 0; buttonIndex < 2; buttonIndex++) {
+              const buttonKey = `${categoryId}-${points}-${buttonIndex}`
+
+              if (difficultyQuestions.length > 0) {
+                // Pick a random question that hasn't been assigned yet in this game
+                const alreadyAssigned = Object.values(preAssignedQuestions).map(a => a.questionId)
+                const availableForButton = difficultyQuestions.filter(q => !alreadyAssigned.includes(q.id))
+
+                const questionToAssign = availableForButton.length > 0
+                  ? availableForButton[Math.floor(Math.random() * availableForButton.length)]
+                  : difficultyQuestions[Math.floor(Math.random() * difficultyQuestions.length)]
+
+                // Generate the tracking ID (use categoryId for consistency)
+                const trackingId = getQuestionId(questionToAssign, categoryId)
+
+                preAssignedQuestions[buttonKey] = {
+                  questionId: questionToAssign.id,  // Firebase ID for GameBoard lookup
+                  trackingId: trackingId,           // Tracking ID for usage marking
+                  categoryId,
+                  points,
+                  category: categoryName,
+                  buttonIndex
+                }
+              }
+            }
+          }
+        }
+
+        devLog(`🎯 Pre-assigned ${Object.keys(preAssignedQuestions).length} questions for this game`)
+      }
+
+      // Mark questions as used in background (don't block game start)
+      if (user?.uid && Object.keys(preAssignedQuestions).length > 0) {
+        questionUsageTracker.setUserId(user.uid)
+        // Fire and forget - don't await
+        questionUsageTracker.markGameQuestionsAsUsed(preAssignedQuestions)
+          .then(markedCount => devLog(`💰 Paid game created - ${markedCount} questions reserved`))
+          .catch(err => prodError('❌ Failed to mark questions as used:', err))
+      }
 
       setGameState(prev => ({
         ...prev,
@@ -403,9 +496,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         selectedCategories,
         selectedPerks, // Store selected perks
         usedQuestions: new Set(),
+        usedPointValues: new Set(), // Reset used point values for new game
         currentQuestion: null,
         gameHistory: [],
-        assignedQuestions: {},
+        assignedQuestions: preAssignedQuestions,
         perkUsage: {
           team1: { ...perkUsageObj },
           team2: { ...perkUsageObj }
@@ -415,7 +509,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           riskPoints: { active: false, team: null }
         },
         isGameContinuation: false,
-        gameId: null
+        gameId: newGameId,
+        gameStartedAt: new Date().toISOString()
       }))
       navigate('/game')
     }
@@ -432,38 +527,80 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       questionUsageTracker.setUserId(user.uid)
     }
 
+    // Load usage data ONCE (not per category)
+    const usageData = await questionUsageTracker.getUsageData()
+
+    // Helper to generate question ID (use categoryId from iteration, not question's own category)
+    // MUST match questionUsageTracker.getQuestionId logic exactly!
+    const getQuestionId = (question, categoryId) => {
+      // PREFERRED: Use Firebase document ID if available (most unique)
+      if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+        return `${categoryId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+      }
+      // FALLBACK: Use text + answer with MORE characters
+      const text = String(question.text || question.question?.text || '')
+      const answer = String(question.answer || question.question?.answer || '')
+      return `${categoryId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+    }
+
     const counts = {}
     const rawCounts = {}
 
-    // Count questions for regular categories
+    // Debug: Log ALL category IDs with their names
+    const allCategoryIds = Object.keys(gameData.questions)
+    const categoryIdToName = {}
+    gameData.categories?.forEach(cat => {
+      categoryIdToName[cat.id] = cat.name
+    })
+    const categoriesWithNames = allCategoryIds.map(id => ({ id, name: categoryIdToName[id] || 'Unknown' }))
+    const matchingCategories = categoriesWithNames.filter(c =>
+      c.name?.includes('امثال') || c.name?.includes('الغاز') || c.name?.includes('أمثال') || c.name?.includes('ألغاز')
+    )
+    devLog(`🔍 DEBUG ALL Categories with names:`, categoriesWithNames)
+    devLog(`🔍 DEBUG Categories matching امثال/الغاز: ${matchingCategories.length}`, matchingCategories)
+
+    // Count questions for all categories locally (no Firebase calls per category)
     for (const categoryId of Object.keys(gameData.questions)) {
-      try {
-        const categoryQuestions = gameData.questions[categoryId]
-        devLog(`📊 Counting questions for category ${categoryId}:`, categoryQuestions.length, 'total')
+      const categoryQuestions = gameData.questions[categoryId]
+      if (!categoryQuestions) continue
 
-        const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
-        devLog(`📊 Available questions for category ${categoryId}:`, availableQuestions.length)
+      // Debug logging for امثال و الغاز (use category name, not ID)
+      const categoryName = categoryIdToName[categoryId] || ''
+      const isDebugCategory = categoryName.includes('امثال') || categoryName.includes('الغاز') ||
+                              categoryName.includes('أمثال') || categoryName.includes('ألغاز')
 
-        // Store raw count for gray-out logic
-        rawCounts[categoryId] = availableQuestions.length
+      // Count available (unused) questions locally
+      let usedCount = 0
+      const availableCount = categoryQuestions.filter(question => {
+        const questionId = getQuestionId(question, categoryId)
+        const isUsed = usageData[questionId] && usageData[questionId] > 0
+        if (isUsed) usedCount++
 
-        // Divide by 6 for the 6 question slots per category (display only)
-        counts[categoryId] = Math.round(availableQuestions.length / 6)
-      } catch (error) {
-        prodError('Error calculating question count for category:', categoryId, error)
-        counts[categoryId] = 0
-        rawCounts[categoryId] = 0
+        // Debug: log each question ID for the problem category
+        if (isDebugCategory && isUsed) {
+          devLog(`🔍 DEBUG ${categoryId}: Used question ID = ${questionId}`)
+        }
+
+        return !isUsed
+      }).length
+
+      if (isDebugCategory) {
+        devLog(`📊 DEBUG ${categoryName} (${categoryId}): Total=${categoryQuestions.length}, Used=${usedCount}, Available=${availableCount}`)
+        // Also log all usage data keys that START with this category ID
+        const categoryUsageKeys = Object.keys(usageData).filter(key => key.startsWith(categoryId))
+        devLog(`🔑 DEBUG Usage keys for ${categoryName}: ${categoryUsageKeys.length} entries`, categoryUsageKeys)
       }
+
+      rawCounts[categoryId] = availableCount
+      counts[categoryId] = Math.round(availableCount / 6)
     }
 
-    // Special handling for Mystery Category - keep ? for question count only
-    if (gameData.categories && gameData.categories.some(cat => cat.id === 'mystery')) {
-      counts['mystery'] = '?' // Show question mark for mystery category count
-      rawCounts['mystery'] = 999 // Mystery always available
+    // Special handling for Mystery Category
+    if (gameData.categories?.some(cat => cat.id === 'mystery')) {
+      counts['mystery'] = '?'
+      rawCounts['mystery'] = 999
     }
 
-    devLog('📊 Final question counts:', counts)
-    devLog('📊 Raw question counts:', rawCounts)
     setQuestionCounts(counts)
     setRawQuestionCounts(rawCounts)
   }
@@ -495,20 +632,37 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       const categoryQuestions = gameData.questions[categoryId]
       await questionUsageTracker.resetCategoryUsage(categoryId, categoryQuestions)
 
-      // Dynamically refresh counts for this category
-      const availableQuestions = await questionUsageTracker.getAvailableQuestions(categoryQuestions)
+      // Helper to generate question ID (same as loadQuestionCounts)
+      // MUST match questionUsageTracker.getQuestionId logic exactly!
+      const getQuestionId = (question, catId) => {
+        // PREFERRED: Use Firebase document ID if available (most unique)
+        if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+          return `${catId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+        }
+        // FALLBACK: Use text + answer with MORE characters
+        const text = String(question.text || question.question?.text || '')
+        const answer = String(question.answer || question.question?.answer || '')
+        return `${catId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+      }
+
+      // Refresh counts using local calculation (consistent with loadQuestionCounts)
+      const usageData = await questionUsageTracker.getUsageData()
+      const availableCount = categoryQuestions.filter(question => {
+        const questionId = getQuestionId(question, categoryId)
+        return !usageData[questionId] || usageData[questionId] === 0
+      }).length
 
       setRawQuestionCounts(prev => ({
         ...prev,
-        [categoryId]: availableQuestions.length
+        [categoryId]: availableCount
       }))
 
       setQuestionCounts(prev => ({
         ...prev,
-        [categoryId]: Math.round(availableQuestions.length / 6)
+        [categoryId]: Math.round(availableCount / 6)
       }))
 
-      devLog(`✅ Category ${categoryId} reset complete. Available: ${availableQuestions.length}`)
+      devLog(`✅ Category ${categoryId} reset complete. Available: ${availableCount}`)
     } catch (error) {
       prodError('Error resetting category:', error)
     }
@@ -831,7 +985,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 key={category.id}
                                 id={`category-${category.id}`}
                                 onClick={() => canSelect && toggleCategory(category.id)}
-                                disabled={!canSelect}
+                                disabled={!canSelect && !needsReset}
                                 className={`
                                   relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
                                   text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
@@ -1180,7 +1334,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 <div className="text-center">
                   <button
                     onClick={handleStartGame}
-                    disabled={!gameName?.trim() || !team1Name?.trim() || !team2Name?.trim() || !isAuthenticated}
+                    disabled={!gameName?.trim() || !team1Name?.trim() || !team2Name?.trim() || !isAuthenticated || isStartingGame}
                     className="w-full md:w-auto font-bold rounded-xl shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 bg-red-600 hover:bg-red-700 text-white"
                     style={{
                       fontSize: `${styles.buttonFontSize}px`,
@@ -1191,6 +1345,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       <span className="inline-flex items-center gap-2 justify-center">
                         <span>🔐</span>
                         {styles.isPortrait ? 'تسجيل دخول' : 'يجب تسجيل الدخول أولاً'}
+                      </span>
+                    ) : isStartingGame ? (
+                      <span className="inline-flex items-center gap-2 justify-center">
+                        جاري التحميل...
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-2 justify-center">

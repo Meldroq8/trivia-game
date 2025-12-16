@@ -22,6 +22,10 @@ class QuestionUsageTracker {
     this.lastWriteTime = 0
     this.WRITE_THROTTLE_MS = 2000 // Minimum 2 seconds between Firebase writes
     this.saveTimeout = null
+
+    // Prevent duplicate pool updates in same session
+    this.poolUpdatedInSession = false
+    this.poolUpdateInProgress = false
   }
 
   /**
@@ -32,7 +36,19 @@ class QuestionUsageTracker {
     if (this.currentUserId !== userId) {
       this.currentUserId = userId
       this.localCache = null // Clear cache when user changes
+      this.poolUpdatedInSession = false // Allow pool update for new user
+      this.poolUpdateInProgress = false
     }
+  }
+
+  /**
+   * Reset the session flag to allow pool update on new game
+   * Call this when starting a new game to check for new questions
+   */
+  resetSessionFlag() {
+    this.poolUpdatedInSession = false
+    this.poolUpdateInProgress = false
+    devLog('🔄 Question pool session flag reset for new game')
   }
 
   /**
@@ -258,54 +274,224 @@ class QuestionUsageTracker {
   async updateQuestionPool(gameData) {
     if (!gameData || !gameData.questions) return
 
-    const totalQuestions = Object.values(gameData.questions).flat()
-    const currentPoolSize = totalQuestions.length
+    // Skip if already updated in this session or currently updating
+    if (this.poolUpdatedInSession) {
+      devLog('⏭️ Question pool already updated in this session, skipping')
+      return
+    }
 
-    devLog(`📊 Current question pool size: ${currentPoolSize}`)
-    await this.savePoolSize(currentPoolSize)
+    if (this.poolUpdateInProgress) {
+      devLog('⏳ Question pool update already in progress, skipping')
+      return
+    }
 
-    // Initialize usage tracking for new questions
-    const usageData = await this.getUsageData()
-    let newQuestionsCount = 0
+    this.poolUpdateInProgress = true
 
-    totalQuestions.forEach(question => {
-      const questionId = this.getQuestionId(question)
-      if (!usageData[questionId]) {
-        usageData[questionId] = 0
-        newQuestionsCount++
+    try {
+      const totalQuestions = Object.values(gameData.questions).flat()
+      const currentPoolSize = totalQuestions.length
+
+      devLog(`📊 Current question pool size: ${currentPoolSize}`)
+      await this.savePoolSize(currentPoolSize)
+
+      // 🔄 MIGRATION: Check and migrate old-style usage data to new format
+      // This runs once per user when they have old-style keys
+      try {
+        const migrationResult = await this.migrateUsageData(gameData)
+        if (migrationResult.migrated > 0) {
+          devLog(`🎉 Migrated ${migrationResult.migrated} questions to new ID format`)
+        }
+      } catch (migrationError) {
+        prodError('Migration error (continuing anyway):', migrationError)
       }
-    })
 
-    if (newQuestionsCount > 0) {
-      devLog(`✨ Added ${newQuestionsCount} new questions to tracking`)
-      await this.saveUsageData(usageData)
+      // Initialize usage tracking for new questions
+      // IMPORTANT: Use categoryId from the key, not from question.category
+      // This ensures consistent ID generation across all functions
+      const usageData = await this.getUsageData()
+      let newQuestionsCount = 0
+
+      // Iterate by category to ensure we use the correct categoryId (the key)
+      Object.entries(gameData.questions).forEach(([categoryId, questions]) => {
+        questions.forEach(question => {
+          // Use categoryId from key, not question.category (which might be the name)
+          const questionId = this.getQuestionId(question, categoryId)
+          if (!usageData[questionId]) {
+            usageData[questionId] = 0
+            newQuestionsCount++
+          }
+        })
+      })
+
+      if (newQuestionsCount > 0) {
+        devLog(`✨ Added ${newQuestionsCount} new questions to tracking`)
+        await this.saveUsageData(usageData)
+      }
+
+      this.poolUpdatedInSession = true
+    } finally {
+      this.poolUpdateInProgress = false
     }
   }
 
   /**
    * Generate a unique ID for a question based on its content
    * @param {Object} question - Question object
+   * @param {string} categoryId - Optional category ID (preferred over question.category for consistency)
    * @returns {string} Unique question ID
    */
-  getQuestionId(question) {
-    // Use text + answer combination to create unique ID
+  getQuestionId(question, categoryId = null) {
+    // Use provided categoryId, or fall back to question's category
+    const category = categoryId || String(question.category || question.categoryId || '')
+
+    // PREFERRED: Use Firebase document ID if available (most unique)
+    if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+      return `${category}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+    }
+
+    // FALLBACK: Use text + answer combination with MORE characters to avoid collisions
+    // Many riddle questions start with same text, so we need the FULL text + answer
     const text = String(question.text || question.question?.text || '')
     const answer = String(question.answer || question.question?.answer || '')
-    const category = String(question.category || question.categoryId || '')
-    return `${category}-${text.substring(0, 50)}-${answer.substring(0, 20)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+
+    // Use full text (up to 100 chars) + full answer (up to 50 chars) for better uniqueness
+    const textPart = text.substring(0, 100)
+    const answerPart = answer.substring(0, 50)
+
+    return `${category}-${textPart}-${answerPart}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+  }
+
+  /**
+   * Generate OLD-style question ID (for migration purposes)
+   * This matches the format used before the Firebase ID update
+   * @param {Object} question - Question object
+   * @param {string} categoryId - Category ID
+   * @returns {string} Old-style question ID
+   */
+  getOldStyleQuestionId(question, categoryId) {
+    const text = String(question.text || question.question?.text || '')
+    const answer = String(question.answer || question.question?.answer || '')
+    // Old format: 50 chars text + 20 chars answer
+    return `${categoryId}-${text.substring(0, 50)}-${answer.substring(0, 20)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+  }
+
+  /**
+   * Check if a usage key is in the old format (contains Arabic text, not just Firebase ID)
+   * Old format: categoryId_arabicText_arabicAnswer
+   * New format: categoryId_firebaseDocId (no Arabic after first underscore section)
+   * @param {string} key - Usage data key
+   * @returns {boolean} True if old format
+   */
+  isOldStyleKey(key) {
+    if (!key || typeof key !== 'string') return false
+
+    // Split by underscore to get parts after category ID
+    const parts = key.split('_')
+    if (parts.length < 2) return false
+
+    // Old format has Arabic text after the category ID
+    // New format has only alphanumeric Firebase ID after category ID
+    // Check if any part after the first contains Arabic characters
+    const afterCategoryId = parts.slice(1).join('_')
+    const hasArabic = /[\u0600-\u06FF]/.test(afterCategoryId)
+
+    return hasArabic
+  }
+
+  /**
+   * Migrate old-style usage data to new Firebase ID format
+   * This preserves user progress by mapping old text-based IDs to new Firebase doc IDs
+   * @param {Object} gameData - Game data containing all questions
+   * @returns {Promise<{migrated: number, failed: number}>} Migration stats
+   */
+  async migrateUsageData(gameData) {
+    if (!gameData || !gameData.questions) {
+      devLog('⏭️ Migration skipped: No game data')
+      return { migrated: 0, failed: 0 }
+    }
+
+    const usageData = await this.getUsageData()
+    const oldKeys = Object.keys(usageData).filter(key => this.isOldStyleKey(key))
+
+    if (oldKeys.length === 0) {
+      devLog('✅ No old-style keys found, migration not needed')
+      return { migrated: 0, failed: 0 }
+    }
+
+    devLog(`🔄 Found ${oldKeys.length} old-style keys to migrate`)
+
+    // Build a lookup map: oldStyleId -> { question, categoryId, newStyleId }
+    const oldToNewMap = new Map()
+
+    Object.entries(gameData.questions).forEach(([categoryId, questions]) => {
+      questions.forEach(question => {
+        const oldId = this.getOldStyleQuestionId(question, categoryId)
+        const newId = this.getQuestionId(question, categoryId)
+
+        oldToNewMap.set(oldId, {
+          question,
+          categoryId,
+          newId
+        })
+      })
+    })
+
+    devLog(`📚 Built lookup map with ${oldToNewMap.size} question mappings`)
+
+    // Migrate each old key
+    let migrated = 0
+    let failed = 0
+    const newUsageData = { ...usageData }
+
+    for (const oldKey of oldKeys) {
+      const mapping = oldToNewMap.get(oldKey)
+
+      if (mapping) {
+        // Found matching question - create new key with same value
+        const oldValue = usageData[oldKey]
+        if (oldValue > 0) {
+          newUsageData[mapping.newId] = oldValue
+          migrated++
+          devLog(`✅ Migrated: ${oldKey.substring(0, 50)}... -> ${mapping.newId}`)
+        }
+        // Remove old key
+        delete newUsageData[oldKey]
+      } else {
+        // Could not find matching question - remove old key anyway (stale data)
+        delete newUsageData[oldKey]
+        failed++
+        devLog(`⚠️ Could not migrate (removing): ${oldKey.substring(0, 50)}...`)
+      }
+    }
+
+    // Save migrated data
+    if (migrated > 0 || failed > 0) {
+      this.localCache = newUsageData
+      await this.saveUsageData(newUsageData, true) // Immediate save
+      devLog(`🎉 Migration complete: ${migrated} migrated, ${failed} removed (no match)`)
+    }
+
+    return { migrated, failed }
   }
 
   /**
    * Mark a question as used for the current user (optimized with throttling)
    * @param {Object} question - Question object that was used
+   * @param {string} categoryId - Optional category ID to use for consistent tracking
    */
-  async markQuestionAsUsed(question) {
-    const questionId = this.getQuestionId(question)
+  async markQuestionAsUsed(question, categoryId = null) {
+    const questionId = this.getQuestionId(question, categoryId)
     const usageData = await this.getUsageData()
 
-    usageData[questionId] = (usageData[questionId] || 0) + 1
+    // Only mark if not already marked (questions are pre-marked at game creation)
+    if (usageData[questionId] && usageData[questionId] > 0) {
+      devLog(`⏭️ Question already marked, skipping: ${questionId}`)
+      return Promise.resolve()
+    }
 
-    devLog(`📝 Marked question as used: ${questionId} (usage count: ${usageData[questionId]})`)
+    usageData[questionId] = 1  // Set to 1, don't increment
+
+    devLog(`📝 Marked question as used: ${questionId}`)
 
     // Update local cache immediately for instant UI response
     this.localCache = usageData
@@ -375,9 +561,10 @@ class QuestionUsageTracker {
    * Filter available questions based on user usage
    * @param {Array} questions - Array of questions to filter
    * @param {string} difficulty - Optional difficulty filter
+   * @param {string} categoryId - Optional category ID for consistent tracking
    * @returns {Promise<Array>} Array of available (unused) questions
    */
-  async getAvailableQuestions(questions, difficulty = null) {
+  async getAvailableQuestions(questions, difficulty = null, categoryId = null) {
     if (!questions || questions.length === 0) return []
 
     const usageData = await this.getUsageData()
@@ -390,7 +577,7 @@ class QuestionUsageTracker {
 
     // Filter out used questions
     const availableQuestions = filteredQuestions.filter(question => {
-      const questionId = this.getQuestionId(question)
+      const questionId = this.getQuestionId(question, categoryId)
       const usageCount = usageData[questionId] || 0
       return usageCount === 0
     })
@@ -444,7 +631,7 @@ class QuestionUsageTracker {
 
     // Reset only the questions from this category
     categoryQuestions.forEach(question => {
-      const questionId = this.getQuestionId(question)
+      const questionId = this.getQuestionId(question, categoryId)
       if (usageData[questionId] !== undefined && usageData[questionId] > 0) {
         usageData[questionId] = 0
         resetCount++
@@ -520,6 +707,80 @@ class QuestionUsageTracker {
       this.savePoolSize(backupData.poolSize)
     }
     devLog('📥 Imported question usage data from backup')
+  }
+
+  /**
+   * Mark specific pre-assigned questions as used (for game creation)
+   * This is called when a user pays for and creates a game - only the
+   * pre-assigned questions for this specific game are marked as used
+   * @param {Object} preAssignedQuestions - Object with buttonKey -> {trackingId, ...} mapping
+   * @returns {Promise<number>} Number of questions marked as used
+   */
+  async markGameQuestionsAsUsed(preAssignedQuestions) {
+    if (!preAssignedQuestions || Object.keys(preAssignedQuestions).length === 0) {
+      devWarn('⚠️ No pre-assigned questions provided for marking')
+      return 0
+    }
+
+    const usageData = await this.getUsageData()
+    let markedCount = 0
+
+    // Mark only the pre-assigned questions as used (using trackingId for consistency)
+    Object.values(preAssignedQuestions).forEach(assignment => {
+      const trackingId = assignment.trackingId
+
+      if (trackingId && (!usageData[trackingId] || usageData[trackingId] === 0)) {
+        usageData[trackingId] = 1
+        markedCount++
+      }
+    })
+
+    if (markedCount > 0) {
+      // Update local cache immediately
+      this.localCache = usageData
+      // Save to Firebase immediately (important for paid games)
+      await this.saveUsageData(usageData, true)
+
+      // Log per-category breakdown for debugging
+      const categoryBreakdown = {}
+      Object.values(preAssignedQuestions).forEach(assignment => {
+        const catId = assignment.categoryId || 'unknown'
+        const catName = assignment.category || catId
+        const key = `${catName} (${catId})`
+        categoryBreakdown[key] = (categoryBreakdown[key] || 0) + 1
+      })
+      devLog(`🎮 Marked ${markedCount} pre-assigned questions as used for new game`)
+      devLog(`📊 Per-category breakdown:`, categoryBreakdown)
+    }
+
+    return markedCount
+  }
+
+  /**
+   * Reset all question usage data for the current user
+   * This allows users to reuse all questions again
+   * Called from Profile page "Reset Questions" button
+   * @returns {Promise<void>}
+   */
+  async resetAllQuestions() {
+    devLog('🔄 Resetting all question usage data...')
+
+    const usageData = await this.getUsageData()
+
+    // Reset all usage counts to 0
+    const resetData = {}
+    Object.keys(usageData).forEach(questionId => {
+      resetData[questionId] = 0
+    })
+
+    // Update local cache
+    this.localCache = resetData
+
+    // Save to Firebase immediately
+    await this.saveUsageData(resetData, true)
+
+    devLog('✅ All question usage data has been reset')
+    return true
   }
 }
 

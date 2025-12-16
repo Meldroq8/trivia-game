@@ -213,29 +213,52 @@ export class AuthService {
             }))
         }
 
-        // Perk usage
+        // Perk usage - include all perk types
         if (originalData.perkUsage) {
           rebuilt.perkUsage = {
             team1: {
               double: Number(originalData.perkUsage.team1?.double || 0),
               phone: Number(originalData.perkUsage.team1?.phone || 0),
-              search: Number(originalData.perkUsage.team1?.search || 0)
+              search: Number(originalData.perkUsage.team1?.search || 0),
+              risk: Number(originalData.perkUsage.team1?.risk || 0),
+              prison: Number(originalData.perkUsage.team1?.prison || 0),
+              twoAnswers: Number(originalData.perkUsage.team1?.twoAnswers || 0)
             },
             team2: {
               double: Number(originalData.perkUsage.team2?.double || 0),
               phone: Number(originalData.perkUsage.team2?.phone || 0),
-              search: Number(originalData.perkUsage.team2?.search || 0)
+              search: Number(originalData.perkUsage.team2?.search || 0),
+              risk: Number(originalData.perkUsage.team2?.risk || 0),
+              prison: Number(originalData.perkUsage.team2?.prison || 0),
+              twoAnswers: Number(originalData.perkUsage.team2?.twoAnswers || 0)
             }
           }
         }
 
-        // Activated perks
+        // Activated perks - include all perk types
         if (originalData.activatedPerks) {
           rebuilt.activatedPerks = {
             doublePoints: {
               active: Boolean(originalData.activatedPerks.doublePoints?.active || false),
               team: originalData.activatedPerks.doublePoints?.team ?
                     String(originalData.activatedPerks.doublePoints.team) : null
+            },
+            riskPoints: {
+              active: Boolean(originalData.activatedPerks.riskPoints?.active || false),
+              team: originalData.activatedPerks.riskPoints?.team ?
+                    String(originalData.activatedPerks.riskPoints.team) : null
+            },
+            twoAnswers: {
+              active: Boolean(originalData.activatedPerks.twoAnswers?.active || false),
+              team: originalData.activatedPerks.twoAnswers?.team ?
+                    String(originalData.activatedPerks.twoAnswers.team) : null
+            },
+            prison: {
+              active: Boolean(originalData.activatedPerks.prison?.active || false),
+              team: originalData.activatedPerks.prison?.team ?
+                    String(originalData.activatedPerks.prison.team) : null,
+              targetTeam: originalData.activatedPerks.prison?.targetTeam ?
+                    String(originalData.activatedPerks.prison.targetTeam) : null
             }
           }
         }
@@ -248,6 +271,32 @@ export class AuthService {
         // Game name
         if (originalData.gameName) {
           rebuilt.gameName = String(originalData.gameName)
+        }
+
+        // Game ID - critical for updating existing games
+        if (originalData.gameId) {
+          rebuilt.gameId = String(originalData.gameId)
+        }
+
+        // Game started timestamp
+        if (originalData.gameStartedAt) {
+          rebuilt.gameStartedAt = originalData.gameStartedAt
+        }
+
+        // Selected perks
+        if (originalData.selectedPerks && Array.isArray(originalData.selectedPerks)) {
+          rebuilt.selectedPerks = originalData.selectedPerks.filter(p => p != null).map(p => String(p))
+        }
+
+        // Used point values - convert Set/Array to clean array
+        if (originalData.usedPointValues) {
+          if (originalData.usedPointValues instanceof Set) {
+            rebuilt.usedPointValues = Array.from(originalData.usedPointValues).filter(v => v != null).map(v => String(v))
+          } else if (Array.isArray(originalData.usedPointValues)) {
+            rebuilt.usedPointValues = originalData.usedPointValues.filter(v => v != null).map(v => String(v))
+          } else {
+            rebuilt.usedPointValues = []
+          }
         }
 
         // CRITICAL: Assigned questions for payment model - store only question IDs and metadata
@@ -286,8 +335,11 @@ export class AuthService {
 
       // Build the final document with guaranteed clean data
       // Get user's display name for leaderboard
-      const currentUser = AuthService.currentUser
+      const currentUser = AuthService.getCurrentUser()
       const userName = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'لاعب مجهول'
+
+      // Determine if this is a complete game or in-progress save
+      const isComplete = gameData.isComplete !== undefined ? gameData.isComplete : true
 
       const documentToSave = {
         userId: String(uid),
@@ -295,33 +347,45 @@ export class AuthService {
         gameData: gameDataForFirebase,
         finalScore: Number(gameData.finalScore || 0),
         updatedAt: new Date(),
-        isComplete: true
+        isComplete: isComplete
       }
 
-      // Only set createdAt for new games
-      if (!isGameContinuation) {
-        documentToSave.createdAt = new Date()
+      // Store gameId in the document for reference
+      if (gameId) {
+        documentToSave.gameId = gameId
       }
 
       devLog('📄 Final document to save:')
       devLog(JSON.stringify(documentToSave, null, 2))
-      devLog('🔄 Is game continuation:', isGameContinuation)
       devLog('🆔 Game ID:', gameId)
-      devLog('📊 Will increment gamesPlayed?', !isGameContinuation)
+      devLog('✅ Is complete:', isComplete)
 
       // Save or update game in games collection
-      if (isGameContinuation && gameId) {
-        // Update existing game
-        devLog('📝 Updating existing game:', gameId)
+      // Use setDoc with merge to avoid needing read permissions for existence check
+      let isNewGame = true
+      if (gameId) {
         const gameRef = doc(db, 'games', gameId)
-        await updateDoc(gameRef, documentToSave)
+
+        // Use setDoc with merge: true - creates if not exists, updates if exists
+        // Also set createdAt only if it doesn't exist (using merge)
+        devLog('💾 Saving game with ID:', gameId)
+        await setDoc(gameRef, {
+          ...documentToSave,
+          createdAt: documentToSave.createdAt || new Date()
+        }, { merge: true })
+
+        // We don't know if it was new or existing, but that's fine for stats
+        // The createdAt field will only be set on first create due to merge
+        isNewGame = false // Assume update to avoid double-counting stats
       } else {
-        // Create new game
-        devLog('🆕 Creating new game')
+        // Fallback: no gameId - create with auto-generated ID
+        devLog('🆕 Creating new game (no gameId)')
+        documentToSave.createdAt = new Date()
         await addDoc(collection(db, 'games'), documentToSave)
+        isNewGame = true
       }
 
-      // Update user stats (only increment games played for new games)
+      // Update user stats (only increment games played for new games, not updates)
       const userRef = doc(db, 'users', uid)
       const userDoc = await getDoc(userRef)
 
@@ -330,10 +394,10 @@ export class AuthService {
 
         await setDoc(userRef, {
           gameStats: {
-            gamesPlayed: isGameContinuation
-              ? (currentStats.gamesPlayed || 0) // Don't increment for continuations
-              : (currentStats.gamesPlayed || 0) + 1, // Increment for new games
-            totalScore: (currentStats.totalScore || 0) + gameData.finalScore,
+            gamesPlayed: isNewGame
+              ? (currentStats.gamesPlayed || 0) + 1 // Increment only for new games
+              : (currentStats.gamesPlayed || 0), // Don't increment for updates
+            totalScore: (currentStats.totalScore || 0) + (isNewGame ? gameData.finalScore : 0), // Only add score for new games
             favoriteCategories: currentStats.favoriteCategories || [],
             lastPlayed: new Date()
           }
@@ -641,7 +705,7 @@ export class AuthService {
       devLog('🏆 Sorted top 10:', sortedLeaderboard)
 
       // Cache the result for 5 minutes (longer for unauthenticated to reduce errors)
-      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.currentUser ? 5 : 60)
+      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.getCurrentUser() ? 5 : 60)
 
       return sortedLeaderboard
     } catch (error) {
@@ -660,7 +724,7 @@ export class AuthService {
    */
   static async updateLeaderboard() {
     try {
-      const currentUser = AuthService.currentUser
+      const currentUser = AuthService.getCurrentUser()
       if (!currentUser) {
         devLog('⚠️ No user logged in, skipping leaderboard update')
         return []

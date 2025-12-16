@@ -55,8 +55,14 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
   const confirmResolveRef = useRef(null)
 
   // Update currentRoute in gameState when route changes
+  // Also reset game state when on /categories (regardless of previous route)
+  const hasResetForCategories = useRef(false)
+
   useEffect(() => {
-    if (stateLoaded && gameState.currentRoute !== location.pathname) {
+    const routeChanged = gameState.currentRoute !== location.pathname
+    const needsCategoriesReset = location.pathname === '/categories' && !hasResetForCategories.current
+
+    if (stateLoaded && (routeChanged || needsCategoriesReset)) {
       const newState = {
         ...gameState,
         currentRoute: location.pathname
@@ -64,6 +70,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
 
       // Reset the explicit exit flag and game state when user starts a new game flow
       if (location.pathname === '/categories') {
+        hasResetForCategories.current = true
         newState.userExplicitlyExited = false
         newState.usedQuestions = new Set() // Reset used questions for new game
         newState.usedPointValues = new Set() // Reset used point values
@@ -77,14 +84,22 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
         newState.selectedCategories = [] // Reset selected categories
         newState.selectedPerks = [] // Reset selected perks
         newState.perkUsage = {
-          team1: { double: 0, phone: 0, search: 0 },
-          team2: { double: 0, phone: 0, search: 0 }
+          team1: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 },
+          team2: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 }
         }
         newState.activatedPerks = {
-          doublePoints: { active: false, team: null }
+          doublePoints: { active: false, team: null },
+          riskPoints: { active: false, team: null },
+          twoAnswers: { active: false, team: null },
+          prison: { active: false, team: null, targetTeam: null }
         }
         localStorage.removeItem('trivia_user_exited')
+        // Clear the session cache to prevent old state from being restored
+        sessionStorage.removeItem('gameState_cache')
         devLog('🔄 Resetting game state for new game - user at category selection')
+      } else {
+        // Reset the flag when leaving /categories so it can reset again on next visit
+        hasResetForCategories.current = false
       }
 
       setGameState(prev => ({
@@ -279,7 +294,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
 
 function App() {
   const { isPresentationMode } = usePresentationMode()
-  const { getGameState, saveGameState, migrateFromLocalStorage, isAuthenticated, loading: authLoading } = useAuth()
+  const { getGameState, saveGameState, migrateFromLocalStorage, isAuthenticated, loading: authLoading, updateGameStats, user } = useAuth()
 
   // Detect new tab/window immediately
   if (!sessionStorage.getItem('tabId')) {
@@ -330,12 +345,16 @@ function App() {
     gameHistory: [],
     assignedQuestions: {},
     perkUsage: {
-      team1: { double: 0, phone: 0, search: 0 },
-      team2: { double: 0, phone: 0, search: 0 }
+      team1: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 },
+      team2: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 }
     },
     activatedPerks: {
-      doublePoints: { active: false, team: null }
+      doublePoints: { active: false, team: null },
+      riskPoints: { active: false, team: null },
+      twoAnswers: { active: false, team: null },
+      prison: { active: false, team: null, targetTeam: null }
     },
+    selectedPerks: [],
     currentRoute: null, // Track which route user should be on
     userExplicitlyExited: false // Flag to track when user confirms exit via back button
   })
@@ -437,27 +456,75 @@ function App() {
           localStorage.setItem('migration_complete', 'true')
         }
 
+        // Pending game sync moved to a separate delayed effect to ensure auth is ready
+
         // Load saved game state from Firebase
         if (isAuthenticated) {
           const savedState = await getGameState()
-          if (savedState) {
-            // Convert arrays back to Sets
-            if (savedState.usedQuestions && Array.isArray(savedState.usedQuestions)) {
-              savedState.usedQuestions = new Set(savedState.usedQuestions)
+
+          // Check if we have a more recent backup in localStorage
+          const backupState = localStorage.getItem('gameState_backup')
+          const backupTimestamp = localStorage.getItem('gameState_backup_timestamp')
+
+          let stateToUse = savedState
+
+          // Use backup if it exists and is more recent (e.g., tab was closed before Firebase saved)
+          if (backupState && backupTimestamp) {
+            try {
+              const parsedBackup = JSON.parse(backupState)
+              const backupTime = parseInt(backupTimestamp, 10)
+
+              // Check if backup is recent (within last 24 hours) and has game data
+              const isRecentBackup = (Date.now() - backupTime) < 24 * 60 * 60 * 1000
+              const hasGameData = parsedBackup.selectedCategories?.length > 0 ||
+                                  parsedBackup.gameHistory?.length > 0 ||
+                                  parsedBackup.team1?.score > 0 ||
+                                  parsedBackup.team2?.score > 0
+
+              if (isRecentBackup && hasGameData) {
+                devLog('📦 Found recent localStorage backup, checking if newer than Firebase...')
+
+                // Compare timestamps or use backup if Firebase has no game data
+                const firebaseHasGameData = savedState &&
+                  (savedState.selectedCategories?.length > 0 ||
+                   savedState.gameHistory?.length > 0 ||
+                   savedState.team1?.score > 0 ||
+                   savedState.team2?.score > 0)
+
+                if (!firebaseHasGameData) {
+                  devLog('✅ Using localStorage backup (Firebase has no active game)')
+                  stateToUse = parsedBackup
+                  // Save backup to Firebase now
+                  saveGameState(parsedBackup).then(() => {
+                    devLog('💾 Synced localStorage backup to Firebase')
+                    localStorage.removeItem('gameState_backup')
+                    localStorage.removeItem('gameState_backup_timestamp')
+                  })
+                }
+              }
+            } catch (e) {
+              devWarn('⚠️ Error parsing backup:', e)
             }
-            if (savedState.usedPointValues && Array.isArray(savedState.usedPointValues)) {
-              savedState.usedPointValues = new Set(savedState.usedPointValues)
+          }
+
+          if (stateToUse) {
+            // Convert arrays back to Sets
+            if (stateToUse.usedQuestions && Array.isArray(stateToUse.usedQuestions)) {
+              stateToUse.usedQuestions = new Set(stateToUse.usedQuestions)
+            }
+            if (stateToUse.usedPointValues && Array.isArray(stateToUse.usedPointValues)) {
+              stateToUse.usedPointValues = new Set(stateToUse.usedPointValues)
             }
 
             // Ensure required properties exist
             const completeState = {
               ...getDefaultGameState(),
-              ...savedState
+              ...stateToUse
             }
 
             setGameState(completeState)
             // Cache for next reload
-            sessionStorage.setItem('gameState_cache', JSON.stringify(savedState))
+            sessionStorage.setItem('gameState_cache', JSON.stringify(stateToUse))
           }
         }
       } catch (error) {
@@ -467,7 +534,64 @@ function App() {
     }
 
     loadGameState()
-  }, [isAuthenticated, authLoading, migrationComplete])
+    // Note: updateGameStats intentionally excluded from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authLoading, migrationComplete, user])
+
+  // Separate effect for pending game sync - runs after auth is fully ready
+  useEffect(() => {
+    // Only run when auth is fully loaded and user is authenticated
+    if (authLoading || !isAuthenticated || !user) return
+
+    const syncPendingGame = async () => {
+      try {
+        const pendingGameStr = localStorage.getItem('pending_game')
+        if (!pendingGameStr) return
+
+        const pendingGame = JSON.parse(pendingGameStr)
+
+        // Only sync if it belongs to current user and has game data
+        if (pendingGame.userId !== user.uid) {
+          devLog('⚠️ Pending game belongs to different user, removing')
+          localStorage.removeItem('pending_game')
+          return
+        }
+
+        if (!pendingGame.gameData?.selectedCategories?.length) {
+          localStorage.removeItem('pending_game')
+          return
+        }
+
+        devLog('📤 Syncing pending game to Firebase...')
+        await updateGameStats({
+          gameData: pendingGame.gameData,
+          finalScore: pendingGame.finalScore || 0,
+          isComplete: false
+        })
+        devLog('✅ Pending game synced successfully')
+        localStorage.removeItem('pending_game')
+      } catch (syncError) {
+        devWarn('⚠️ Error syncing pending game:', syncError.message)
+        // Don't remove on permission errors - might be temporary
+        if (!syncError.message?.includes('permission')) {
+          localStorage.removeItem('pending_game')
+        }
+      }
+    }
+
+    // Delay sync to ensure Firebase is fully ready
+    const timeoutId = setTimeout(syncPendingGame, 2000)
+    return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAuthenticated, user])
+
+  // Helper function to get current state for saving
+  const getCurrentStateToSave = () => ({
+    ...gameState,
+    // Convert Sets to arrays for JSON serialization
+    usedQuestions: Array.from(gameState.usedQuestions || []),
+    usedPointValues: Array.from(gameState.usedPointValues || [])
+  })
 
   // Save game state to Firebase whenever it changes (debounced)
   useEffect(() => {
@@ -482,12 +606,7 @@ function App() {
     }
 
     // OPTIMIZATION: Save to BOTH sessionStorage AND localStorage for instant restoration + backup
-    const stateToSave = {
-      ...gameState,
-      // Convert Sets to arrays for JSON serialization
-      usedQuestions: Array.from(gameState.usedQuestions || []),
-      usedPointValues: Array.from(gameState.usedPointValues || [])
-    }
+    const stateToSave = getCurrentStateToSave()
     const stateString = JSON.stringify(stateToSave)
 
     // Save to sessionStorage for instant same-session restoration
@@ -495,6 +614,7 @@ function App() {
 
     // ALSO save to localStorage as backup in case tab is closed before Firebase saves
     localStorage.setItem('gameState_backup', stateString)
+    localStorage.setItem('gameState_backup_timestamp', Date.now().toString())
 
     // Clear any existing timeout
     if (saveTimeoutRef.current) {
@@ -512,6 +632,9 @@ function App() {
         isSavingRef.current = true
         await saveGameState(stateToSave)
         lastSavedStateRef.current = stateString
+        // Clear backup after successful Firebase save
+        localStorage.removeItem('gameState_backup')
+        localStorage.removeItem('gameState_backup_timestamp')
         isSavingRef.current = false
       } catch (error) {
         prodError('❌ Error saving game state:', error)
@@ -526,6 +649,136 @@ function App() {
       }
     }
   }, [gameState, stateLoaded, isAuthenticated])
+
+  // CRITICAL: Save to Firebase immediately when tab is about to close or becomes hidden
+  useEffect(() => {
+    if (!isAuthenticated || !stateLoaded) return
+
+    // Force immediate save function
+    const forceImmediateSave = async () => {
+      // Cancel debounced save
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+
+      const stateToSave = getCurrentStateToSave()
+      const stateString = JSON.stringify(stateToSave)
+
+      // Skip if nothing changed
+      if (lastSavedStateRef.current === stateString) return
+
+      try {
+        // Save to localStorage immediately as backup
+        localStorage.setItem('gameState_backup', stateString)
+        localStorage.setItem('gameState_backup_timestamp', Date.now().toString())
+
+        // Try to save to Firebase (might not complete if tab closes)
+        await saveGameState(stateToSave)
+        lastSavedStateRef.current = stateString
+        devLog('💾 Forced save completed (tab closing/hidden)')
+
+        // CRITICAL: Also save to games collection so game appears in "My Games"
+        // Only if there's an active game with categories selected
+        if (stateToSave.selectedCategories?.length > 0 && user) {
+          // Generate a gameId if not present (for new games)
+          if (!stateToSave.gameId) {
+            stateToSave.gameId = `${user.uid}_${Date.now()}`
+          }
+
+          // Save to games collection (this is what shows in "My Games")
+          const gamePayload = {
+            gameData: stateToSave,
+            finalScore: Math.max(stateToSave.team1?.score || 0, stateToSave.team2?.score || 0),
+            isComplete: false // Mark as incomplete since tab was closed mid-game
+          }
+          await updateGameStats(gamePayload)
+          devLog('💾 Game saved to games collection (for My Games page)')
+        }
+      } catch (error) {
+        prodError('❌ Error during forced save:', error)
+      }
+    }
+
+    // Handle tab visibility change (more reliable than beforeunload)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        devLog('👁️ Tab hidden - forcing immediate save')
+        forceImmediateSave()
+      }
+    }
+
+    // Handle before unload (backup - may not complete for async operations)
+    const handleBeforeUnload = () => {
+      devLog('🚪 Tab closing - forcing immediate save')
+      // Use synchronous localStorage save as last resort
+      const stateToSave = getCurrentStateToSave()
+
+      // Generate gameId if not present (for new games)
+      if (stateToSave.selectedCategories?.length > 0 && user && !stateToSave.gameId) {
+        stateToSave.gameId = `${user.uid}_${Date.now()}`
+      }
+
+      localStorage.setItem('gameState_backup', JSON.stringify(stateToSave))
+      localStorage.setItem('gameState_backup_timestamp', Date.now().toString())
+
+      // Also save as pending game for MyGames to pick up
+      if (stateToSave.selectedCategories?.length > 0 && user) {
+        const pendingGame = {
+          gameData: stateToSave,
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'لاعب مجهول',
+          finalScore: Math.max(stateToSave.team1?.score || 0, stateToSave.team2?.score || 0),
+          isComplete: false,
+          createdAt: new Date().toISOString(),
+          pendingSync: true
+        }
+        localStorage.setItem('pending_game', JSON.stringify(pendingGame))
+        devLog('🚪 Saved pending game to localStorage')
+      }
+
+      // Try async save (might not complete)
+      forceImmediateSave()
+    }
+
+    // Handle page hide (works better on mobile)
+    const handlePageHide = () => {
+      devLog('📱 Page hide - forcing immediate save')
+      const stateToSave = getCurrentStateToSave()
+
+      // Generate gameId if not present (for new games)
+      if (stateToSave.selectedCategories?.length > 0 && user && !stateToSave.gameId) {
+        stateToSave.gameId = `${user.uid}_${Date.now()}`
+      }
+
+      localStorage.setItem('gameState_backup', JSON.stringify(stateToSave))
+      localStorage.setItem('gameState_backup_timestamp', Date.now().toString())
+
+      // Also save as pending game for MyGames to pick up
+      if (stateToSave.selectedCategories?.length > 0 && user) {
+        const pendingGame = {
+          gameData: stateToSave,
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'لاعب مجهول',
+          finalScore: Math.max(stateToSave.team1?.score || 0, stateToSave.team2?.score || 0),
+          isComplete: false,
+          createdAt: new Date().toISOString(),
+          pendingSync: true
+        }
+        localStorage.setItem('pending_game', JSON.stringify(pendingGame))
+        devLog('📱 Saved pending game to localStorage')
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handlePageHide)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handlePageHide)
+    }
+  }, [isAuthenticated, stateLoaded, gameState, saveGameState, updateGameStats, user])
 
   // Add/remove presentation mode class to body
   useEffect(() => {

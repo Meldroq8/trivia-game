@@ -66,6 +66,21 @@ function MyGames({ gameState, setGameState }) {
       setLoading(true)
       setIndexError(null)
 
+      // Pending game sync is handled by App.jsx with proper delay
+      // Just clear any stale pending games that don't belong to this user
+      try {
+        const pendingGameStr = localStorage.getItem('pending_game')
+        if (pendingGameStr) {
+          const pendingGame = JSON.parse(pendingGameStr)
+          if (pendingGame.userId !== user?.uid) {
+            devLog('🗑️ Removing stale pending game from different user')
+            localStorage.removeItem('pending_game')
+          }
+        }
+      } catch (e) {
+        localStorage.removeItem('pending_game')
+      }
+
       // Check for cached categories first
       const CACHE_KEY = 'trivia_categories_cache'
       const CACHE_EXPIRY_KEY = 'trivia_categories_cache_expiry'
@@ -170,6 +185,8 @@ function MyGames({ gameState, setGameState }) {
     }
 
     loadAllData()
+    // Note: updateGameStats intentionally excluded from deps to prevent infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, user, getUserGames])
 
   const handleGameSelect = (game) => {
@@ -213,14 +230,33 @@ function MyGames({ gameState, setGameState }) {
         // Track that this is a continuation of an existing game
         gameId: selectedGame.id, // Add the game ID for updating
         isGameContinuation: true, // Flag to indicate this is not a new game
-        // Ensure all required properties exist
-        perkUsage: savedGameData.perkUsage || {
-          team1: { double: 0, phone: 0, search: 0 },
-          team2: { double: 0, phone: 0, search: 0 }
+        // Ensure all required properties exist - merge with defaults to handle old saves
+        perkUsage: {
+          team1: {
+            double: savedGameData.perkUsage?.team1?.double || 0,
+            phone: savedGameData.perkUsage?.team1?.phone || 0,
+            search: savedGameData.perkUsage?.team1?.search || 0,
+            risk: savedGameData.perkUsage?.team1?.risk || 0,
+            prison: savedGameData.perkUsage?.team1?.prison || 0,
+            twoAnswers: savedGameData.perkUsage?.team1?.twoAnswers || 0
+          },
+          team2: {
+            double: savedGameData.perkUsage?.team2?.double || 0,
+            phone: savedGameData.perkUsage?.team2?.phone || 0,
+            search: savedGameData.perkUsage?.team2?.search || 0,
+            risk: savedGameData.perkUsage?.team2?.risk || 0,
+            prison: savedGameData.perkUsage?.team2?.prison || 0,
+            twoAnswers: savedGameData.perkUsage?.team2?.twoAnswers || 0
+          }
         },
-        activatedPerks: savedGameData.activatedPerks || {
-          doublePoints: { active: false, team: null }
-        }
+        activatedPerks: {
+          doublePoints: savedGameData.activatedPerks?.doublePoints || { active: false, team: null },
+          riskPoints: savedGameData.activatedPerks?.riskPoints || { active: false, team: null },
+          twoAnswers: savedGameData.activatedPerks?.twoAnswers || { active: false, team: null },
+          prison: savedGameData.activatedPerks?.prison || { active: false, team: null, targetTeam: null }
+        },
+        // Preserve selected perks
+        selectedPerks: savedGameData.selectedPerks || []
       }
 
       devLog('📋 Restored game state:', restoredGameState)
@@ -265,12 +301,17 @@ function MyGames({ gameState, setGameState }) {
         // CRITICAL: Preserve the exact same assigned questions for payment model
         assignedQuestions: selectedGame.gameData.assignedQuestions || {},
         perkUsage: {
-          team1: { double: 0, phone: 0, search: 0 },
-          team2: { double: 0, phone: 0, search: 0 }
+          team1: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 },
+          team2: { double: 0, phone: 0, search: 0, risk: 0, prison: 0, twoAnswers: 0 }
         },
         activatedPerks: {
-          doublePoints: { active: false, team: null }
+          doublePoints: { active: false, team: null },
+          riskPoints: { active: false, team: null },
+          twoAnswers: { active: false, team: null },
+          prison: { active: false, team: null, targetTeam: null }
         },
+        // Preserve selected perks from original game
+        selectedPerks: selectedGame.gameData.selectedPerks || [],
         // Track that this is updating an existing game (prevent duplicate creation)
         gameId: selectedGame.id, // Add the game ID for updating
         isGameContinuation: true // Flag to indicate this updates the existing game, not create new

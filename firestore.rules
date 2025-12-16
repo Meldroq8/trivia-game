@@ -56,13 +56,19 @@ service cloud.firestore {
     // Users can read and write their own games
     // Admins can read ALL games for analytics
     match /games/{gameId} {
+      // Allow read only for owner or admin
       allow read: if request.auth != null &&
         (request.auth.uid == resource.data.userId ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
-      allow write: if request.auth != null &&
-        request.auth.uid == resource.data.userId;
+      // Allow create if userId in new data matches auth user
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.userId;
+      // Allow update if userId in new data matches auth user (for game updates)
+      allow update: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId;
+      // Allow delete only if existing document belongs to user
+      allow delete: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
     }
 
     // ===== APP SETTINGS COLLECTION =====
@@ -128,11 +134,13 @@ service cloud.firestore {
     }
 
     // ===== LEADERBOARD COLLECTION =====
-    // Public leaderboard - everyone can read, only server/admin can write
+    // Public leaderboard - everyone can read, users can write their own entry
     match /leaderboard/{document} {
       allow read: if true; // Public read access for everyone
+      // Users can write their own leaderboard entry (document ID = user ID)
       allow write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+        (request.auth.uid == document ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
     }
 
     // ===== LOADER SYSTEM =====

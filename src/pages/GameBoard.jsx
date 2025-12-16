@@ -23,7 +23,7 @@ import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/resp
 function GameBoard({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, isAuthenticated, loading: authLoading, getAppSettings, isAdmin } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings, isAdmin, updateGameStats } = useAuth()
   const { isDarkMode, toggleDarkMode } = useDarkMode()
   const containerRef = useRef(null)
   const headerRef = useRef(null)
@@ -149,6 +149,105 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
     }
   }, [user, gameData])
+
+  // Clear any old pending_game_save keys (handled by App.jsx now)
+  useEffect(() => {
+    localStorage.removeItem('pending_game_save')
+  }, [])
+
+  // Auto-save game to Firebase (throttled - only after questions answered)
+  const lastAutoSaveRef = useRef(null)
+  const isSavingRef = useRef(false)
+  const gameStateRef = useRef(gameState)
+
+  // Keep gameStateRef updated for use in callbacks
+  useEffect(() => {
+    gameStateRef.current = gameState
+  }, [gameState])
+
+  // Auto-save when game changes (question answered or game loaded)
+  const historyLength = gameState.gameHistory?.length || 0
+  const gameId = gameState.gameId
+
+  useEffect(() => {
+    // Only auto-save if authenticated and game has started
+    if (!isAuthenticated || !gameId) {
+      return
+    }
+
+    // Check throttle
+    const now = Date.now()
+    const timeSinceLastSave = lastAutoSaveRef.current ? now - lastAutoSaveRef.current : Infinity
+
+    // Save if 30 seconds have passed since last save, or if this is a continued/restarted game (first save)
+    const isFirstSave = !lastAutoSaveRef.current
+    if ((timeSinceLastSave >= 30000 || isFirstSave) && !isSavingRef.current) {
+      isSavingRef.current = true
+      const state = gameStateRef.current
+      const currentScore = Math.max(state.team1?.score || 0, state.team2?.score || 0)
+
+      updateGameStats({
+        finalScore: currentScore,
+        gameData: state,
+        isComplete: false
+      }).then(() => {
+        lastAutoSaveRef.current = Date.now()
+        isSavingRef.current = false
+        devLog('✅ Game auto-saved')
+      }).catch(error => {
+        isSavingRef.current = false
+        prodError('❌ Auto-save failed:', error)
+      })
+    }
+  }, [historyLength, gameId, isAuthenticated, updateGameStats])
+
+  // Save game when tab becomes hidden (more reliable than beforeunload)
+  const lastEmergencySaveRef = useRef(0)
+  const updateGameStatsRef = useRef(updateGameStats)
+
+  // Keep refs updated
+  useEffect(() => {
+    updateGameStatsRef.current = updateGameStats
+  }, [updateGameStats])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const saveGameNow = () => {
+      const state = gameStateRef.current
+      if (!state?.gameId || !state?.selectedCategories?.length) return
+
+      // Throttle: don't save if we saved in the last 2 seconds
+      const now = Date.now()
+      if (now - lastEmergencySaveRef.current < 2000) return
+      lastEmergencySaveRef.current = now
+
+      const currentScore = Math.max(state.team1?.score || 0, state.team2?.score || 0)
+
+      // Save handled by App.jsx - just trigger Firebase save
+      updateGameStatsRef.current?.({
+        finalScore: currentScore,
+        gameData: state,
+        isComplete: false
+      }).then(() => {
+        lastAutoSaveRef.current = Date.now()
+      }).catch(() => {})
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') saveGameNow()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('beforeunload', saveGameNow)
+    window.addEventListener('pagehide', saveGameNow)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('beforeunload', saveGameNow)
+      window.removeEventListener('pagehide', saveGameNow)
+    }
+  }, [isAuthenticated])
 
   // Redirect to home if not authenticated (but only after loading is complete)
   useEffect(() => {
@@ -529,15 +628,20 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     // Create button key for this specific button
     const buttonKey = `${categoryId}-${points}-${buttonIndex}`
 
-    // Debug: Show all used questions (removed for performance)
-
     // Check if we have an assigned question for this button
     const assignment = gameState.assignedQuestions?.[buttonKey]
 
     if (assignment && assignment.questionId) {
-      // If there's an assigned question, check if it has been answered
-      const isAnswered = gameState.usedQuestions.has(assignment.questionId)
-      // Debug logging removed for performance
+      // Handle both Set and Array for usedQuestions (array when loaded from Firebase)
+      const usedQuestions = gameState.usedQuestions
+      const hasQuestion = (id) => {
+        if (usedQuestions instanceof Set) {
+          return usedQuestions.has(id)
+        } else if (Array.isArray(usedQuestions)) {
+          return usedQuestions.includes(id)
+        }
+        return false
+      }
 
       // Also check for variations of the question ID format
       const possibleFormats = [
@@ -547,10 +651,13 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
         `question-${assignment.questionId}`
       ]
 
-      // Debug: Checking possible ID formats (removed for performance)
       for (const format of possibleFormats) {
-        if (gameState.usedQuestions.has(format)) {
-          // Found match with format (debug removed)
+        if (hasQuestion(format)) {
+          // Debug: Log when a question is found as used
+          devLog(`🔴 Question marked as used: ${buttonKey} -> ${format}`, {
+            usedQuestionsType: usedQuestions instanceof Set ? 'Set' : Array.isArray(usedQuestions) ? 'Array' : typeof usedQuestions,
+            usedQuestionsSize: usedQuestions instanceof Set ? usedQuestions.size : (usedQuestions?.length || 0)
+          })
           return true
         }
       }
@@ -560,7 +667,17 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // If no assigned question yet, check the old usedPointValues system for backwards compatibility
     const pointValueKey = `${categoryId}-${points}-${buttonIndex}`
-    const isUsedOld = gameState.usedPointValues && gameState.usedPointValues.has(pointValueKey)
+    // Handle both Set and Array (array when loaded from Firebase)
+    const usedPointValues = gameState.usedPointValues
+    const isUsedOld = usedPointValues && (
+      usedPointValues instanceof Set
+        ? usedPointValues.has(pointValueKey)
+        : Array.isArray(usedPointValues) && usedPointValues.includes(pointValueKey)
+    )
+
+    if (isUsedOld) {
+      devLog(`🔴 Point value marked as used (old system): ${pointValueKey}`)
+    }
 
     return isUsedOld || false
   }
@@ -649,7 +766,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
       if (user?.uid) {
         questionUsageTracker.setUserId(user.uid)
-        const availableQuestionsFromCategory = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, targetDifficulty)
+        const availableQuestionsFromCategory = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, targetDifficulty, category.id)
 
         // Add category info to each question for tracking
         availableQuestionsFromCategory.forEach(q => {
@@ -674,7 +791,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           const questionsWithDifficulty = categoryQuestions.filter(q => q.difficulty === difficulty)
 
           if (user?.uid) {
-            const availableQuestionsFromCategory = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, difficulty)
+            const availableQuestionsFromCategory = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, difficulty, category.id)
             availableQuestionsFromCategory.forEach(q => {
               availableQuestions.push({
                 ...q,
@@ -831,7 +948,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
 
     // Filter questions by difficulty and global usage
     const questionsWithDifficulty = questions.filter(q => q.difficulty === targetDifficulty)
-    const availableQuestionsByDifficulty = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, targetDifficulty)
+    const availableQuestionsByDifficulty = await questionUsageTracker.getAvailableQuestions(questionsWithDifficulty, targetDifficulty, categoryId)
 
     // Debug: Looking for questions (removed for performance)
 
@@ -845,31 +962,31 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       if (targetDifficulty === 'easy') {
         // For easy (200): try medium, then hard
         // Trying fallback: easy → medium → hard
-        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'medium'), 'medium')
+        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'medium'), 'medium', categoryId)
         if (fallbackQuestions.length > 0) {
           fallbackDifficulty = 'medium'
         } else {
-          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'hard'), 'hard')
+          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'hard'), 'hard', categoryId)
           fallbackDifficulty = 'hard'
         }
       } else if (targetDifficulty === 'medium') {
         // For medium (400): try easy, then hard
         // Trying fallback: medium → easy → hard
-        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'easy'), 'easy')
+        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'easy'), 'easy', categoryId)
         if (fallbackQuestions.length > 0) {
           fallbackDifficulty = 'easy'
         } else {
-          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'hard'), 'hard')
+          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'hard'), 'hard', categoryId)
           fallbackDifficulty = 'hard'
         }
       } else if (targetDifficulty === 'hard') {
         // For hard (600): try medium, then easy
         // Trying fallback: hard → medium → easy
-        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'medium'), 'medium')
+        fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'medium'), 'medium', categoryId)
         if (fallbackQuestions.length > 0) {
           fallbackDifficulty = 'medium'
         } else {
-          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'easy'), 'easy')
+          fallbackQuestions = await questionUsageTracker.getAvailableQuestions(questions.filter(q => q.difficulty === 'easy'), 'easy', categoryId)
           fallbackDifficulty = 'easy'
         }
       }
@@ -905,7 +1022,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       }
 
       // Final fallback: use any globally available question
-      const anyAvailableQuestions = await questionUsageTracker.getAvailableQuestions(questions)
+      const anyAvailableQuestions = await questionUsageTracker.getAvailableQuestions(questions, null, categoryId)
 
       if (anyAvailableQuestions.length > 0) {
         const finalFallback = anyAvailableQuestions[0]
@@ -1143,6 +1260,10 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const isTabletPortrait = isTablet && isPortrait // Tablet in portrait mode (like iPad Air 820x1100)
     const isPhonePortrait = (isPhone && isPortrait) || isTabletPortrait // Include tablet portrait in phone portrait layout
     const isPC = W > 1024 && H > 768 && !isTablet // Desktop/laptop detection (exclude tablets)
+
+    // Compact landscape: screens like Z Fold (829x690) - landscape but limited height, not PC
+    // This triggers side-by-side layout for header/footer like iPhone SE
+    const isCompactLandscape = !isPortrait && H <= 750 && H > 500 && W <= 1024 && !isPC
     const pcScaleFactor = isPC ? 2.0 : 1.0 // 200% scaling for PC, normal for mobile/tablet
 
     const isMobileLayout = W < 768
@@ -1599,7 +1720,8 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       actualFooterHeight: footerHeight || 100,
       padding: padding,
       isPhonePortrait: isPhonePortrait, // Keep for portrait-specific styling adjustments
-      isPhoneLandscape: isPhoneLandscape // Phone in landscape mode
+      isPhoneLandscape: isPhoneLandscape, // Phone in landscape mode
+      isCompactLandscape: isCompactLandscape // Z Fold and similar (829x690) - side layout
     }
   }
 
@@ -1726,7 +1848,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
           </div>
         ) : (
           /* Landscape Mode: Original full header */
-          <div className={`flex justify-between items-center h-full ${styles.isPhoneLandscape ? 'px-2' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
+          <div className={`flex justify-between items-center h-full ${(styles.isPhoneLandscape || styles.isCompactLandscape) ? 'px-2' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
             <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <LogoDisplay />
               <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
@@ -2187,7 +2309,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             )}
 
             {/* First Row: Team Names Only */}
-            <div className={`flex items-center w-full justify-between mb-2 ${styles.isPhoneLandscape ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
+            <div className={`flex items-center w-full justify-between mb-2 ${(styles.isPhoneLandscape || styles.isCompactLandscape) ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
               {/* Team 1 Name wrapper matching controls width */}
               <div className="flex items-center flex-shrink-0 gap-1 md:gap-2 relative">
                 {/* Invisible structure matching controls below */}
@@ -2216,7 +2338,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Second Row: Score & Perks */}
-            <div className={`flex items-center w-full justify-between ${styles.isPhoneLandscape ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
+            <div className={`flex items-center w-full justify-between ${(styles.isPhoneLandscape || styles.isCompactLandscape) ? 'px-0' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
               {/* Team 1 Controls (Left) */}
               <div className="flex items-center flex-shrink-0 gap-1 md:gap-2">
                 {/* Score with integrated +/- buttons */}
