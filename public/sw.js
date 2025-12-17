@@ -131,10 +131,14 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// Message handler for manual update check
+// Message handler for manual update check and skip waiting
 self.addEventListener('message', (event) => {
   if (event.data === 'CHECK_VERSION') {
     checkForUpdates()
+  }
+  // Allow client to trigger skip waiting
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
   }
 })
 
@@ -225,9 +229,5 @@ self.addEventListener('fetch', (event) => {
   }
 })
 
-// Check for updates when a client focuses the page
-self.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    checkForUpdates()
-  }
-})
+// Note: visibilitychange doesn't work in service workers
+// Version checking is handled via periodic checks and client-side events

@@ -306,7 +306,7 @@ function ProfilePage() {
     // Show loading while auth is still loading
     if (authLoading) {
       return (
-        <div className="min-h-screen bg-amber-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
           <div className="text-gray-800 dark:text-gray-100 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
             <div style={{ fontSize: '16px' }}>جاري التحميل...</div>
@@ -321,7 +321,7 @@ function ProfilePage() {
   // Now show loading for data if authenticated
   if (loading) {
     return (
-      <div className="min-h-screen bg-amber-50 dark:bg-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
         <div className="text-gray-800 dark:text-gray-100 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
           <div style={{ fontSize: `${styles?.textFontSize || 16}px` }}>جاري التحميل...</div>
@@ -331,7 +331,7 @@ function ProfilePage() {
   }
 
   return (
-    <div ref={containerRef} className="bg-amber-50 dark:bg-slate-900 flex flex-col" style={{
+    <div ref={containerRef} className="bg-[#f7f2e6] dark:bg-slate-900 flex flex-col" style={{
       minHeight: '100vh',
       overflow: 'auto'
     }}>
