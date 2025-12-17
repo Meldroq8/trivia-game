@@ -33,6 +33,13 @@ function isVideoOrAudio(url) {
          url.includes('answer_audio_')
 }
 
+// Check if URL is from image storage (Firebase or S3)
+function isImageStorageUrl(url) {
+  return url.includes('firebasestorage.googleapis.com') ||
+         url.includes('.s3.amazonaws.com') ||
+         url.includes('s3.amazonaws.com')
+}
+
 // Check if URL should never be cached
 function shouldNeverCache(url) {
   return NO_CACHE_FILES.some(file => url.endsWith(file))
@@ -143,8 +150,8 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Handle Firebase Storage images (exclude video/audio to avoid CORS issues)
-  if (event.request.url.includes('firebasestorage.googleapis.com') && !isVideoOrAudio(event.request.url)) {
+  // Handle Firebase Storage and S3 images (exclude video/audio to avoid CORS issues)
+  if (isImageStorageUrl(event.request.url) && !isVideoOrAudio(event.request.url)) {
     event.respondWith(
       caches.open(IMAGE_CACHE_NAME).then(cache => {
         return cache.match(event.request).then(response => {
