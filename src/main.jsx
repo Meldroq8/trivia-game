@@ -47,10 +47,20 @@ if ('serviceWorker' in navigator) {
     }
   })
 
-  // When service worker takes control, reload to get fresh content
+  // When service worker takes control, reload only if on index page
+  // Never reload during gameplay (category selection, gameboard, question, results)
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    devLog('🔄 New service worker took control, reloading for fresh content')
-    window.location.reload()
+    const path = window.location.pathname
+    const safeToReload = path === '/' || path === '/index.html'
+
+    if (safeToReload) {
+      devLog('🔄 New service worker took control, reloading for fresh content')
+      window.location.reload()
+    } else {
+      devLog('🔄 New version ready, will apply on next visit to home page')
+      // Store flag so we know to use fresh content
+      sessionStorage.setItem('pending_update', 'true')
+    }
   })
 
   // Check for updates when user returns to the tab
