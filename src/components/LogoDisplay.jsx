@@ -18,14 +18,6 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
       return 'medium'
     }
   })
-  const [isLoading, setIsLoading] = useState(() => {
-    // Only show loading if no cached logo
-    try {
-      return !localStorage.getItem('app_logo_url')
-    } catch {
-      return true
-    }
-  })
   const { getAppSettings, subscribeToAppSettings } = useAuth()
 
   useEffect(() => {
@@ -55,8 +47,6 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
           // Cache for instant loading next time
           localStorage.setItem('app_logo_size', settings.logoSize)
         }
-        setIsLoading(false)
-
         // Subscribe to real-time changes
         unsubscribe = subscribeToAppSettings((newSettings) => {
           if (newSettings?.logo !== logoSrc) {
@@ -77,7 +67,6 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
         })
       } catch (error) {
         prodError('Error loading logo:', error)
-        setIsLoading(false)
         // Don't change UI on error - keep showing cached/current logo
       }
     }
@@ -125,10 +114,7 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
 
   return (
     <div className={`flex items-center justify-center ${getSizeClasses()}`}>
-      {isLoading ? (
-        // Loading skeleton
-        <div className="w-full h-full bg-white/20 rounded-lg animate-pulse" />
-      ) : logoSrc ? (
+      {logoSrc ? (
         <img
           src={logoSrc}
           alt="شعار اللعبة"
