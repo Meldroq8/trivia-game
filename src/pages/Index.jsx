@@ -19,6 +19,14 @@ function Index({ setGameState }) {
       return {}
     }
   })
+  const [settingsLoaded, setSettingsLoaded] = useState(() => {
+    // Check if we have cached settings (instant load)
+    try {
+      return !!localStorage.getItem('app_settings')
+    } catch {
+      return false
+    }
+  })
   const [leaderboard, setLeaderboard] = useState([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
@@ -61,6 +69,7 @@ function Index({ setGameState }) {
         const appSettings = await getAppSettings()
         if (appSettings && Object.keys(appSettings).length > 0) {
           setSettings(appSettings)
+          setSettingsLoaded(true)
           // Cache settings for instant loading next time
           localStorage.setItem('app_settings', JSON.stringify(appSettings))
           devLog('✅ Settings loaded successfully')
@@ -69,6 +78,9 @@ function Index({ setGameState }) {
           devLog(`⏳ Settings empty, retrying in ${(retryCount + 1) * 500}ms...`)
           setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
           return
+        } else {
+          // After all retries, mark as loaded (with empty settings)
+          setSettingsLoaded(true)
         }
 
         // Load leaderboard data in background (non-blocking)
@@ -79,6 +91,8 @@ function Index({ setGameState }) {
         if (retryCount < 3) {
           devLog(`⏳ Settings error, retrying in ${(retryCount + 1) * 500}ms...`)
           setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
+        } else {
+          setSettingsLoaded(true)
         }
       }
     }
@@ -218,12 +232,16 @@ function Index({ setGameState }) {
               {/* Button and text - centered in its area */}
               <div className="flex-1 flex flex-col items-center justify-center gap-3">
                 {settings.showSlogan !== false && (
-                  <h1
-                    className="font-bold text-gray-800 dark:text-gray-100 text-center leading-tight"
-                    style={{ fontSize: `${responsiveStyles.titleFontSize * 0.8}px` }}
-                  >
-                    {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
-                  </h1>
+                  !settingsLoaded ? (
+                    <div className="bg-gray-200 dark:bg-slate-700 rounded-lg animate-pulse h-6 w-48" />
+                  ) : (
+                    <h1
+                      className="font-bold text-gray-800 dark:text-gray-100 text-center leading-tight"
+                      style={{ fontSize: `${responsiveStyles.titleFontSize * 0.8}px` }}
+                    >
+                      {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+                    </h1>
+                  )
                 )}
                 <button
                   onClick={handleCreateGame}
@@ -245,7 +263,15 @@ function Index({ setGameState }) {
 
               {/* Logo on right (in RTL this appears on left visually) */}
               <div className="flex-shrink-0">
-                {settings.largeLogo ? (
+                {!settingsLoaded ? (
+                  <div
+                    className="bg-gray-200 dark:bg-slate-700 rounded-2xl animate-pulse"
+                    style={{
+                      width: `${responsiveStyles.availableWidth * 0.25}px`,
+                      height: `${responsiveStyles.availableHeight * 0.5}px`
+                    }}
+                  />
+                ) : settings.largeLogo ? (
                   <img
                     src={settings.largeLogo}
                     alt="شعار اللعبة"
@@ -270,7 +296,16 @@ function Index({ setGameState }) {
               {/* Normal Layout: Vertical stacked */}
               {/* Large Logo */}
               <div style={{ marginBottom: `${responsiveStyles.baseGap * 0.5}px` }}>
-                {settings.largeLogo ? (
+                {!settingsLoaded ? (
+                  // Loading skeleton for logo
+                  <div
+                    className="mx-auto bg-gray-200 dark:bg-slate-700 rounded-2xl animate-pulse"
+                    style={{
+                      width: Math.min(300, responsiveStyles.availableWidth * 0.6) + 'px',
+                      height: Math.min(200, responsiveStyles.availableWidth * 0.4) + 'px'
+                    }}
+                  />
+                ) : settings.largeLogo ? (
                   <img
                     src={settings.largeLogo}
                     alt="شعار اللعبة"
@@ -311,21 +346,31 @@ function Index({ setGameState }) {
               {/* Slogan */}
               {settings.showSlogan !== false && (
                 <div style={{ marginBottom: `${responsiveStyles.baseGap * 3}px` }}>
-                  <h1
-                    className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
-                    style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
-                  >
-                    {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
-                  </h1>
-                  <p
-                    className="text-gray-600 dark:text-gray-300"
-                    style={{
-                      fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
-                      marginBottom: `${responsiveStyles.baseGap * 2}px`
-                    }}
-                  >
-                    اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
-                  </p>
+                  {!settingsLoaded ? (
+                    // Loading skeleton for slogan
+                    <div className="space-y-3">
+                      <div className="mx-auto bg-gray-200 dark:bg-slate-700 rounded-lg animate-pulse h-8" style={{ width: '60%' }} />
+                      <div className="mx-auto bg-gray-200 dark:bg-slate-700 rounded-lg animate-pulse h-4" style={{ width: '80%' }} />
+                    </div>
+                  ) : (
+                    <>
+                      <h1
+                        className="font-bold text-gray-800 dark:text-gray-100 mb-4 leading-relaxed"
+                        style={{ fontSize: `${responsiveStyles.titleFontSize}px` }}
+                      >
+                        {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+                      </h1>
+                      <p
+                        className="text-gray-600 dark:text-gray-300"
+                        style={{
+                          fontSize: `${Math.max(14, responsiveStyles.titleFontSize * 0.5)}px`,
+                          marginBottom: `${responsiveStyles.baseGap * 2}px`
+                        }}
+                      >
+                        اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
