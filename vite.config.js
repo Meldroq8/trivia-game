@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import fs from 'fs'
+import path from 'path'
+import { execSync } from 'child_process'
 
 // Plugin to inject build timestamp into HTML
 const injectBuildTimestamp = () => {
@@ -12,9 +15,39 @@ const injectBuildTimestamp = () => {
   }
 }
 
+// Plugin to generate version.json for automatic update detection
+const generateVersionJson = () => {
+  let gitCommit = null
+
+  return {
+    name: 'generate-version-json',
+    buildStart() {
+      // Get git commit hash - only changes when code actually changes
+      try {
+        gitCommit = execSync('git rev-parse --short HEAD').toString().trim()
+      } catch (e) {
+        // Fallback if git not available
+        gitCommit = Date.now().toString()
+      }
+    },
+    writeBundle(options) {
+      const versionData = {
+        version: gitCommit,
+        buildTime: new Date().toISOString()
+      }
+
+      const outDir = options.dir || 'dist'
+      const versionPath = path.resolve(outDir, 'version.json')
+
+      fs.writeFileSync(versionPath, JSON.stringify(versionData, null, 2))
+      console.log(`✅ Generated version.json: ${versionData.version}`)
+    }
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), injectBuildTimestamp()],
+  plugins: [react(), injectBuildTimestamp(), generateVersionJson()],
   server: {
     host: true, // Allow network access
     https: process.env.HTTPS === 'true', // Enable HTTPS when HTTPS=true
