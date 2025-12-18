@@ -384,7 +384,11 @@ export class AuthService {
         await addDoc(collection(db, 'games'), documentToSave)
       }
 
-      // Update user stats (only increment games played for new games, not updates)
+      // Update user stats (only increment games played for NEW + COMPLETE games)
+      // Don't count auto-saves (isComplete: false) or continued games (isGameContinuation: true)
+      const shouldCountGame = isNewGame && isComplete
+      devLog('📊 Should count game:', shouldCountGame, '(isNewGame:', isNewGame, ', isComplete:', isComplete, ')')
+
       const userRef = doc(db, 'users', uid)
       const userDoc = await getDoc(userRef)
 
@@ -393,10 +397,10 @@ export class AuthService {
 
         await setDoc(userRef, {
           gameStats: {
-            gamesPlayed: isNewGame
-              ? (currentStats.gamesPlayed || 0) + 1 // Increment only for new games
-              : (currentStats.gamesPlayed || 0), // Don't increment for updates
-            totalScore: (currentStats.totalScore || 0) + (isNewGame ? gameData.finalScore : 0), // Only add score for new games
+            gamesPlayed: shouldCountGame
+              ? (currentStats.gamesPlayed || 0) + 1 // Increment only for new complete games
+              : (currentStats.gamesPlayed || 0), // Don't increment for auto-saves or continued games
+            totalScore: (currentStats.totalScore || 0) + (shouldCountGame ? gameData.finalScore : 0),
             favoriteCategories: currentStats.favoriteCategories || [],
             lastPlayed: new Date()
           }
@@ -405,14 +409,16 @@ export class AuthService {
 
       devLog('✅ Game data saved to Firebase successfully')
 
-      // Update public leaderboard after successful game save (async, non-blocking)
-      try {
-        devLog('🏆 Updating public leaderboard...')
-        await AuthService.updateLeaderboard()
-        devLog('✅ Public leaderboard updated successfully')
-      } catch (leaderboardError) {
-        prodError('⚠️ Failed to update leaderboard (non-critical):', leaderboardError)
-        // Don't throw - leaderboard update failure shouldn't break game saving
+      // Update public leaderboard only for complete games (not auto-saves)
+      if (isComplete) {
+        try {
+          devLog('🏆 Updating public leaderboard...')
+          await AuthService.updateLeaderboard()
+          devLog('✅ Public leaderboard updated successfully')
+        } catch (leaderboardError) {
+          prodError('⚠️ Failed to update leaderboard (non-critical):', leaderboardError)
+          // Don't throw - leaderboard update failure shouldn't break game saving
+        }
       }
     } catch (error) {
       prodError('❌ Error updating game stats:', error)
