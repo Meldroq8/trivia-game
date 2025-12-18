@@ -7938,6 +7938,7 @@ function ExpandedCategoriesGrid({ categories, masterId, onDragEnd }) {
 }
 
 function MasterCategoriesManager({ isAdmin, isModerator }) {
+  const { getAppSettings, saveAppSettings } = useAuth()
   const [masterCategories, setMasterCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [newMasterName, setNewMasterName] = useState('')
@@ -7945,6 +7946,8 @@ function MasterCategoriesManager({ isAdmin, isModerator }) {
   const [editingName, setEditingName] = useState('')
   const [expandedMasters, setExpandedMasters] = useState({})
   const [categoriesByMaster, setCategoriesByMaster] = useState({})
+  const [newestCategoriesDays, setNewestCategoriesDays] = useState(7)
+  const [savingSettings, setSavingSettings] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -7953,6 +7956,21 @@ function MasterCategoriesManager({ isAdmin, isModerator }) {
       },
     })
   )
+
+  // Load newest categories setting
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getAppSettings()
+        if (settings?.newestCategoriesDays !== undefined) {
+          setNewestCategoriesDays(settings.newestCategoriesDays)
+        }
+      } catch (error) {
+        prodError('Error loading newest categories setting:', error)
+      }
+    }
+    loadSettings()
+  }, [getAppSettings])
 
   useEffect(() => {
     loadMasterCategories()
@@ -8172,10 +8190,59 @@ function MasterCategoriesManager({ isAdmin, isModerator }) {
     )
   }
 
+  const handleSaveNewestDays = async () => {
+    setSavingSettings(true)
+    try {
+      const success = await saveAppSettings({ newestCategoriesDays })
+      if (success) {
+        devLog('✅ Newest categories days saved:', newestCategoriesDays)
+      } else {
+        alert('خطأ في حفظ الإعدادات')
+      }
+    } catch (error) {
+      prodError('Error saving newest categories days:', error)
+      alert('خطأ في حفظ الإعدادات')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">إدارة المجموعات الرئيسية</h2>
+      </div>
+
+      {/* Newest Categories Settings */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span>🆕</span>
+          <span>إعدادات أجدد الفئات</span>
+        </h3>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="text-gray-700 font-medium">مدة ظهور الفئات الجديدة:</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={newestCategoriesDays}
+              onChange={(e) => setNewestCategoriesDays(Math.max(1, Math.min(365, parseInt(e.target.value) || 7)))}
+              className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 text-center"
+            />
+            <span className="text-gray-600">أيام</span>
+          </div>
+          <button
+            onClick={handleSaveNewestDays}
+            disabled={savingSettings}
+            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors font-bold"
+          >
+            {savingSettings ? 'جاري الحفظ...' : 'حفظ'}
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mt-2">
+          الفئات المضافة خلال هذه المدة ستظهر في مجموعة "أجدد الفئات" في صفحة اختيار الفئات
+        </p>
       </div>
 
       {/* Create New Master Category */}

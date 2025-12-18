@@ -121,7 +121,8 @@ export class GameDataLoader {
       isMergedCategory: cat.isMergedCategory || false,        // Merged category flag
       sourceCategoryIds: cat.sourceCategoryIds || [],         // Source category references
       masterCategoryId: cat.masterCategoryId || 'general',    // Master category for grouping
-      displayOrder: cat.displayOrder || 0                     // Display order within master
+      displayOrder: cat.displayOrder || 0,                    // Display order within master
+      createdAt: cat.createdAt?.toDate?.() || cat.createdAt || null  // For "newest categories" feature
     }))
 
     // Add Mystery Category at the end

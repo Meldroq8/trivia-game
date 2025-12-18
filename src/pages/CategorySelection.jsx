@@ -45,8 +45,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [isStartingGame, setIsStartingGame] = useState(false)
 
   const navigate = useNavigate()
-  const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
+  const [newestCategoriesDays, setNewestCategoriesDays] = useState(7)
 
   // Responsive dimensions tracking
   useEffect(() => {
@@ -58,6 +59,21 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     window.addEventListener('resize', updateDimensions)
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
+
+  // Load newest categories days setting
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getAppSettings()
+        if (settings?.newestCategoriesDays !== undefined) {
+          setNewestCategoriesDays(settings.newestCategoriesDays)
+        }
+      } catch (error) {
+        prodError('Error loading newest categories setting:', error)
+      }
+    }
+    loadSettings()
+  }, [getAppSettings])
 
   // Show sidebar on scroll when categories are selected and grid is visible
   useEffect(() => {
@@ -145,6 +161,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
               initialExpanded[master.id] = true // All expanded by default
             })
             initialExpanded['general'] = true // Always expand general
+            initialExpanded['newest'] = true // Always expand newest categories
             setExpandedMasters(initialExpanded)
             devLog('✅ CategorySelection: Loaded', gameData.masterCategories.length, 'master categories')
           }
@@ -911,10 +928,36 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     )
                   })
 
+                  // Find "newest" categories based on createdAt date
+                  const cutoffDate = Date.now() - (newestCategoriesDays * 24 * 60 * 60 * 1000)
+                  const newestCategories = availableCategories.filter(cat => {
+                    if (!cat.createdAt) return false
+                    const createdTime = cat.createdAt instanceof Date
+                      ? cat.createdAt.getTime()
+                      : new Date(cat.createdAt).getTime()
+                    return createdTime > cutoffDate
+                  }).sort((a, b) => {
+                    // Sort newest first
+                    const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
+                    const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
+                    return bTime - aTime
+                  })
+
                   // Create sorted array of master categories
                   const sortedMasters = []
 
-                  // Add general category first if it exists
+                  // Add "Newest Categories" virtual group at the very top (only if there are new categories)
+                  if (newestCategories.length > 0) {
+                    sortedMasters.push({
+                      id: 'newest',
+                      name: '🆕 أجدد الفئات',
+                      order: -1,
+                      categories: newestCategories,
+                      isVirtual: true
+                    })
+                  }
+
+                  // Add general category after newest if it exists
                   if (groupedCategories['general']) {
                     sortedMasters.push({
                       id: 'general',
