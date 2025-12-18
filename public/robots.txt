@@ -1,0 +1,16 @@
+# robots.txt for rasbras.com
+# Only allow indexing of homepage
+
+User-agent: *
+Allow: /$
+Disallow: /my-games
+Disallow: /profile
+Disallow: /admin
+Disallow: /game
+Disallow: /category
+Disallow: /question
+Disallow: /results
+Disallow: /statistics
+
+# Sitemap location
+Sitemap: https://www.rasbras.com/sitemap.xml
