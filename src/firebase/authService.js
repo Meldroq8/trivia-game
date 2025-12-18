@@ -367,8 +367,16 @@ export class AuthService {
       let isNewGame = !isGameContinuation
       devLog('🎮 Is game continuation:', isGameContinuation, '→ Is new game:', isNewGame)
 
+      // Check if this game was already counted (prevents double-counting from re-renders)
+      let alreadyCounted = false
       if (gameId) {
         const gameRef = doc(db, 'games', gameId)
+
+        // Check existing game document for statsCounted flag
+        const existingGame = await getDoc(gameRef)
+        if (existingGame.exists()) {
+          alreadyCounted = existingGame.data().statsCounted === true
+        }
 
         // Use setDoc with merge: true - creates if not exists, updates if exists
         // Also set createdAt only if it doesn't exist (using merge)
@@ -384,10 +392,10 @@ export class AuthService {
         await addDoc(collection(db, 'games'), documentToSave)
       }
 
-      // Update user stats (only increment games played for NEW + COMPLETE games)
-      // Don't count auto-saves (isComplete: false) or continued games (isGameContinuation: true)
-      const shouldCountGame = isNewGame && isComplete
-      devLog('📊 Should count game:', shouldCountGame, '(isNewGame:', isNewGame, ', isComplete:', isComplete, ')')
+      // Update user stats (only increment games played for NEW + COMPLETE games that haven't been counted)
+      // Don't count: auto-saves (isComplete: false), continued games (isGameContinuation: true), or already counted games
+      const shouldCountGame = isNewGame && isComplete && !alreadyCounted
+      devLog('📊 Should count game:', shouldCountGame, '(isNewGame:', isNewGame, ', isComplete:', isComplete, ', alreadyCounted:', alreadyCounted, ')')
 
       const userRef = doc(db, 'users', uid)
       const userDoc = await getDoc(userRef)
@@ -405,6 +413,13 @@ export class AuthService {
             lastPlayed: new Date()
           }
         }, { merge: true })
+
+        // Mark game as counted to prevent future double-counting
+        if (shouldCountGame && gameId) {
+          const gameRef = doc(db, 'games', gameId)
+          await setDoc(gameRef, { statsCounted: true }, { merge: true })
+          devLog('✅ Game marked as statsCounted')
+        }
       }
 
       devLog('✅ Game data saved to Firebase successfully')
