@@ -432,8 +432,8 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
                     onChange={handleVerticalVolumeChange}
                     className="h-20 w-2 appearance-none bg-gray-200 rounded-lg cursor-pointer slider-vertical"
                     style={{
-                      writingMode: 'bt-lr', /* IE */
-                      WebkitAppearance: 'slider-vertical', /* WebKit */
+                      writingMode: 'vertical-lr',
+                      direction: 'rtl',
                     }}
                   />
                   <span className="text-xs text-gray-600 mt-1">{Math.round(volume * 100)}%</span>
@@ -503,9 +503,10 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
             background: ${isVideo ? '#dbeafe' : '#fecaca'};
           }
 
-          /* Vertical Slider Styles */
+          /* Vertical Slider Styles - using modern writing-mode approach */
           .slider-vertical {
-            -webkit-appearance: slider-vertical !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
             width: 8px !important;
             height: 80px !important;
             background: ${isVideo ? '#dbeafe' : '#fecaca'} !important;
@@ -515,6 +516,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
 
           .slider-vertical::-webkit-slider-thumb {
             -webkit-appearance: none !important;
+            appearance: none !important;
             width: 16px !important;
             height: 16px !important;
             border-radius: 50% !important;
