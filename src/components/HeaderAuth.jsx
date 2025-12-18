@@ -49,14 +49,13 @@ const HeaderAuth = memo(function HeaderAuth({ fontSize = 14, isAdmin = false, in
     // In mobile menu: show username and signout button only (no dropdown, no duplicates)
     if (inMobileMenu) {
       return (
-        <div className="space-y-2">
-          <div className="text-gray-700 font-bold" style={{ fontSize: `${fontSize}px` }}>
+        <div className="flex items-center gap-3">
+          <span className="text-gray-700 dark:text-gray-100 font-bold" style={{ fontSize: `${fontSize}px` }}>
             {user?.displayName || user?.email?.split('@')[0]}
-          </div>
+          </span>
           <button
             onClick={() => signOut()}
-            className="w-full text-right px-4 py-2 text-red-600 hover:bg-red-50 transition-colors rounded-lg"
-            style={{ fontSize: `${fontSize * 0.9}px` }}
+            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors text-sm"
           >
             تسجيل الخروج
           </button>
@@ -86,33 +85,33 @@ const HeaderAuth = memo(function HeaderAuth({ fontSize = 14, isAdmin = false, in
 
         {showDropdown && (
           <div
-            className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-[9999] overflow-visible"
+            className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-[9999] overflow-visible"
             style={{ fontSize: `${fontSize * 0.9}px`, minWidth: '150px', maxWidth: 'none', width: 'auto' }}
           >
             <button
               onClick={() => handleMenuClick('games')}
-              className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+              className="w-full text-right px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
             >
               العابي
             </button>
             <button
               onClick={() => handleMenuClick('profile')}
-              className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+              className="w-full text-right px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
             >
               الملف الشخصي
             </button>
             {(isAdmin || isAdminOrModerator) && (
               <button
                 onClick={() => handleMenuClick('admin')}
-                className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap"
+                className="w-full text-right px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors whitespace-nowrap"
               >
                 إعدادات المدير
               </button>
             )}
-            <hr className="my-1 border-gray-200" />
+            <hr className="my-1 border-gray-200 dark:border-gray-600" />
             <button
               onClick={() => handleMenuClick('signout')}
-              className="w-full text-right px-4 py-2 text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap"
+              className="w-full text-right px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors whitespace-nowrap"
             >
               تسجيل الخروج
             </button>

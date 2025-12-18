@@ -98,18 +98,30 @@ function Header({
     }
   }
 
-  // Filter out current page from menu items
-  const allMenuItems = [
-    { label: 'الصفحة الرئيسية', path: '/', icon: '🏠' },
-    // Only show these if authenticated
-    ...(isAuthenticated ? [
-      { label: 'العابي', path: '/my-games', icon: '🎮' },
-      { label: 'الملف الشخصي', path: '/profile', icon: '👤' }
-    ] : []),
-    ...(isAdminOrModerator ? [{ label: 'إعدادات المدير', path: '/admin', icon: '⚙️' }] : [])
-  ]
+  // Menu items for hamburger - only items NOT visible in header
+  // Header shows: Logo (home), one quick link, second link only on desktop
+  // Portrait mode only shows first quick link, so hamburger needs the second one
+  const getHamburgerMenuItems = () => {
+    const items = []
 
-  const menuItems = allMenuItems.filter(item => item.path !== location.pathname)
+    // On profile page: header shows "الرئيسية", so add "ألعابي" to hamburger
+    if (location.pathname === '/profile') {
+      items.push({ label: 'ألعابي', path: '/my-games', icon: '🎮' })
+    }
+    // On other pages: header shows "ألعابي" or "الرئيسية", so add "الملف الشخصي" to hamburger
+    else {
+      items.push({ label: 'الملف الشخصي', path: '/profile', icon: '👤' })
+    }
+
+    // Admin settings - always in hamburger for cleaner header
+    if (isAdminOrModerator) {
+      items.push({ label: 'إعدادات المدير', path: '/admin', icon: '⚙️' })
+    }
+
+    return items
+  }
+
+  const menuItems = getHamburgerMenuItems()
 
   return (
     <div
@@ -123,35 +135,84 @@ function Header({
       <div className="flex justify-between items-center h-full">
         {/* Left Section: Logo + Quick Links */}
         <div className="flex items-center" style={{ gap: `${styles.baseGap}px`, maxWidth: styles.showHamburger ? '70%' : 'auto' }}>
-          <LogoDisplay />
+          {/* Clickable logo - navigates to home */}
+          <button
+            onClick={() => navigate('/')}
+            className="hover:opacity-80 transition-opacity cursor-pointer"
+            title="الصفحة الرئيسية"
+          >
+            <LogoDisplay />
+          </button>
 
           {/* Quick navigation links - only show when authenticated */}
           {isAuthenticated && (
             <div className="flex items-center" style={{ gap: `${styles.baseGap * 0.8}px` }}>
-              <button
-                onClick={() => navigate('/my-games')}
-                className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
-                style={{
-                  fontSize: `${styles.headerFontSize * 0.7}px`,
-                  opacity: 0.95
-                }}
-                title="ألعابي"
-              >
-                ألعابي
-              </button>
-
-              {!styles.showHamburger && (
+              {/* First link: Home if on my-games or profile, otherwise My Games */}
+              {location.pathname === '/my-games' || location.pathname === '/profile' ? (
                 <button
-                  onClick={() => navigate('/profile')}
+                  onClick={() => navigate('/')}
                   className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
                   style={{
                     fontSize: `${styles.headerFontSize * 0.7}px`,
                     opacity: 0.95
                   }}
-                  title="الملف الشخصي"
+                  title="الصفحة الرئيسية"
                 >
-                  الملف الشخصي
+                  الرئيسية
                 </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/my-games')}
+                  className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                  style={{
+                    fontSize: `${styles.headerFontSize * 0.7}px`,
+                    opacity: 0.95
+                  }}
+                  title="ألعابي"
+                >
+                  ألعابي
+                </button>
+              )}
+
+              {/* Second link: Show the other page (not current, not home) */}
+              {!styles.showHamburger && (
+                location.pathname === '/profile' ? (
+                  <button
+                    onClick={() => navigate('/my-games')}
+                    className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                    style={{
+                      fontSize: `${styles.headerFontSize * 0.7}px`,
+                      opacity: 0.95
+                    }}
+                    title="ألعابي"
+                  >
+                    ألعابي
+                  </button>
+                ) : location.pathname === '/my-games' ? (
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                    style={{
+                      fontSize: `${styles.headerFontSize * 0.7}px`,
+                      opacity: 0.95
+                    }}
+                    title="الملف الشخصي"
+                  >
+                    الملف الشخصي
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="text-white hover:text-blue-200 transition-colors font-bold whitespace-nowrap"
+                    style={{
+                      fontSize: `${styles.headerFontSize * 0.7}px`,
+                      opacity: 0.95
+                    }}
+                    title="الملف الشخصي"
+                  >
+                    الملف الشخصي
+                  </button>
+                )
               )}
             </div>
           )}
@@ -205,58 +266,51 @@ function Header({
               {/* Dropdown Menu */}
               {showMobileMenu && (
                 <div
-                  className="absolute left-0 top-full mt-2 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50 min-w-[200px]"
+                  className="absolute left-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50 min-w-[200px] overflow-hidden"
                   style={{ fontSize: `${styles.headerFontSize * 0.8}px` }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Username at top */}
-                  <div className="px-4 py-2">
-                    <HeaderAuth fontSize={styles.headerFontSize * 0.9} isAdmin={isAdminOrModerator} inMobileMenu={true} />
+                  {/* Header with user info and close button */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                    <HeaderAuth fontSize={styles.headerFontSize * 0.85} isAdmin={isAdminOrModerator} inMobileMenu={true} />
+                    <button
+                      onClick={() => setShowMobileMenu(false)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-1"
+                      title="إغلاق"
+                    >
+                      ✕
+                    </button>
                   </div>
 
-                  {showBackButton && (
-                    <div>
+                  {/* Menu items */}
+                  <div className="py-1">
+                    {showBackButton && (
                       <button
                         onClick={() => {
                           handleBackClick()
                           setShowMobileMenu(false)
                         }}
-                        className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+                        className="w-full text-right px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
                       >
                         <span>←</span>
                         <span>الرجوع</span>
                       </button>
-                      <hr className="my-2 border-gray-200" />
-                    </div>
-                  )}
+                    )}
 
-                  {menuItems.map((item) => (
-                    <button
-                      key={item.path}
-                      onClick={() => {
-                        navigate(item.path)
-                        setShowMobileMenu(false)
-                      }}
-                      className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
-                    >
-                      <span>{item.icon}</span>
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-
-                  <hr className="my-2 border-gray-200" />
-
-                  {/* Dark Mode Toggle in Mobile Menu */}
-                  <button
-                    onClick={() => {
-                      toggleDarkMode()
-                      setShowMobileMenu(false)
-                    }}
-                    className="w-full text-right px-4 py-2 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
-                  >
-                    <span>{isDarkMode ? '☀️' : '🌙'}</span>
-                    <span>{isDarkMode ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
-                  </button>
+                    {menuItems.map((item) => (
+                      <button
+                        key={item.path}
+                        onClick={() => {
+                          navigate(item.path)
+                          setShowMobileMenu(false)
+                        }}
+                        className="w-full text-right px-4 py-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-3"
+                      >
+                        <span>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
