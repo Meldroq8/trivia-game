@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import Header from '../components/Header'
 import AuthModal from '../components/AuthModal'
 import { useAuth } from '../hooks/useAuth'
+import { AuthService } from '../firebase/authService'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function Index({ setGameState }) {
@@ -102,8 +103,14 @@ function Index({ setGameState }) {
 
   // Load leaderboard - consolidated handler for all triggers
   useEffect(() => {
-    const loadLeaderboard = async () => {
+    const loadLeaderboard = async (forceRefresh = false) => {
       if (!isAuthenticated) return
+
+      // Force refresh: invalidate cache before fetching
+      if (forceRefresh) {
+        devLog('🔄 Force refreshing leaderboard (coming from game)')
+        AuthService.cache.delete('leaderboard')
+      }
 
       setLeaderboardLoading(true)
       try {
@@ -118,17 +125,27 @@ function Index({ setGameState }) {
       }
     }
 
+    // Check if coming from a game - force refresh to get updated stats
+    const fromGame = location.state?.fromGame
+    let timer = null
+
     // Load on mount and when authenticated
     if (isAuthenticated) {
-      devLog('🔄 Loading leaderboard (initial/navigation)')
-      loadLeaderboard()
+      devLog('🔄 Loading leaderboard (initial/navigation)', fromGame ? '- FROM GAME' : '')
+
+      if (fromGame) {
+        // Small delay to ensure Firestore write has propagated
+        timer = setTimeout(() => loadLeaderboard(true), 500)
+      } else {
+        loadLeaderboard(false)
+      }
     }
 
     // Refresh when page becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden && isAuthenticated) {
         devLog('🔄 Page visible - refreshing leaderboard')
-        loadLeaderboard()
+        loadLeaderboard(true) // Always force refresh on visibility change
       }
     }
 
@@ -136,7 +153,7 @@ function Index({ setGameState }) {
     const handleFocus = () => {
       if (isAuthenticated) {
         devLog('🔄 Page focused - refreshing leaderboard')
-        loadLeaderboard()
+        loadLeaderboard(true) // Always force refresh on focus
       }
     }
 
@@ -144,10 +161,11 @@ function Index({ setGameState }) {
     window.addEventListener('focus', handleFocus)
 
     return () => {
+      if (timer) clearTimeout(timer)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [isAuthenticated, getPublicLeaderboard, location.key])
+  }, [isAuthenticated, getPublicLeaderboard, location.key, location.state])
 
   // Memoize responsive styles for performance
   const responsiveStyles = useMemo(() => {

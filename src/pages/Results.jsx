@@ -198,8 +198,8 @@ function Results({ gameState, setGameState }) {
       }
     })
 
-    // Navigate to home
-    navigate('/')
+    // Navigate to home with flag to refresh leaderboard
+    navigate('/', { state: { fromGame: true, timestamp: Date.now() } })
   }
 
   const getWinnerEmoji = () => {
