@@ -1330,9 +1330,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     if (!currentQuestion) return
 
     // Ensure user ID is set and mark question as used globally
+    // Use originalCategoryId for mystery questions, categoryId for regular questions
+    const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion)
+      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
     } else {
       devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
     }
@@ -1446,9 +1448,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     if (!currentQuestion) return
 
     // Ensure user ID is set and mark question as used globally even if no one answered
+    // Use originalCategoryId for mystery questions, categoryId for regular questions
+    const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
     if (user?.uid) {
       questionUsageTracker.setUserId(user.uid)
-      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion)
+      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
     } else {
       devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
     }
@@ -2333,6 +2337,34 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
                     <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
                       <path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z" fill="#dc2626" stroke="none"/>
+                    </svg>
+                  </div>
+                </div>
+              )}
+
+              {/* Double Points Perk Visual - Same location as prison */}
+              {gameState.activatedPerks?.doublePoints?.active && (
+                <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+                      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
+                      <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
+                    </svg>
+                  </div>
+                </div>
+              )}
+
+              {/* Risk Points Perk Visual - Same location as prison */}
+              {gameState.activatedPerks?.riskPoints?.active && (
+                <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
+                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+                      <rect x="3" y="3" width="18" height="18" rx="3" fill="#dc2626" stroke="none"/>
+                      <circle cx="7" cy="7" r="1.5" fill="white"/>
+                      <circle cx="17" cy="7" r="1.5" fill="white"/>
+                      <circle cx="7" cy="17" r="1.5" fill="white"/>
+                      <circle cx="17" cy="17" r="1.5" fill="white"/>
+                      <circle cx="12" cy="12" r="1.5" fill="white"/>
                     </svg>
                   </div>
                 </div>
