@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import Header from '../components/Header'
 import AuthModal from '../components/AuthModal'
 import { useAuth } from '../hooks/useAuth'
-import { debounce } from '../utils/debounce'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 
 function Index({ setGameState }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { user, isAuthenticated, loading: authLoading, getAppSettings, getPublicLeaderboard, updateLeaderboard } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings, getPublicLeaderboard } = useAuth()
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [settings, setSettings] = useState(() => {
     try {
@@ -83,8 +83,7 @@ function Index({ setGameState }) {
           setSettingsLoaded(true)
         }
 
-        // Load leaderboard data in background (non-blocking)
-        loadLeaderboard()
+        // Leaderboard is loaded separately via its own useEffect
       } catch (error) {
         prodError('Error loading settings:', error)
         // Retry on error (App Check might not be ready yet)
@@ -101,53 +100,54 @@ function Index({ setGameState }) {
     loadSettings()
   }, [getAppSettings])
 
-  // Create debounced leaderboard refresh to prevent spam queries (500ms delay)
-  const debouncedLoadLeaderboard = useCallback(
-    debounce(() => {
-      devLog('🔄 Loading leaderboard (debounced)')
-      loadLeaderboard()
-    }, 500),
-    []
-  )
-
-  // Refresh leaderboard when page becomes visible (user returns from game)
+  // Load leaderboard - consolidated handler for all triggers
   useEffect(() => {
+    const loadLeaderboard = async () => {
+      if (!isAuthenticated) return
+
+      setLeaderboardLoading(true)
+      try {
+        const leaderboardData = await getPublicLeaderboard()
+        devLog('📊 Leaderboard data loaded:', leaderboardData)
+        setLeaderboard(leaderboardData)
+      } catch (error) {
+        prodError('Error loading leaderboard:', error)
+        setLeaderboard([])
+      } finally {
+        setLeaderboardLoading(false)
+      }
+    }
+
+    // Load on mount and when authenticated
+    if (isAuthenticated) {
+      devLog('🔄 Loading leaderboard (initial/navigation)')
+      loadLeaderboard()
+    }
+
+    // Refresh when page becomes visible
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && isAuthenticated) {
         devLog('🔄 Page visible - refreshing leaderboard')
-        debouncedLoadLeaderboard()
+        loadLeaderboard()
+      }
+    }
+
+    // Refresh on window focus
+    const handleFocus = () => {
+      if (isAuthenticated) {
+        devLog('🔄 Page focused - refreshing leaderboard')
+        loadLeaderboard()
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [debouncedLoadLeaderboard])
-
-  // Also refresh leaderboard when navigating back to this page
-  useEffect(() => {
-    const handleFocus = () => {
-      devLog('🔄 Page focused - refreshing leaderboard')
-      debouncedLoadLeaderboard()
-    }
-
     window.addEventListener('focus', handleFocus)
-    return () => window.removeEventListener('focus', handleFocus)
-  }, [debouncedLoadLeaderboard])
 
-  const loadLeaderboard = async () => {
-    setLeaderboardLoading(true)
-    try {
-      // Load public leaderboard from users collection
-      const leaderboardData = await getPublicLeaderboard()
-      devLog('📊 Leaderboard data loaded:', leaderboardData)
-      setLeaderboard(leaderboardData)
-    } catch (error) {
-      prodError('Error loading leaderboard:', error)
-      setLeaderboard([])
-    } finally {
-      setLeaderboardLoading(false)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
     }
-  }
+  }, [isAuthenticated, getPublicLeaderboard, location.key])
 
   // Memoize responsive styles for performance
   const responsiveStyles = useMemo(() => {

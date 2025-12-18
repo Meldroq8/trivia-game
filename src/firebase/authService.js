@@ -362,7 +362,11 @@ export class AuthService {
 
       // Save or update game in games collection
       // Use setDoc with merge to avoid needing read permissions for existence check
-      let isNewGame = true
+      // IMPORTANT: Use isGameContinuation flag to determine if this is a new game
+      // New games have isGameContinuation: false, continued games have isGameContinuation: true
+      let isNewGame = !isGameContinuation
+      devLog('🎮 Is game continuation:', isGameContinuation, '→ Is new game:', isNewGame)
+
       if (gameId) {
         const gameRef = doc(db, 'games', gameId)
 
@@ -373,16 +377,11 @@ export class AuthService {
           ...documentToSave,
           createdAt: documentToSave.createdAt || new Date()
         }, { merge: true })
-
-        // We don't know if it was new or existing, but that's fine for stats
-        // The createdAt field will only be set on first create due to merge
-        isNewGame = false // Assume update to avoid double-counting stats
       } else {
         // Fallback: no gameId - create with auto-generated ID
         devLog('🆕 Creating new game (no gameId)')
         documentToSave.createdAt = new Date()
         await addDoc(collection(db, 'games'), documentToSave)
-        isNewGame = true
       }
 
       // Update user stats (only increment games played for new games, not updates)
@@ -704,8 +703,9 @@ export class AuthService {
 
       devLog('🏆 Sorted top 10:', sortedLeaderboard)
 
-      // Cache the result for 5 minutes (longer for unauthenticated to reduce errors)
-      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.getCurrentUser() ? 5 : 60)
+      // Cache the result for 30 seconds (short TTL for quick updates after games)
+      // Longer for unauthenticated to reduce errors
+      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.getCurrentUser() ? 0.5 : 60)
 
       return sortedLeaderboard
     } catch (error) {
@@ -720,46 +720,17 @@ export class AuthService {
   }
 
   /**
-   * Update leaderboard (admin only - usually called when game stats change)
+   * Invalidate leaderboard cache after game stats change
+   * Note: Leaderboard data is read from users.gameStats (updated in updateGameStats)
+   * This method just ensures cache is cleared so fresh data is fetched
    */
   static async updateLeaderboard() {
     try {
-      const currentUser = AuthService.getCurrentUser()
-      if (!currentUser) {
-        devLog('⚠️ No user logged in, skipping leaderboard update')
-        return []
-      }
-
-      // Count games for current user only
-      const gamesQuery = query(
-        collection(db, 'games'),
-        where('userId', '==', currentUser.uid)
-      )
-      const gamesSnapshot = await getDocs(gamesQuery)
-      const gameCount = gamesSnapshot.size
-
-      if (gameCount === 0) {
-        devLog('⚠️ No games found for current user')
-        return []
-      }
-
-      const userName = currentUser.displayName || currentUser.email?.split('@')[0] || 'لاعب مجهول'
-
-      // Update only current user's entry in leaderboard
-      const leaderboardRef = doc(db, 'leaderboard', currentUser.uid)
-      await setDoc(leaderboardRef, {
-        userId: currentUser.uid,
-        name: userName,
-        gamesPlayed: gameCount,
-        lastUpdated: new Date()
-      })
-
-      devLog('✅ Leaderboard entry updated for current user')
-
-      // Invalidate leaderboard cache
+      // Invalidate leaderboard cache so next fetch gets fresh data from users collection
       AuthService.cache.delete('leaderboard')
+      devLog('🏆 Leaderboard cache invalidated - will fetch fresh data on next request')
 
-      // Return updated public leaderboard
+      // Return updated public leaderboard with fresh data
       return await AuthService.getPublicLeaderboard()
     } catch (error) {
       prodError('❌ Error updating leaderboard:', error)
