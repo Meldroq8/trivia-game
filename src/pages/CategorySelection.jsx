@@ -48,6 +48,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [newestCategoriesDays, setNewestCategoriesDays] = useState(7)
+  const [newestCategoriesName, setNewestCategoriesName] = useState('🆕 أجدد الفئات')
 
   // Responsive dimensions tracking
   useEffect(() => {
@@ -60,13 +61,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
-  // Load newest categories days setting
+  // Load newest categories settings
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const settings = await getAppSettings()
         if (settings?.newestCategoriesDays !== undefined) {
           setNewestCategoriesDays(settings.newestCategoriesDays)
+        }
+        if (settings?.newestCategoriesName !== undefined) {
+          setNewestCategoriesName(settings.newestCategoriesName)
         }
       } catch (error) {
         prodError('Error loading newest categories setting:', error)
@@ -950,7 +954,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   if (newestCategories.length > 0) {
                     sortedMasters.push({
                       id: 'newest',
-                      name: '🆕 أجدد الفئات',
+                      name: newestCategoriesName,
                       order: -1,
                       categories: newestCategories,
                       isVirtual: true
