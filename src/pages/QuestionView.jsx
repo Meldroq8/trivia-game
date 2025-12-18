@@ -1329,14 +1329,17 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // Guard against null currentQuestion
     if (!currentQuestion) return
 
-    // Ensure user ID is set and mark question as used globally
-    // Use originalCategoryId for mystery questions, categoryId for regular questions
-    const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
-    if (user?.uid) {
-      questionUsageTracker.setUserId(user.uid)
-      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
-    } else {
-      devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+    // Skip question usage tracking in preview mode
+    if (!previewMode) {
+      // Ensure user ID is set and mark question as used globally
+      // Use originalCategoryId for mystery questions, categoryId for regular questions
+      const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
+      if (user?.uid) {
+        questionUsageTracker.setUserId(user.uid)
+        await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
+      } else {
+        devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+      }
     }
 
     // Calculate points (apply double or risk multiplier if active and team matches)
@@ -1416,19 +1419,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         }
       }
 
-      // CRITICAL: Save to Firebase immediately after score update
-      const stateToSave = {
-        ...stateUpdate,
-        usedQuestions: Array.from(stateUpdate.usedQuestions || []),
-        usedPointValues: Array.from(stateUpdate.usedPointValues || [])
-      }
+      // CRITICAL: Save to Firebase immediately after score update (skip in preview mode)
+      if (!previewMode) {
+        const stateToSave = {
+          ...stateUpdate,
+          usedQuestions: Array.from(stateUpdate.usedQuestions || []),
+          usedPointValues: Array.from(stateUpdate.usedPointValues || [])
+        }
 
-      if (isAuthenticated && saveGameState) {
-        saveGameState(stateToSave).then(() => {
-          devLog('💾 State saved to Firebase immediately after scoring')
-        }).catch(err => {
-          prodError('❌ Error saving state after scoring:', err)
-        })
+        if (isAuthenticated && saveGameState) {
+          saveGameState(stateToSave).then(() => {
+            devLog('💾 State saved to Firebase immediately after scoring')
+          }).catch(err => {
+            prodError('❌ Error saving state after scoring:', err)
+          })
+        }
       }
 
       return stateUpdate
@@ -1436,25 +1441,34 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Double points is now cleared in the game state above
 
-    // Clear stored question when completing
-    localStorage.removeItem('current_question')
+    // Clear stored question when completing (skip in preview mode)
+    if (!previewMode) {
+      localStorage.removeItem('current_question')
+    }
 
-    // Return to game board
-    navigate('/game')
+    // Return to game board (or admin in preview mode)
+    if (previewMode) {
+      navigate('/admin')
+    } else {
+      navigate('/game')
+    }
   }
 
   const handleNoAnswer = async () => {
     // Guard against null currentQuestion
     if (!currentQuestion) return
 
-    // Ensure user ID is set and mark question as used globally even if no one answered
-    // Use originalCategoryId for mystery questions, categoryId for regular questions
-    const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
-    if (user?.uid) {
-      questionUsageTracker.setUserId(user.uid)
-      await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
-    } else {
-      devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+    // Skip question usage tracking in preview mode
+    if (!previewMode) {
+      // Ensure user ID is set and mark question as used globally even if no one answered
+      // Use originalCategoryId for mystery questions, categoryId for regular questions
+      const trackingCategoryId = currentQuestion.originalCategoryId || currentQuestion.categoryId
+      if (user?.uid) {
+        questionUsageTracker.setUserId(user.uid)
+        await questionUsageTracker.markQuestionAsUsed(currentQuestion.question || currentQuestion, trackingCategoryId)
+      } else {
+        devLog('⏳ QuestionView: Skipping global question tracking - user not authenticated')
+      }
     }
 
     // Check if anyone had risk perk active and apply penalty
@@ -1521,29 +1535,37 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         currentQuestionPerkLock: null
       }
 
-      // CRITICAL: Save to Firebase immediately after no-answer update
-      const stateToSave = {
-        ...finalState,
-        usedQuestions: Array.from(finalState.usedQuestions || []),
-        usedPointValues: Array.from(finalState.usedPointValues || [])
-      }
+      // CRITICAL: Save to Firebase immediately after no-answer update (skip in preview mode)
+      if (!previewMode) {
+        const stateToSave = {
+          ...finalState,
+          usedQuestions: Array.from(finalState.usedQuestions || []),
+          usedPointValues: Array.from(finalState.usedPointValues || [])
+        }
 
-      if (isAuthenticated && saveGameState) {
-        saveGameState(stateToSave).then(() => {
-          devLog('💾 State saved to Firebase immediately after no-answer')
-        }).catch(err => {
-          prodError('❌ Error saving state after no-answer:', err)
-        })
+        if (isAuthenticated && saveGameState) {
+          saveGameState(stateToSave).then(() => {
+            devLog('💾 State saved to Firebase immediately after no-answer')
+          }).catch(err => {
+            prodError('❌ Error saving state after no-answer:', err)
+          })
+        }
       }
 
       return finalState
     })
 
-    // Clear stored question when completing
-    localStorage.removeItem('current_question')
+    // Clear stored question when completing (skip in preview mode)
+    if (!previewMode) {
+      localStorage.removeItem('current_question')
+    }
 
-    // Return to game board
-    navigate('/game')
+    // Return to game board (or admin in preview mode)
+    if (previewMode) {
+      navigate('/admin')
+    } else {
+      navigate('/game')
+    }
   }
 
   const handleImageClick = (e) => {
