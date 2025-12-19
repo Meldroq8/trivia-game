@@ -110,6 +110,14 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
   }, [selectedCategories.length, showCategoriesGrid, showPerkSelection, showTeamSetup, hasAutoTransitioned])
 
+  // Clear question usage cache on mount to ensure fresh counts
+  // This fixes the bug where counters show stale data after playing games
+  useEffect(() => {
+    devLog('🔄 CategorySelection mounted - clearing question usage cache for fresh data')
+    questionUsageTracker.clearCache()
+    questionUsageTracker.resetSessionFlag()
+  }, []) // Empty deps = runs only on mount
+
   // Set user ID for question tracker when user changes
   useEffect(() => {
     devLog('🔧 CategorySelection: User changed:', user?.uid ? 'User ID: ' + user.uid : 'No user')

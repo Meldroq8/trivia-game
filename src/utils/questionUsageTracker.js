@@ -48,7 +48,17 @@ class QuestionUsageTracker {
   resetSessionFlag() {
     this.poolUpdatedInSession = false
     this.poolUpdateInProgress = false
-    devLog('🔄 Question pool session flag reset for new game')
+    this.localCache = null // Clear cache to force fresh read from Firebase
+    devLog('🔄 Question pool session flag and cache reset for new game')
+  }
+
+  /**
+   * Clear the local cache to force a fresh read from Firebase
+   * Call this when returning to CategorySelection to get updated counts
+   */
+  clearCache() {
+    this.localCache = null
+    devLog('🧹 Question usage cache cleared')
   }
 
   /**
