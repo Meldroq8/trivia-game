@@ -724,9 +724,8 @@ export class AuthService {
 
       devLog('🏆 Sorted top 10:', sortedLeaderboard)
 
-      // Cache the result for 30 seconds (short TTL for quick updates after games)
-      // Longer for unauthenticated to reduce errors
-      AuthService.setCached('leaderboard', sortedLeaderboard, AuthService.getCurrentUser() ? 0.5 : 60)
+      // Cache the result for 1 minute for everyone (short TTL for quick updates)
+      AuthService.setCached('leaderboard', sortedLeaderboard, 1)
 
       return sortedLeaderboard
     } catch (error) {

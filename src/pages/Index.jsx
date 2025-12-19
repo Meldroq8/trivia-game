@@ -102,13 +102,12 @@ function Index({ setGameState }) {
   }, [getAppSettings])
 
   // Load leaderboard - consolidated handler for all triggers
+  // Leaderboard is PUBLIC - available to everyone (authenticated or not)
   useEffect(() => {
     const loadLeaderboard = async (forceRefresh = false) => {
-      if (!isAuthenticated) return
-
       // Force refresh: invalidate cache before fetching
       if (forceRefresh) {
-        devLog('🔄 Force refreshing leaderboard (coming from game)')
+        devLog('🔄 Force refreshing leaderboard')
         AuthService.cache.delete('leaderboard')
       }
 
@@ -129,21 +128,19 @@ function Index({ setGameState }) {
     const fromGame = location.state?.fromGame
     let timer = null
 
-    // Load on mount and when authenticated
-    if (isAuthenticated) {
-      devLog('🔄 Loading leaderboard (initial/navigation)', fromGame ? '- FROM GAME' : '')
+    // Load on mount for EVERYONE (authenticated or not)
+    devLog('🔄 Loading leaderboard (initial/navigation)', fromGame ? '- FROM GAME' : '')
 
-      if (fromGame) {
-        // Small delay to ensure Firestore write has propagated
-        timer = setTimeout(() => loadLeaderboard(true), 500)
-      } else {
-        loadLeaderboard(false)
-      }
+    if (fromGame && isAuthenticated) {
+      // Small delay to ensure Firestore write has propagated (only for authenticated users coming from game)
+      timer = setTimeout(() => loadLeaderboard(true), 500)
+    } else {
+      loadLeaderboard(false)
     }
 
     // Refresh when page becomes visible
     const handleVisibilityChange = () => {
-      if (!document.hidden && isAuthenticated) {
+      if (!document.hidden) {
         devLog('🔄 Page visible - refreshing leaderboard')
         loadLeaderboard(true) // Always force refresh on visibility change
       }
@@ -151,10 +148,8 @@ function Index({ setGameState }) {
 
     // Refresh on window focus
     const handleFocus = () => {
-      if (isAuthenticated) {
-        devLog('🔄 Page focused - refreshing leaderboard')
-        loadLeaderboard(true) // Always force refresh on focus
-      }
+      devLog('🔄 Page focused - refreshing leaderboard')
+      loadLeaderboard(true) // Always force refresh on focus
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)

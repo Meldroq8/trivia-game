@@ -3,15 +3,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ===== USERS COLLECTION =====
-    // Allow admins to read all users for user management
-    match /users/{document=**} {
-      allow read: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
-
-    // Users can only access their own data
+    // Users collection with public read for leaderboard
     match /users/{userId} {
       // Public read access for leaderboard display (limited fields exposed by frontend)
+      // This MUST come first to ensure unauthenticated users can read
       allow read: if true;
 
       // Users can CREATE their own profile on signup
