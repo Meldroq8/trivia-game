@@ -10,7 +10,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential
 } from 'firebase/auth'
-import { doc, setDoc, getDoc, collection, addDoc, query, where, orderBy, getDocs, updateDoc, deleteDoc, limit } from 'firebase/firestore'
+import { doc, setDoc, getDoc, collection, addDoc, query, where, orderBy, getDocs, updateDoc, deleteDoc, limit, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './config'
 import { settingsService } from './settingsService'
 
@@ -756,5 +756,65 @@ export class AuthService {
       prodError('❌ Error updating leaderboard:', error)
       throw error
     }
+  }
+
+  /**
+   * Subscribe to real-time leaderboard updates
+   * @param {Function} callback - Called with updated leaderboard data whenever it changes
+   * @returns {Function} Unsubscribe function
+   */
+  static subscribeToLeaderboard(callback) {
+    devLog('🏆 Setting up real-time leaderboard subscription')
+
+    const usersRef = collection(db, 'users')
+
+    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+      try {
+        const leaderboard = []
+
+        snapshot.forEach(doc => {
+          const userData = doc.data()
+          const gamesPlayed = userData.gameStats?.gamesPlayed || 0
+
+          // Only include users who have played at least one game
+          if (gamesPlayed > 0) {
+            leaderboard.push({
+              id: doc.id,
+              userId: doc.id,
+              name: userData.displayName || userData.email?.split('@')[0] || 'لاعب مجهول',
+              gamesPlayed: gamesPlayed,
+              lastUpdated: userData.gameStats?.lastPlayed || new Date()
+            })
+          }
+        })
+
+        // Sort by games played and get top 10
+        const sortedLeaderboard = leaderboard
+          .sort((a, b) => (b.gamesPlayed || 0) - (a.gamesPlayed || 0))
+          .slice(0, 10)
+
+        devLog('🏆 Real-time leaderboard update:', sortedLeaderboard.length, 'entries')
+
+        // Update cache with fresh data
+        AuthService.setCached('leaderboard', sortedLeaderboard, 1)
+
+        // Call the callback with updated data
+        callback(sortedLeaderboard)
+      } catch (error) {
+        prodError('❌ Error processing leaderboard snapshot:', error)
+        callback([])
+      }
+    }, (error) => {
+      // Handle permission errors gracefully
+      if (error.code === 'permission-denied') {
+        devLog('⚠️ Real-time leaderboard not accessible - returning empty array')
+        callback([])
+      } else {
+        prodError('❌ Error in leaderboard subscription:', error)
+        callback([])
+      }
+    })
+
+    return unsubscribe
   }
 }

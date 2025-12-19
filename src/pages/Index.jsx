@@ -101,66 +101,25 @@ function Index({ setGameState }) {
     loadSettings()
   }, [getAppSettings])
 
-  // Load leaderboard - consolidated handler for all triggers
+  // Load leaderboard with REAL-TIME updates
   // Leaderboard is PUBLIC - available to everyone (authenticated or not)
   useEffect(() => {
-    const loadLeaderboard = async (forceRefresh = false) => {
-      // Force refresh: invalidate cache before fetching
-      if (forceRefresh) {
-        devLog('🔄 Force refreshing leaderboard')
-        AuthService.cache.delete('leaderboard')
-      }
+    devLog('🏆 Setting up real-time leaderboard subscription')
+    setLeaderboardLoading(true)
 
-      setLeaderboardLoading(true)
-      try {
-        const leaderboardData = await getPublicLeaderboard()
-        devLog('📊 Leaderboard data loaded:', leaderboardData)
-        setLeaderboard(leaderboardData)
-      } catch (error) {
-        prodError('Error loading leaderboard:', error)
-        setLeaderboard([])
-      } finally {
-        setLeaderboardLoading(false)
-      }
-    }
+    // Subscribe to real-time updates - this will automatically update when ANY user's stats change
+    const unsubscribe = AuthService.subscribeToLeaderboard((leaderboardData) => {
+      devLog('📊 Real-time leaderboard update received:', leaderboardData?.length || 0, 'entries')
+      setLeaderboard(leaderboardData || [])
+      setLeaderboardLoading(false)
+    })
 
-    // Check if coming from a game - force refresh to get updated stats
-    const fromGame = location.state?.fromGame
-    let timer = null
-
-    // Load on mount for EVERYONE (authenticated or not)
-    devLog('🔄 Loading leaderboard (initial/navigation)', fromGame ? '- FROM GAME' : '')
-
-    if (fromGame && isAuthenticated) {
-      // Small delay to ensure Firestore write has propagated (only for authenticated users coming from game)
-      timer = setTimeout(() => loadLeaderboard(true), 500)
-    } else {
-      loadLeaderboard(false)
-    }
-
-    // Refresh when page becomes visible
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        devLog('🔄 Page visible - refreshing leaderboard')
-        loadLeaderboard(true) // Always force refresh on visibility change
-      }
-    }
-
-    // Refresh on window focus
-    const handleFocus = () => {
-      devLog('🔄 Page focused - refreshing leaderboard')
-      loadLeaderboard(true) // Always force refresh on focus
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-
+    // Cleanup subscription on unmount
     return () => {
-      if (timer) clearTimeout(timer)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
+      devLog('🏆 Cleaning up leaderboard subscription')
+      unsubscribe()
     }
-  }, [isAuthenticated, getPublicLeaderboard, location.key, location.state])
+  }, []) // Empty deps - subscription persists for component lifetime
 
   // Memoize responsive styles for performance
   const responsiveStyles = useMemo(() => {
