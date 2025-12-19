@@ -92,10 +92,18 @@ export const useAuth = () => {
   const updateGameStats = async (gameData) => {
     if (user) {
       try {
+        // Log which user the game is being saved for (helps debug issues)
+        devLog('🎮 Saving game for user:', {
+          uid: user.uid,
+          displayName: user.displayName,
+          email: user.email
+        })
         await AuthService.updateGameStats(user.uid, gameData)
       } catch (error) {
         prodError('Error updating game stats:', error)
       }
+    } else {
+      devWarn('⚠️ Cannot save game - no user logged in!')
     }
   }
 

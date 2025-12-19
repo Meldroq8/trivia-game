@@ -48,3 +48,15 @@ __pycache__/
 # Service account files - SECURITY: Never commit credentials
 service-account.json
 *service-account*.json
+serviceAccountKey.json
+*firebase-adminsdk*
+
+# Windows reserved filenames
+nul
+NUL
+con
+CON
+aux
+AUX
+prn
+PRN
