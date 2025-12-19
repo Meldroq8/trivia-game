@@ -420,11 +420,19 @@ class QuestionUsageTracker {
       return { migrated: 0, failed: 0 }
     }
 
+    // Check if migration was already completed for this user (stored in localStorage)
+    const migrationKey = `migration_completed_${this.currentUserId}`
+    if (localStorage.getItem(migrationKey) === 'true') {
+      devLog('⏭️ Migration already completed for this user, skipping')
+      return { migrated: 0, failed: 0 }
+    }
+
     const usageData = await this.getUsageData()
     const oldKeys = Object.keys(usageData).filter(key => this.isOldStyleKey(key))
 
     if (oldKeys.length === 0) {
-      devLog('✅ No old-style keys found, migration not needed')
+      devLog('✅ No old-style keys found, marking migration complete')
+      localStorage.setItem(migrationKey, 'true')
       return { migrated: 0, failed: 0 }
     }
 
@@ -480,6 +488,9 @@ class QuestionUsageTracker {
       await this.saveUsageData(newUsageData, true) // Immediate save
       devLog(`🎉 Migration complete: ${migrated} migrated, ${failed} removed (no match)`)
     }
+
+    // Mark migration as complete so we don't check again
+    localStorage.setItem(migrationKey, 'true')
 
     return { migrated, failed }
   }

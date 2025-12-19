@@ -109,6 +109,8 @@ function Results({ gameState, setGameState }) {
             gameData: gameState
           }).then(() => {
             devLog('✅ Game auto-saved to Firebase successfully')
+            // Set flag so CategorySelection knows to refresh question counts
+            sessionStorage.setItem('gameJustCompleted', 'true')
           }).catch(error => {
             prodError('❌ Error auto-saving to Firebase:', error)
             setGameAlreadySaved(false) // Reset if save failed so it can retry
