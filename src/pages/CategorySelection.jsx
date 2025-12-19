@@ -110,17 +110,27 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
   }, [selectedCategories.length, showCategoriesGrid, showPerkSelection, showTeamSetup, hasAutoTransitioned])
 
-  // Check if cache needs refresh (only if data changed since last load)
-  // The cache is now invalidated in questionUsageTracker when questions are marked as used
+  // Check if cache needs refresh
+  // Clear cache: 1) Once per browser session, OR 2) When returning from a completed game
   useEffect(() => {
-    // Only reset session flag if we're coming back from a completed game
-    // Check sessionStorage for the flag set by Results page
+    const cacheRefreshedThisSession = sessionStorage.getItem('cacheRefreshedThisSession')
     const gameJustCompleted = sessionStorage.getItem('gameJustCompleted')
+
     if (gameJustCompleted) {
+      // Coming back from a completed game - always refresh
       devLog('🔄 CategorySelection: Game just completed - refreshing question usage data')
       questionUsageTracker.clearCache()
       questionUsageTracker.resetSessionFlag()
       sessionStorage.removeItem('gameJustCompleted')
+      sessionStorage.setItem('cacheRefreshedThisSession', 'true')
+    } else if (!cacheRefreshedThisSession) {
+      // First load this session - refresh once to ensure fresh data
+      devLog('🔄 CategorySelection: First load this session - refreshing cache')
+      questionUsageTracker.clearCache()
+      questionUsageTracker.resetSessionFlag()
+      sessionStorage.setItem('cacheRefreshedThisSession', 'true')
+    } else {
+      devLog('✅ CategorySelection: Using cached data (already refreshed this session)')
     }
   }, []) // Empty deps = runs only on mount
 
