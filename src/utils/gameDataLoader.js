@@ -103,7 +103,8 @@ export class GameDataLoader {
         videoUrl: question.videoUrl || null,
         answerVideoUrl: question.answerVideoUrl || null,
         toleranceHint: question.toleranceHint || null,
-        category: question.categoryName || question.categoryId || 'عام'
+        category: question.categoryName || question.categoryId || 'عام',
+        categoryId: categoryId // Keep the actual categoryId for export filtering
       })
     })
 

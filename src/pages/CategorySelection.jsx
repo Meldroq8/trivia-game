@@ -19,6 +19,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [questionCounts, setQuestionCounts] = useState({}) // Display counts (divided by 6)
   const [rawQuestionCounts, setRawQuestionCounts] = useState({}) // Actual available questions
   const [masterCategories, setMasterCategories] = useState([])
+  const [countsRefreshTrigger, setCountsRefreshTrigger] = useState(0) // Trigger to refresh counts
 
   // Set page title
   useEffect(() => {
@@ -110,27 +111,18 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
   }, [selectedCategories.length, showCategoriesGrid, showPerkSelection, showTeamSetup, hasAutoTransitioned])
 
-  // Check if cache needs refresh
-  // Clear cache: 1) Once per browser session, OR 2) When returning from a completed game
+  // Clear cache when returning from a completed game
+  // Note: Main sync from game history happens in useAuth on app load
   useEffect(() => {
-    const cacheRefreshedThisSession = sessionStorage.getItem('cacheRefreshedThisSession')
     const gameJustCompleted = sessionStorage.getItem('gameJustCompleted')
 
     if (gameJustCompleted) {
-      // Coming back from a completed game - always refresh
+      // Coming back from a completed game - refresh to show updated counters
       devLog('🔄 CategorySelection: Game just completed - refreshing question usage data')
       questionUsageTracker.clearCache()
-      questionUsageTracker.resetSessionFlag()
       sessionStorage.removeItem('gameJustCompleted')
-      sessionStorage.setItem('cacheRefreshedThisSession', 'true')
-    } else if (!cacheRefreshedThisSession) {
-      // First load this session - refresh once to ensure fresh data
-      devLog('🔄 CategorySelection: First load this session - refreshing cache')
-      questionUsageTracker.clearCache()
-      questionUsageTracker.resetSessionFlag()
-      sessionStorage.setItem('cacheRefreshedThisSession', 'true')
-    } else {
-      devLog('✅ CategorySelection: Using cached data (already refreshed this session)')
+      // Trigger a refresh of question counts
+      setCountsRefreshTrigger(prev => prev + 1)
     }
   }, []) // Empty deps = runs only on mount
 
@@ -233,12 +225,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     loadData()
   }, [user, authLoading, isAuthenticated])
 
-  // Load question counts when game data is available
+  // Load question counts when game data is available or refresh is triggered
   useEffect(() => {
     if (gameData && user?.uid) {
       loadQuestionCounts()
     }
-  }, [gameData, user?.uid])
+  }, [gameData, user?.uid, countsRefreshTrigger])
 
   const toggleCategory = (categoryId) => {
     setSelectedCategories(prev => {
@@ -432,7 +424,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     setShowTeamSetup(false)
   }
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     // Prevent double-clicks
     if (isStartingGame) return
 
@@ -452,6 +444,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       const preAssignedQuestions = {}
 
       if (gameData && gameData.questions) {
+        // Get current usage data to filter out already-used questions
+        const usageData = await questionUsageTracker.getUsageData()
+
         // Point values and their difficulties
         const pointConfigs = [
           { points: 200, difficulty: 'easy' },
@@ -472,6 +467,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           return `${catId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
         }
 
+        // Helper to check if a question is already used
+        const isQuestionUsed = (question, catId) => {
+          const trackingId = getQuestionId(question, catId)
+          return usageData[trackingId] && usageData[trackingId] > 0
+        }
+
         // Debug: Log selected categories with names
         const selectedWithNames = selectedCategories.map(id => {
           const cat = gameData.categories?.find(c => c.id === id)
@@ -488,8 +489,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           const categoryName = category?.name || categoryId
 
           for (const { points, difficulty } of pointConfigs) {
-            // Get questions of this difficulty
-            const difficultyQuestions = categoryQuestions.filter(q => q.difficulty === difficulty)
+            // Get questions of this difficulty that haven't been used in previous games
+            const difficultyQuestions = categoryQuestions.filter(q =>
+              q.difficulty === difficulty && !isQuestionUsed(q, categoryId)
+            )
 
             // Assign 2 questions per point value (buttonIndex 0 and 1)
             for (let buttonIndex = 0; buttonIndex < 2; buttonIndex++) {
@@ -500,20 +503,22 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 const alreadyAssigned = Object.values(preAssignedQuestions).map(a => a.questionId)
                 const availableForButton = difficultyQuestions.filter(q => !alreadyAssigned.includes(q.id))
 
-                const questionToAssign = availableForButton.length > 0
-                  ? availableForButton[Math.floor(Math.random() * availableForButton.length)]
-                  : difficultyQuestions[Math.floor(Math.random() * difficultyQuestions.length)]
+                if (availableForButton.length > 0) {
+                  const questionToAssign = availableForButton[Math.floor(Math.random() * availableForButton.length)]
 
-                // Generate the tracking ID (use categoryId for consistency)
-                const trackingId = getQuestionId(questionToAssign, categoryId)
+                  // Generate the tracking ID (use categoryId for consistency)
+                  const trackingId = getQuestionId(questionToAssign, categoryId)
 
-                preAssignedQuestions[buttonKey] = {
-                  questionId: questionToAssign.id,  // Firebase ID for GameBoard lookup
-                  trackingId: trackingId,           // Tracking ID for usage marking
-                  categoryId,
-                  points,
-                  category: categoryName,
-                  buttonIndex
+                  preAssignedQuestions[buttonKey] = {
+                    questionId: questionToAssign.id,  // Firebase ID for GameBoard lookup
+                    trackingId: trackingId,           // Tracking ID for usage marking
+                    categoryId,
+                    points,
+                    category: categoryName,
+                    buttonIndex
+                  }
+                } else {
+                  devLog(`⚠️ No unused ${difficulty} questions available for ${categoryName}`)
                 }
               }
             }
@@ -524,12 +529,25 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       }
 
       // Mark questions as used in background (don't block game start)
+      console.log('🔥 [START GAME DEBUG] user?.uid:', user?.uid)
+      console.log('🔥 [START GAME DEBUG] preAssignedQuestions count:', Object.keys(preAssignedQuestions).length)
+      console.log('🔥 [START GAME DEBUG] preAssignedQuestions:', preAssignedQuestions)
+
       if (user?.uid && Object.keys(preAssignedQuestions).length > 0) {
+        console.log('🔥 [START GAME DEBUG] Calling markGameQuestionsAsUsed...')
         questionUsageTracker.setUserId(user.uid)
         // Fire and forget - don't await
         questionUsageTracker.markGameQuestionsAsUsed(preAssignedQuestions)
-          .then(markedCount => devLog(`💰 Paid game created - ${markedCount} questions reserved`))
-          .catch(err => prodError('❌ Failed to mark questions as used:', err))
+          .then(markedCount => {
+            console.log('🔥 [START GAME DEBUG] markGameQuestionsAsUsed completed, marked:', markedCount)
+            devLog(`💰 Paid game created - ${markedCount} questions reserved`)
+          })
+          .catch(err => {
+            console.error('🔥 [START GAME DEBUG] markGameQuestionsAsUsed FAILED:', err)
+            prodError('❌ Failed to mark questions as used:', err)
+          })
+      } else {
+        console.log('🔥 [START GAME DEBUG] Skipping markGameQuestionsAsUsed - condition not met')
       }
 
       setGameState(prev => ({

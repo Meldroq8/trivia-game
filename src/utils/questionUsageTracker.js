@@ -26,6 +26,9 @@ class QuestionUsageTracker {
     // Prevent duplicate pool updates in same session
     this.poolUpdatedInSession = false
     this.poolUpdateInProgress = false
+
+    // Prevent duplicate sync operations
+    this.syncInProgress = false
   }
 
   /**
@@ -161,7 +164,9 @@ class QuestionUsageTracker {
    * @param {Object} usageData - Usage data to save
    */
   async performFirestoreWrite(usageData) {
-    if (!this.currentUserId) return
+    if (!this.currentUserId) {
+      return
+    }
 
     try {
       const userDoc = doc(db, 'questionUsage', this.currentUserId)
@@ -304,17 +309,6 @@ class QuestionUsageTracker {
       devLog(`📊 Current question pool size: ${currentPoolSize}`)
       await this.savePoolSize(currentPoolSize)
 
-      // 🔄 MIGRATION: Check and migrate old-style usage data to new format
-      // This runs once per user when they have old-style keys
-      try {
-        const migrationResult = await this.migrateUsageData(gameData)
-        if (migrationResult.migrated > 0) {
-          devLog(`🎉 Migrated ${migrationResult.migrated} questions to new ID format`)
-        }
-      } catch (migrationError) {
-        prodError('Migration error (continuing anyway):', migrationError)
-      }
-
       // Initialize usage tracking for new questions
       // IMPORTANT: Use categoryId from the key, not from question.category
       // This ensures consistent ID generation across all functions
@@ -369,130 +363,6 @@ class QuestionUsageTracker {
     const answerPart = answer.substring(0, 50)
 
     return `${category}-${textPart}-${answerPart}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-  }
-
-  /**
-   * Generate OLD-style question ID (for migration purposes)
-   * This matches the format used before the Firebase ID update
-   * @param {Object} question - Question object
-   * @param {string} categoryId - Category ID
-   * @returns {string} Old-style question ID
-   */
-  getOldStyleQuestionId(question, categoryId) {
-    const text = String(question.text || question.question?.text || '')
-    const answer = String(question.answer || question.question?.answer || '')
-    // Old format: 50 chars text + 20 chars answer
-    return `${categoryId}-${text.substring(0, 50)}-${answer.substring(0, 20)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-  }
-
-  /**
-   * Check if a usage key is in the old format (contains Arabic text, not just Firebase ID)
-   * Old format: categoryId_arabicText_arabicAnswer
-   * New format: categoryId_firebaseDocId (no Arabic after first underscore section)
-   * @param {string} key - Usage data key
-   * @returns {boolean} True if old format
-   */
-  isOldStyleKey(key) {
-    if (!key || typeof key !== 'string') return false
-
-    // Split by underscore to get parts after category ID
-    const parts = key.split('_')
-    if (parts.length < 2) return false
-
-    // Old format has Arabic text after the category ID
-    // New format has only alphanumeric Firebase ID after category ID
-    // Check if any part after the first contains Arabic characters
-    const afterCategoryId = parts.slice(1).join('_')
-    const hasArabic = /[\u0600-\u06FF]/.test(afterCategoryId)
-
-    return hasArabic
-  }
-
-  /**
-   * Migrate old-style usage data to new Firebase ID format
-   * This preserves user progress by mapping old text-based IDs to new Firebase doc IDs
-   * @param {Object} gameData - Game data containing all questions
-   * @returns {Promise<{migrated: number, failed: number}>} Migration stats
-   */
-  async migrateUsageData(gameData) {
-    if (!gameData || !gameData.questions) {
-      devLog('⏭️ Migration skipped: No game data')
-      return { migrated: 0, failed: 0 }
-    }
-
-    // Check if migration was already completed for this user (stored in localStorage)
-    const migrationKey = `migration_completed_${this.currentUserId}`
-    if (localStorage.getItem(migrationKey) === 'true') {
-      devLog('⏭️ Migration already completed for this user, skipping')
-      return { migrated: 0, failed: 0 }
-    }
-
-    const usageData = await this.getUsageData()
-    const oldKeys = Object.keys(usageData).filter(key => this.isOldStyleKey(key))
-
-    if (oldKeys.length === 0) {
-      devLog('✅ No old-style keys found, marking migration complete')
-      localStorage.setItem(migrationKey, 'true')
-      return { migrated: 0, failed: 0 }
-    }
-
-    devLog(`🔄 Found ${oldKeys.length} old-style keys to migrate`)
-
-    // Build a lookup map: oldStyleId -> { question, categoryId, newStyleId }
-    const oldToNewMap = new Map()
-
-    Object.entries(gameData.questions).forEach(([categoryId, questions]) => {
-      questions.forEach(question => {
-        const oldId = this.getOldStyleQuestionId(question, categoryId)
-        const newId = this.getQuestionId(question, categoryId)
-
-        oldToNewMap.set(oldId, {
-          question,
-          categoryId,
-          newId
-        })
-      })
-    })
-
-    devLog(`📚 Built lookup map with ${oldToNewMap.size} question mappings`)
-
-    // Migrate each old key
-    let migrated = 0
-    let failed = 0
-    const newUsageData = { ...usageData }
-
-    for (const oldKey of oldKeys) {
-      const mapping = oldToNewMap.get(oldKey)
-
-      if (mapping) {
-        // Found matching question - create new key with same value
-        const oldValue = usageData[oldKey]
-        if (oldValue > 0) {
-          newUsageData[mapping.newId] = oldValue
-          migrated++
-          devLog(`✅ Migrated: ${oldKey.substring(0, 50)}... -> ${mapping.newId}`)
-        }
-        // Remove old key
-        delete newUsageData[oldKey]
-      } else {
-        // Could not find matching question - remove old key anyway (stale data)
-        delete newUsageData[oldKey]
-        failed++
-        devLog(`⚠️ Could not migrate (removing): ${oldKey.substring(0, 50)}...`)
-      }
-    }
-
-    // Save migrated data
-    if (migrated > 0 || failed > 0) {
-      this.localCache = newUsageData
-      await this.saveUsageData(newUsageData, true) // Immediate save
-      devLog(`🎉 Migration complete: ${migrated} migrated, ${failed} removed (no match)`)
-    }
-
-    // Mark migration as complete so we don't check again
-    localStorage.setItem(migrationKey, 'true')
-
-    return { migrated, failed }
   }
 
   /**
@@ -747,9 +617,8 @@ class QuestionUsageTracker {
     let markedCount = 0
 
     // Mark only the pre-assigned questions as used (using trackingId for consistency)
-    Object.values(preAssignedQuestions).forEach(assignment => {
+    Object.entries(preAssignedQuestions).forEach(([buttonKey, assignment]) => {
       const trackingId = assignment.trackingId
-
       if (trackingId && (!usageData[trackingId] || usageData[trackingId] === 0)) {
         usageData[trackingId] = 1
         markedCount++
@@ -761,17 +630,7 @@ class QuestionUsageTracker {
       this.localCache = usageData
       // Save to Firebase immediately (important for paid games)
       await this.saveUsageData(usageData, true)
-
-      // Log per-category breakdown for debugging
-      const categoryBreakdown = {}
-      Object.values(preAssignedQuestions).forEach(assignment => {
-        const catId = assignment.categoryId || 'unknown'
-        const catName = assignment.category || catId
-        const key = `${catName} (${catId})`
-        categoryBreakdown[key] = (categoryBreakdown[key] || 0) + 1
-      })
       devLog(`🎮 Marked ${markedCount} pre-assigned questions as used for new game`)
-      devLog(`📊 Per-category breakdown:`, categoryBreakdown)
     }
 
     return markedCount
@@ -802,6 +661,128 @@ class QuestionUsageTracker {
 
     devLog('✅ All question usage data has been reset')
     return true
+  }
+
+  /**
+   * Sync usage data from game history
+   * This rebuilds the usage counters based on all user's played games
+   * Called once per session on app load to ensure counters reflect actual game history
+   * @param {Array} games - Array of all user games from Firebase
+   * @returns {Promise<{synced: number, categories: Object}>} Sync stats
+   */
+  async syncUsageFromGameHistory(games) {
+    if (!this.currentUserId) {
+      devWarn('⚠️ Cannot sync: No user ID set')
+      return { synced: 0, categories: {} }
+    }
+
+    // Check if already synced this session
+    const syncKey = `usage_synced_${this.currentUserId}`
+    if (sessionStorage.getItem(syncKey) === 'true') {
+      devLog('⏭️ Usage already synced this session, skipping')
+      return { synced: 0, categories: {} }
+    }
+
+    // Prevent concurrent sync operations
+    if (this.syncInProgress) {
+      devLog('⏳ Sync already in progress, skipping')
+      return { synced: 0, categories: {} }
+    }
+    this.syncInProgress = true
+
+    devLog('🔄 Syncing usage data from game history...')
+
+    try {
+      if (!games || games.length === 0) {
+        devLog('📭 No games found - keeping existing usage data')
+        // No games found - DON'T clear existing data, just mark as synced
+        // This prevents data loss if the query fails
+        sessionStorage.setItem(syncKey, 'true')
+        return { synced: 0, categories: {} }
+      }
+
+      // Collect all trackingIds from all games' assignedQuestions
+      // Also fall back to usedQuestions for older games that don't have assignedQuestions
+      const newUsageData = {}
+      const categoryBreakdown = {}
+      let gamesWithAssigned = 0
+      let gamesWithUsed = 0
+
+      games.forEach(game => {
+        const assignedQuestions = game.gameData?.assignedQuestions
+        const usedQuestions = game.gameData?.usedQuestions
+
+        // Try assignedQuestions first (preferred)
+        if (assignedQuestions && Object.keys(assignedQuestions).length > 0) {
+          gamesWithAssigned++
+          Object.values(assignedQuestions).forEach(assignment => {
+            // Try trackingId first, then generate from categoryId + questionId
+            let trackingId = assignment.trackingId
+            if (!trackingId && assignment.categoryId && assignment.questionId) {
+              // Generate tracking ID from categoryId and questionId
+              trackingId = `${assignment.categoryId}-${assignment.questionId}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+            }
+            if (trackingId) {
+              newUsageData[trackingId] = 1
+              const catId = assignment.categoryId || 'unknown'
+              categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
+            }
+          })
+        }
+        // Fall back to usedQuestions for older games (just button keys like "cat1-200")
+        else if (usedQuestions) {
+          gamesWithUsed++
+          // usedQuestions can be an array or object
+          const usedKeys = Array.isArray(usedQuestions)
+            ? usedQuestions
+            : Object.keys(usedQuestions)
+
+          usedKeys.forEach(key => {
+            // usedQuestions are button keys like "categoryId-points"
+            // We'll use them as-is since we don't have trackingId
+            if (key && typeof key === 'string') {
+              newUsageData[key] = 1
+              // Try to extract category from key (format: categoryId-points)
+              const catId = key.split('-')[0] || 'unknown'
+              categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
+            }
+          })
+        }
+      })
+
+      devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${Object.keys(newUsageData).length} unique questions`)
+
+      // Only update if we found some data
+      if (Object.keys(newUsageData).length > 0) {
+        this.localCache = newUsageData
+        await this.saveUsageData(newUsageData, true)
+        devLog(`✅ Synced ${Object.keys(newUsageData).length} questions from ${games.length} games`)
+      } else {
+        devLog('⚠️ No questions found in game history - keeping existing data')
+      }
+
+      // Mark as synced for this session
+      sessionStorage.setItem(syncKey, 'true')
+
+      return {
+        synced: Object.keys(newUsageData).length,
+        categories: categoryBreakdown
+      }
+    } finally {
+      this.syncInProgress = false
+    }
+  }
+
+  /**
+   * Force a fresh sync on next app load
+   * Call this when a game is deleted to ensure counters update
+   */
+  invalidateSyncCache() {
+    if (this.currentUserId) {
+      const syncKey = `usage_synced_${this.currentUserId}`
+      sessionStorage.removeItem(syncKey)
+      devLog('🔄 Sync cache invalidated, will re-sync on next load')
+    }
   }
 }
 

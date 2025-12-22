@@ -307,9 +307,10 @@ export class AuthService {
 
           for (const [buttonKey, assignment] of Object.entries(originalData.assignedQuestions)) {
             if (assignment && typeof assignment === 'object') {
-              // Store only the essential data: questionId and metadata
+              // Store essential data: questionId, trackingId, and metadata
               rebuilt.assignedQuestions[String(buttonKey)] = {
                 questionId: String(assignment.questionId || ''),
+                trackingId: String(assignment.trackingId || ''), // Keep trackingId for usage sync
                 categoryId: String(assignment.categoryId || ''),
                 points: Number(assignment.points || 0),
                 category: String(assignment.category || ''),
@@ -491,6 +492,37 @@ export class AuthService {
       return games
     } catch (error) {
       prodError('❌ Error getting user games:', error)
+      throw error
+    }
+  }
+
+  // Get ALL user games for syncing usage history (no limit)
+  static async getAllUserGamesForSync(uid) {
+    try {
+      devLog('📖 Loading ALL games for usage sync, user:', uid)
+
+      const gamesQuery = query(
+        collection(db, 'games'),
+        where('userId', '==', uid),
+        orderBy('createdAt', 'desc')
+        // No limit - fetch all games for accurate usage tracking
+      )
+
+      const snapshot = await getDocs(gamesQuery)
+      const games = []
+
+      snapshot.forEach((doc) => {
+        games.push({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate?.() || new Date()
+        })
+      })
+
+      devLog('📚 Loaded ALL', games.length, 'games for sync')
+      return games
+    } catch (error) {
+      prodError('❌ Error getting all user games for sync:', error)
       throw error
     }
   }

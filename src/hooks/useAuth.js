@@ -1,6 +1,7 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, useCallback } from 'react'
 import { AuthService } from '../firebase/authService'
+import { questionUsageTracker } from '../utils/questionUsageTracker'
 
 export const useAuth = () => {
   const [user, setUser] = useState(null)
@@ -30,6 +31,28 @@ export const useAuth = () => {
 
     return () => unsubscribe()
   }, [])
+
+  // Sync question usage from game history once per session
+  useEffect(() => {
+    const syncUsageFromHistory = async () => {
+      if (!user?.uid) return
+
+      // Set user ID in tracker
+      questionUsageTracker.setUserId(user.uid)
+
+      try {
+        devLog('🔄 Starting usage sync from game history...')
+        // Fetch ALL user games (not limited to 4)
+        const allGames = await AuthService.getAllUserGamesForSync(user.uid)
+        // Sync usage data from game history (has its own session check)
+        await questionUsageTracker.syncUsageFromGameHistory(allGames)
+      } catch (error) {
+        prodError('❌ Error syncing usage from history:', error)
+      }
+    }
+
+    syncUsageFromHistory()
+  }, [user?.uid])
 
   const signUp = async (email, password, displayName) => {
     try {
@@ -122,7 +145,15 @@ export const useAuth = () => {
   const deleteGame = useCallback(async (gameId) => {
     if (user) {
       try {
-        return await AuthService.deleteGame(gameId)
+        const result = await AuthService.deleteGame(gameId)
+        // Invalidate sync cache and immediately re-sync
+        questionUsageTracker.invalidateSyncCache()
+        devLog('🔄 Re-syncing usage after game deletion...')
+        // Fetch remaining games and re-sync counters
+        const remainingGames = await AuthService.getAllUserGamesForSync(user.uid)
+        await questionUsageTracker.syncUsageFromGameHistory(remainingGames)
+        devLog('✅ Usage counters updated after deletion')
+        return result
       } catch (error) {
         prodError('Error deleting game:', error)
         throw error
