@@ -690,9 +690,12 @@ class QuestionUsageTracker {
    * This rebuilds the usage counters based on all user's played games
    * Called once per session on app load to ensure counters reflect actual game history
    * @param {Array} games - Array of all user games from Firebase
+   * @param {Object} options - Sync options
+   * @param {boolean} options.replaceMode - If true, replace all data instead of merging (use after game deletion)
    * @returns {Promise<{synced: number, categories: Object}>} Sync stats
    */
-  async syncUsageFromGameHistory(games) {
+  async syncUsageFromGameHistory(games, options = {}) {
+    const { replaceMode = false } = options
     if (!this.currentUserId) {
       devWarn('⚠️ Cannot sync: No user ID set')
       return { synced: 0, categories: {} }
@@ -774,33 +777,55 @@ class QuestionUsageTracker {
 
       devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${Object.keys(newUsageData).length} unique questions`)
 
-      // IMPORTANT: MERGE with existing data instead of replacing
-      // This prevents data loss if game history is incomplete
-      if (Object.keys(newUsageData).length > 0) {
-        const existingData = await this.getUsageData()
-        const existingUsedCount = Object.values(existingData).filter(v => v > 0).length
-        const newUsedCount = Object.keys(newUsageData).length
+      // Handle based on mode
+      if (replaceMode) {
+        // REPLACE MODE: Used after game deletion to rebuild from remaining games
+        devLog('🔄 Replace mode: Rebuilding usage data from remaining games')
 
-        // Merge: keep existing entries, add new ones from game history
-        const mergedData = { ...existingData }
-        let addedCount = 0
-        Object.entries(newUsageData).forEach(([key, value]) => {
-          if (!mergedData[key] || mergedData[key] === 0) {
-            mergedData[key] = value
-            addedCount++
-          }
+        // Keep the structure (question IDs) but update usage counts
+        const existingData = await this.getUsageData()
+        const rebuiltData = {}
+
+        // Reset all existing entries to 0, then set used ones to 1
+        Object.keys(existingData).forEach(key => {
+          rebuiltData[key] = 0
+        })
+        Object.keys(newUsageData).forEach(key => {
+          rebuiltData[key] = 1
         })
 
-        // Only save if we actually have changes to add
-        if (addedCount > 0) {
-          this.localCache = mergedData
-          await this.saveUsageData(mergedData, true)
-          devLog(`✅ Merged ${addedCount} new entries from game history (existing: ${existingUsedCount}, from history: ${newUsedCount})`)
-        } else {
-          devLog(`ℹ️ No new entries to add - existing data (${existingUsedCount} used) is up to date`)
-        }
+        this.localCache = rebuiltData
+        await this.saveUsageData(rebuiltData, true)
+        devLog(`✅ Rebuilt usage data: ${Object.keys(newUsageData).length} questions marked as used`)
       } else {
-        devLog('⚠️ No questions found in game history - keeping existing data')
+        // MERGE MODE: Used on app load to prevent data loss
+        // This prevents data loss if game history is incomplete
+        if (Object.keys(newUsageData).length > 0) {
+          const existingData = await this.getUsageData()
+          const existingUsedCount = Object.values(existingData).filter(v => v > 0).length
+          const newUsedCount = Object.keys(newUsageData).length
+
+          // Merge: keep existing entries, add new ones from game history
+          const mergedData = { ...existingData }
+          let addedCount = 0
+          Object.entries(newUsageData).forEach(([key, value]) => {
+            if (!mergedData[key] || mergedData[key] === 0) {
+              mergedData[key] = value
+              addedCount++
+            }
+          })
+
+          // Only save if we actually have changes to add
+          if (addedCount > 0) {
+            this.localCache = mergedData
+            await this.saveUsageData(mergedData, true)
+            devLog(`✅ Merged ${addedCount} new entries from game history (existing: ${existingUsedCount}, from history: ${newUsedCount})`)
+          } else {
+            devLog(`ℹ️ No new entries to add - existing data (${existingUsedCount} used) is up to date`)
+          }
+        } else {
+          devLog('⚠️ No questions found in game history - keeping existing data')
+        }
       }
 
       // Mark as synced for this session

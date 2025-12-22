@@ -149,9 +149,10 @@ export const useAuth = () => {
         // Invalidate sync cache and immediately re-sync
         questionUsageTracker.invalidateSyncCache()
         devLog('🔄 Re-syncing usage after game deletion...')
-        // Fetch remaining games and re-sync counters
+        // Fetch remaining games and re-sync counters with REPLACE mode
+        // This rebuilds counters from remaining games only (deleted game's questions become available)
         const remainingGames = await AuthService.getAllUserGamesForSync(user.uid)
-        await questionUsageTracker.syncUsageFromGameHistory(remainingGames)
+        await questionUsageTracker.syncUsageFromGameHistory(remainingGames, { replaceMode: true })
         devLog('✅ Usage counters updated after deletion')
         return result
       } catch (error) {
