@@ -406,7 +406,7 @@ function App() {
       }
 
       // Check if we're in preview mode - if so, don't load from Firebase
-      const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
+      const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview') || sessionStorage.getItem('isPreviewMode')
       if (previewData) {
         devLog('🔍 Preview mode detected, skipping Firebase state load')
         setStateLoaded(true)
@@ -599,7 +599,7 @@ function App() {
     if (isSavingRef.current) return // Skip if already saving
 
     // Don't save to Firebase in preview mode
-    const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview')
+    const previewData = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview') || sessionStorage.getItem('isPreviewMode')
     if (previewData) {
       devLog('🔍 Preview mode active, skipping Firebase save')
       return
@@ -656,6 +656,13 @@ function App() {
 
     // Force immediate save function
     const forceImmediateSave = async () => {
+      // Don't save in preview mode
+      const isPreviewMode = localStorage.getItem('questionPreview') || sessionStorage.getItem('questionPreview') || sessionStorage.getItem('isPreviewMode')
+      if (isPreviewMode) {
+        devLog('🔍 Preview mode active, skipping forced save')
+        return
+      }
+
       // Cancel debounced save
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)

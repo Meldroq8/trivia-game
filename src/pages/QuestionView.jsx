@@ -534,6 +534,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const previewQuestionId = urlParams.get('preview')
     if (previewQuestionId) {
       devLog('🔗 Preview mode detected from URL parameter:', previewQuestionId)
+      // Set flag so App.jsx knows we're in preview mode
+      sessionStorage.setItem('isPreviewMode', 'true')
       // Mark as preview mode, question will be loaded from Firebase in useEffect
       return {
         previewMode: true,
@@ -556,6 +558,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // Try location.state
     if (location.state?.previewMode) {
       devLog('📍 Loading preview from location.state')
+      // Set flag so App.jsx knows we're in preview mode
+      sessionStorage.setItem('isPreviewMode', 'true')
       return {
         previewMode: location.state.previewMode,
         previewQuestion: location.state.question,
@@ -569,8 +573,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       try {
         const parsed = JSON.parse(localData)
         devLog('💾 Loading preview from localStorage:', parsed)
-        // Clear it after reading
+        // Clear the detailed preview data after reading
         localStorage.removeItem('questionPreview')
+        // Keep a simple flag in sessionStorage so App.jsx knows we're in preview mode
+        sessionStorage.setItem('isPreviewMode', 'true')
 
         // Convert arrays back to Sets if they exist
         if (parsed.gameData) {
@@ -598,8 +604,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       try {
         const parsed = JSON.parse(storedData)
         devLog('💾 Loading preview from sessionStorage:', parsed)
-        // Clear it after reading
+        // Clear the detailed preview data after reading
         sessionStorage.removeItem('questionPreview')
+        // Keep a simple flag so App.jsx knows we're in preview mode
+        sessionStorage.setItem('isPreviewMode', 'true')
 
         // Convert arrays back to Sets if they exist
         if (parsed.gameData) {
@@ -1448,6 +1456,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Return to game board (or admin in preview mode)
     if (previewMode) {
+      // Clear preview mode flag before navigating back
+      sessionStorage.removeItem('isPreviewMode')
       navigate('/admin')
     } else {
       navigate('/game')
@@ -1562,6 +1572,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     // Return to game board (or admin in preview mode)
     if (previewMode) {
+      // Clear preview mode flag before navigating back
+      sessionStorage.removeItem('isPreviewMode')
       navigate('/admin')
     } else {
       navigate('/game')
@@ -2098,7 +2110,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             </div>
           </div>
           <button
-            onClick={() => navigate('/admin')}
+            onClick={() => {
+              // Clear preview mode flag before navigating back
+              sessionStorage.removeItem('isPreviewMode')
+              navigate('/admin')
+            }}
             className="bg-black hover:bg-gray-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-colors"
           >
             ← العودة للإدارة
