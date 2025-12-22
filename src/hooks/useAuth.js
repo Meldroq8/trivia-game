@@ -146,14 +146,13 @@ export const useAuth = () => {
     if (user) {
       try {
         const result = await AuthService.deleteGame(gameId)
-        // Invalidate sync cache and immediately re-sync
-        questionUsageTracker.invalidateSyncCache()
-        devLog('🔄 Re-syncing usage after game deletion...')
-        // Fetch remaining games and re-sync counters with REPLACE mode
-        // This rebuilds counters from remaining games only (deleted game's questions become available)
-        const remainingGames = await AuthService.getAllUserGamesForSync(user.uid)
-        await questionUsageTracker.syncUsageFromGameHistory(remainingGames, { replaceMode: true })
-        devLog('✅ Usage counters updated after deletion')
+        // DON'T sync counters on game deletion - this causes data loss for categories
+        // whose questions aren't properly tracked in game history.
+        // Counters will stay as-is (slightly overcount but no data loss).
+        // User can manually reset individual categories if needed.
+        devLog('🗑️ Game deleted - keeping existing question counters')
+        // Just clear the cache so next load gets fresh data from Firebase
+        questionUsageTracker.clearCache()
         return result
       } catch (error) {
         prodError('Error deleting game:', error)
