@@ -11,7 +11,10 @@ function HeadbandDisplay({
   maxQuestions = 10,
   teamAName = 'فريق أ',
   teamBName = 'فريق ب',
-  compact = false
+  compact = false,
+  teamAHint = null,
+  teamBHint = null,
+  showHints = false
 }) {
   // Generate circles for a team
   const renderCircles = useMemo(() => (usedCount) => {
@@ -52,6 +55,14 @@ function HeadbandDisplay({
           }`}>
             {teamACounter} / {maxQuestions}
           </p>
+          {/* Team A Hint */}
+          {showHints && teamAHint && (
+            <p className={`mt-2 text-amber-600 dark:text-amber-400 font-bold ${
+              compact ? 'text-xs' : 'text-sm md:text-base'
+            }`}>
+              هذه الشخصية من {teamAHint}
+            </p>
+          )}
         </div>
 
         {/* Divider */}
@@ -74,6 +85,14 @@ function HeadbandDisplay({
           }`}>
             {teamBCounter} / {maxQuestions}
           </p>
+          {/* Team B Hint */}
+          {showHints && teamBHint && (
+            <p className={`mt-2 text-amber-600 dark:text-amber-400 font-bold ${
+              compact ? 'text-xs' : 'text-sm md:text-base'
+            }`}>
+              هذه الشخصية من {teamBHint}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -404,20 +404,42 @@ class QuestionUsageTracker {
   /**
    * Check if all questions in the pool have been used at least once
    * If so, reset all usage counts to allow questions to be used again
+   *
+   * SAFEGUARDS added to prevent accidental resets:
+   * 1. Pool size must be at least 50 questions (reasonable minimum)
+   * 2. Tracked questions must match pool size (within 10%)
+   * 3. ALL questions must be used (100%, not just >=)
    */
   async checkAndResetIfAllUsed() {
     const usageData = await this.getUsageData()
     const poolSize = await this.getPoolSize()
 
-    if (poolSize === 0) return
+    // Safeguard 1: Pool must have reasonable size
+    if (poolSize < 50) {
+      devLog(`⚠️ Pool size too small (${poolSize}), skipping auto-reset check`)
+      return
+    }
 
+    const trackedQuestions = Object.keys(usageData).length
     const usedQuestions = Object.values(usageData).filter(count => count > 0).length
-    const allQuestionsUsed = usedQuestions >= poolSize
 
-    devLog(`📊 Usage Statistics: ${usedQuestions}/${poolSize} questions used`)
+    devLog(`📊 Usage Statistics: ${usedQuestions}/${poolSize} questions used (${trackedQuestions} tracked)`)
+
+    // Safeguard 2: Tracked questions should roughly match pool size
+    // This prevents reset if tracking data is incomplete
+    const trackingRatio = trackedQuestions / poolSize
+    if (trackingRatio < 0.9) {
+      devLog(`⚠️ Tracking incomplete (${(trackingRatio * 100).toFixed(1)}% coverage), skipping auto-reset`)
+      return
+    }
+
+    // Safeguard 3: Only reset if truly ALL questions are used
+    // (not >= which could trigger on small discrepancies)
+    const allQuestionsUsed = usedQuestions >= poolSize && usedQuestions >= trackedQuestions
 
     if (allQuestionsUsed) {
       devLog('🔄 ALL QUESTIONS USED! Resetting usage cycle to allow reuse...')
+      devLog(`📊 Reset triggered: used=${usedQuestions}, pool=${poolSize}, tracked=${trackedQuestions}`)
 
       // Reset all usage counts to 0
       const resetData = {}
@@ -752,11 +774,31 @@ class QuestionUsageTracker {
 
       devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${Object.keys(newUsageData).length} unique questions`)
 
-      // Only update if we found some data
+      // IMPORTANT: MERGE with existing data instead of replacing
+      // This prevents data loss if game history is incomplete
       if (Object.keys(newUsageData).length > 0) {
-        this.localCache = newUsageData
-        await this.saveUsageData(newUsageData, true)
-        devLog(`✅ Synced ${Object.keys(newUsageData).length} questions from ${games.length} games`)
+        const existingData = await this.getUsageData()
+        const existingUsedCount = Object.values(existingData).filter(v => v > 0).length
+        const newUsedCount = Object.keys(newUsageData).length
+
+        // Merge: keep existing entries, add new ones from game history
+        const mergedData = { ...existingData }
+        let addedCount = 0
+        Object.entries(newUsageData).forEach(([key, value]) => {
+          if (!mergedData[key] || mergedData[key] === 0) {
+            mergedData[key] = value
+            addedCount++
+          }
+        })
+
+        // Only save if we actually have changes to add
+        if (addedCount > 0) {
+          this.localCache = mergedData
+          await this.saveUsageData(mergedData, true)
+          devLog(`✅ Merged ${addedCount} new entries from game history (existing: ${existingUsedCount}, from history: ${newUsedCount})`)
+        } else {
+          devLog(`ℹ️ No new entries to add - existing data (${existingUsedCount} used) is up to date`)
+        }
       } else {
         devLog('⚠️ No questions found in game history - keeping existing data')
       }

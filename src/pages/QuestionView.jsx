@@ -2660,6 +2660,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show headband counter circles if both players are ready
                   if (isHeadbandActive) {
+                    // Extract hints from answers (part after " - ")
+                    const extractHint = (answer) => {
+                      if (!answer || typeof answer !== 'string') return null
+                      const parts = answer.split(' - ')
+                      return parts.length > 1 ? parts.slice(1).join(' - ').trim() : null
+                    }
+
+                    const teamAHint = extractHint(headbandSession?.answer)
+                    const teamBHint = extractHint(headbandSession?.answer2)
+
+                    // Show hints when both teams have reached 7 questions
+                    const teamACount = headbandSession?.teamACounter || 0
+                    const teamBCount = headbandSession?.teamBCounter || 0
+                    const showHints = teamACount >= 7 && teamBCount >= 7
+
                     return (
                       <div className="flex flex-col justify-center items-center w-full h-full p-4 md:p-8">
                         {/* Explanation text */}
@@ -2667,11 +2682,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                           🟢 أخضر = أسئلة متبقية | 🔴 أحمر = أسئلة مستخدمة
                         </p>
                         <HeadbandDisplay
-                          teamACounter={headbandSession?.teamACounter || 0}
-                          teamBCounter={headbandSession?.teamBCounter || 0}
-                          teamAName="فريق أ"
-                          teamBName="فريق ب"
+                          teamACounter={teamACount}
+                          teamBCounter={teamBCount}
+                          teamAName={headbandSession?.teamAName || 'فريق أ'}
+                          teamBName={headbandSession?.teamBName || 'فريق ب'}
                           maxQuestions={10}
+                          teamAHint={teamAHint}
+                          teamBHint={teamBHint}
+                          showHints={showHints}
                         />
                       </div>
                     )
