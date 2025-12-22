@@ -295,7 +295,7 @@ function HeadbandGame() {
             >
               {/* Team Header */}
               <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-600">
-                <span className="font-bold text-lg text-gray-800 dark:text-gray-100">فريق أ</span>
+                <span className="font-bold text-lg text-gray-800 dark:text-gray-100">{session?.teamAName || 'الفريق 1'}</span>
                 <button
                   className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                     selectedTeam === 'A'
@@ -349,7 +349,7 @@ function HeadbandGame() {
             >
               {/* Team Header */}
               <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-600">
-                <span className="font-bold text-lg text-gray-800 dark:text-gray-100">فريق ب</span>
+                <span className="font-bold text-lg text-gray-800 dark:text-gray-100">{session?.teamBName || 'الفريق 2'}</span>
                 <button
                   className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                     selectedTeam === 'B'

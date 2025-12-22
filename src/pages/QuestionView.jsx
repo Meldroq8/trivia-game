@@ -880,6 +880,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           // Team B data (Answer2 + Answer_Image2)
           answer2: question?.answer2 || '',
           answerImage2: question?.answerImage2 || question?.answerImageUrl2 || '',
+          // Team names from game state
+          teamAName: gameState?.team1?.name || 'الفريق 1',
+          teamBName: gameState?.team2?.name || 'الفريق 2',
           // Question metadata
           questionText: question?.text || '',
           difficulty: question?.difficulty || 'medium',
