@@ -692,6 +692,11 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     devLog(`🔄 Resetting category: ${categoryId}`)
 
     try {
+      // Ensure user ID is set before reset
+      if (user?.uid) {
+        questionUsageTracker.setUserId(user.uid)
+      }
+
       const categoryQuestions = gameData.questions[categoryId]
       await questionUsageTracker.resetCategoryUsage(categoryId, categoryQuestions)
 
