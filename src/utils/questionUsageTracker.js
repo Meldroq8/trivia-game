@@ -551,11 +551,15 @@ class QuestionUsageTracker {
       }
     })
 
+    // Update local cache immediately
+    this.localCache = usageData
+    // Save to Firebase immediately (important operation)
+    await this.saveUsageData(usageData, true)
+
+    // Save category reset time to prevent sync from re-marking old games for this category
+    await this.saveCategoryResetTime(categoryId, Date.now())
+
     if (resetCount > 0) {
-      // Update local cache immediately
-      this.localCache = usageData
-      // Save to Firebase immediately (important operation)
-      await this.saveUsageData(usageData, true)
       devLog(`✅ Reset ${resetCount} questions for category: ${categoryId}`)
     } else {
       devLog(`ℹ️ No used questions found for category: ${categoryId}`)
@@ -681,8 +685,75 @@ class QuestionUsageTracker {
     // Save to Firebase immediately
     await this.saveUsageData(resetData, true)
 
+    // Save lastResetTime to prevent sync from re-marking old games
+    await this.saveLastResetTime(Date.now())
+
     devLog('✅ All question usage data has been reset')
     return true
+  }
+
+  /**
+   * Save the last full reset timestamp to Firebase
+   * @param {number} timestamp - Reset timestamp
+   */
+  async saveLastResetTime(timestamp) {
+    if (!this.currentUserId) return
+
+    try {
+      const userDoc = doc(db, 'questionUsage', this.currentUserId)
+      await updateDoc(userDoc, {
+        lastResetTime: timestamp
+      })
+      devLog('💾 Saved lastResetTime:', new Date(timestamp).toISOString())
+    } catch (error) {
+      prodError('❌ Error saving lastResetTime:', error)
+    }
+  }
+
+  /**
+   * Save category-specific reset timestamp to Firebase
+   * @param {string} categoryId - Category ID
+   * @param {number} timestamp - Reset timestamp
+   */
+  async saveCategoryResetTime(categoryId, timestamp) {
+    if (!this.currentUserId) return
+
+    try {
+      const userDoc = doc(db, 'questionUsage', this.currentUserId)
+      await updateDoc(userDoc, {
+        [`categoryResetTimes.${categoryId}`]: timestamp
+      })
+      devLog(`💾 Saved reset time for category ${categoryId}:`, new Date(timestamp).toISOString())
+    } catch (error) {
+      prodError('❌ Error saving category reset time:', error)
+    }
+  }
+
+  /**
+   * Get reset timestamps from Firebase
+   * @returns {Promise<{lastResetTime: number|null, categoryResetTimes: Object}>}
+   */
+  async getResetTimes() {
+    if (!this.currentUserId) {
+      return { lastResetTime: null, categoryResetTimes: {} }
+    }
+
+    try {
+      const userDoc = doc(db, 'questionUsage', this.currentUserId)
+      const docSnap = await getDoc(userDoc)
+
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        return {
+          lastResetTime: data.lastResetTime || null,
+          categoryResetTimes: data.categoryResetTimes || {}
+        }
+      }
+    } catch (error) {
+      prodError('❌ Error getting reset times:', error)
+    }
+
+    return { lastResetTime: null, categoryResetTimes: {} }
   }
 
   /**
@@ -726,14 +797,33 @@ class QuestionUsageTracker {
         return { synced: 0, categories: {} }
       }
 
+      // Get reset timestamps to filter out old games
+      const { lastResetTime, categoryResetTimes } = await this.getResetTimes()
+      devLog('📅 Reset times:', { lastResetTime: lastResetTime ? new Date(lastResetTime).toISOString() : 'none', categoryResetTimes })
+
       // Collect all trackingIds from all games' assignedQuestions
       // Also fall back to usedQuestions for older games that don't have assignedQuestions
       const newUsageData = {}
       const categoryBreakdown = {}
       let gamesWithAssigned = 0
       let gamesWithUsed = 0
+      let gamesSkippedByReset = 0
 
       games.forEach(game => {
+        // Get game timestamp (createdAt or playedAt)
+        const gameTime = game.createdAt?.toDate?.()?.getTime() ||
+                         game.createdAt?.getTime?.() ||
+                         (typeof game.createdAt === 'number' ? game.createdAt : null) ||
+                         game.gameData?.playedAt ||
+                         0
+
+        // Skip entire game if it's older than full reset
+        if (lastResetTime && gameTime < lastResetTime) {
+          gamesSkippedByReset++
+          devLog(`⏭️ Skipping game (older than full reset): ${game.id}`)
+          return // Skip this game
+        }
+
         const assignedQuestions = game.gameData?.assignedQuestions
         const usedQuestions = game.gameData?.usedQuestions
 
@@ -741,6 +831,15 @@ class QuestionUsageTracker {
         if (assignedQuestions && Object.keys(assignedQuestions).length > 0) {
           gamesWithAssigned++
           Object.values(assignedQuestions).forEach(assignment => {
+            const catId = assignment.categoryId || 'unknown'
+
+            // Skip this question if its category was reset after this game
+            const categoryResetTime = categoryResetTimes[catId]
+            if (categoryResetTime && gameTime < categoryResetTime) {
+              devLog(`⏭️ Skipping question (category ${catId} reset after game)`)
+              return // Skip this question
+            }
+
             // Try trackingId first, then generate from categoryId + questionId
             let trackingId = assignment.trackingId
             if (!trackingId && assignment.categoryId && assignment.questionId) {
@@ -749,7 +848,6 @@ class QuestionUsageTracker {
             }
             if (trackingId) {
               newUsageData[trackingId] = 1
-              const catId = assignment.categoryId || 'unknown'
               categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
             }
           })
@@ -766,16 +864,23 @@ class QuestionUsageTracker {
             // usedQuestions are button keys like "categoryId-points"
             // We'll use them as-is since we don't have trackingId
             if (key && typeof key === 'string') {
-              newUsageData[key] = 1
               // Try to extract category from key (format: categoryId-points)
               const catId = key.split('-')[0] || 'unknown'
+
+              // Skip this question if its category was reset after this game
+              const categoryResetTime = categoryResetTimes[catId]
+              if (categoryResetTime && gameTime < categoryResetTime) {
+                return // Skip this question
+              }
+
+              newUsageData[key] = 1
               categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
             }
           })
         }
       })
 
-      devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${Object.keys(newUsageData).length} unique questions`)
+      devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${gamesSkippedByReset} skipped by reset, ${Object.keys(newUsageData).length} unique questions`)
 
       // Handle based on mode
       if (replaceMode) {
