@@ -944,8 +944,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             <div className="w-full max-w-7xl mx-auto flex-1">
               {isLoading ? (
                 // Show skeleton loading cards without blocking UI
-                <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
-                  {Array.from({ length: 12 }).map((_, index) => (
+                <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
+                  {Array.from({ length: 15 }).map((_, index) => (
                     <div
                       key={`skeleton-${index}`}
                       className="relative p-0 rounded-lg flex flex-col border-2 border-gray-200 bg-gray-50 animate-pulse aspect-[3/4]"
@@ -1068,7 +1068,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                         {/* Categories Grid (only if expanded) */}
                         {expandedMasters[master.id] && (
-                          <div className="grid grid-cols-2 max-lg:landscape:grid-cols-2 sm:grid-cols-3 md:max-lg:landscape:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 max-lg:landscape:gap-2 lg:gap-4">
+                          <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                           {master.categories.map((category) => {
                             const selected = isSelected(category.id)
                             const needsReset = categoryNeedsReset(category.id)
