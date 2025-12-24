@@ -1222,11 +1222,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               )}
                             </BackgroundImage>
 
-                            {/* Favorite heart button - positioned above bottom bar */}
-                            <button
+                            {/* Favorite heart - positioned above bottom bar */}
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={(e) => toggleFavorite(category.id, e)}
-                              onTouchEnd={(e) => { e.stopPropagation(); e.currentTarget.blur() }}
-                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 ${
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
                                 favoriteCategories.includes(category.id)
                                   ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                   : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1236,7 +1238,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
                                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                               </svg>
-                            </button>
+                            </div>
 
                             {/* Bottom bar with category name */}
                             <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
@@ -1362,11 +1364,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               )}
                             </BackgroundImage>
 
-                            {/* Favorite heart button - positioned above bottom bar */}
-                            <button
+                            {/* Favorite heart - positioned above bottom bar */}
+                            <div
+                              role="button"
+                              tabIndex={0}
                               onClick={(e) => toggleFavorite(category.id, e)}
-                              onTouchEnd={(e) => { e.stopPropagation(); e.currentTarget.blur() }}
-                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 ${
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
                                 favoriteCategories.includes(category.id)
                                   ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                   : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1376,7 +1380,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
                                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                               </svg>
-                            </button>
+                            </div>
 
                             {/* Bottom bar with category name */}
                             <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
@@ -1596,11 +1600,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   )}
                                 </BackgroundImage>
 
-                                {/* Favorite heart button - positioned above bottom bar */}
-                                <button
+                                {/* Favorite heart - positioned above bottom bar */}
+                                <div
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={(e) => toggleFavorite(category.id, e)}
-                                  onTouchEnd={(e) => { e.stopPropagation(); e.currentTarget.blur() }}
-                                  className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 ${
+                                  onTouchEnd={(e) => e.stopPropagation()}
+                                  className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
                                     favoriteCategories.includes(category.id)
                                       ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                       : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1610,7 +1616,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
                                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                                   </svg>
-                                </button>
+                                </div>
 
                                 {/* Bottom bar with category name */}
                                 <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
