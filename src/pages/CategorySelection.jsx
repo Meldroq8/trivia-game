@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { useAuth } from '../hooks/useAuth'
@@ -7,6 +7,69 @@ import questionUsageTracker from '../utils/questionUsageTracker'
 import BackgroundImage from '../components/BackgroundImage'
 import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 import Header from '../components/Header'
+
+// Auto-fit text component that scales to fill available width
+function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24 }) {
+  const containerRef = useRef(null)
+  const textRef = useRef(null)
+  const [fontSize, setFontSize] = useState(maxFontSize)
+
+  const calculateFontSize = useCallback(() => {
+    if (!containerRef.current || !textRef.current) return
+
+    const containerWidth = containerRef.current.clientWidth - 8 // Account for padding
+    const containerHeight = containerRef.current.clientHeight
+
+    // Binary search for optimal font size
+    let min = minFontSize
+    let max = maxFontSize
+    let optimalSize = minFontSize
+
+    while (min <= max) {
+      const mid = Math.floor((min + max) / 2)
+      textRef.current.style.fontSize = `${mid}px`
+
+      const textWidth = textRef.current.scrollWidth
+      const textHeight = textRef.current.scrollHeight
+
+      if (textWidth <= containerWidth && textHeight <= containerHeight) {
+        optimalSize = mid
+        min = mid + 1
+      } else {
+        max = mid - 1
+      }
+    }
+
+    setFontSize(optimalSize)
+  }, [minFontSize, maxFontSize])
+
+  useEffect(() => {
+    calculateFontSize()
+
+    // Recalculate on resize
+    const resizeObserver = new ResizeObserver(() => {
+      calculateFontSize()
+    })
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    return () => resizeObserver.disconnect()
+  }, [text, calculateFontSize])
+
+  return (
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+      <span
+        ref={textRef}
+        className={`whitespace-nowrap text-center leading-tight ${className}`}
+        style={{ fontSize: `${fontSize}px` }}
+      >
+        {text}
+      </span>
+    </div>
+  )
+}
 
 function CategorySelection({ gameState, setGameState, stateLoaded }) {
   // Check if this is a new game or continuing
@@ -1168,16 +1231,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
                                     : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                 }`}>
-                                  <div
-                                    className={`leading-tight font-bold text-center w-full overflow-hidden whitespace-nowrap ${
-                                      category.name.length <= 6 ? 'text-sm sm:text-base md:text-lg lg:text-xl' :
-                                      category.name.length <= 10 ? 'text-xs sm:text-sm md:text-base lg:text-lg' :
-                                      category.name.length <= 14 ? 'text-[11px] sm:text-xs md:text-sm lg:text-base' :
-                                      'text-[9px] sm:text-[11px] md:text-xs lg:text-sm'
-                                    }`}
-                                  >
-                                    {category.name}
-                                  </div>
+                                  <AutoFitText
+                                    text={category.name}
+                                    className="font-bold"
+                                    minFontSize={8}
+                                    maxFontSize={20}
+                                  />
                                 </div>
                               </button>
                             )
