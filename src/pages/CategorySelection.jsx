@@ -1375,7 +1375,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
                                   )}
                                   {/* Question count badge - top left corner */}
-                                  <div className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 md:top-1.5 md:left-1.5 lg:top-2 lg:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                  <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
                                     needsReset ? 'bg-red-600' : 'bg-blue-600'
                                   }`}>
                                     {getRemainingQuestions(category.id)}
@@ -1386,7 +1386,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     tabIndex={0}
                                     onClick={(e) => handleShowCategoryInfo(e, category)}
                                     onTouchEnd={(e) => e.stopPropagation()}
-                                    className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 md:top-1.5 md:right-1.5 lg:top-2 lg:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                    className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
                                     title="معلومات الفئة"
                                   >
                                     <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
@@ -1413,7 +1413,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1538,7 +1538,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
                                   )}
                                   {/* Question count badge - top left corner */}
-                                  <div className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 md:top-1.5 md:left-1.5 lg:top-2 lg:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                  <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
                                     needsReset ? 'bg-red-600' : 'bg-blue-600'
                                   }`}>
                                     {getRemainingQuestions(category.id)}
@@ -1549,7 +1549,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     tabIndex={0}
                                     onClick={(e) => handleShowCategoryInfo(e, category)}
                                     onTouchEnd={(e) => e.stopPropagation()}
-                                    className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 md:top-1.5 md:right-1.5 lg:top-2 lg:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                    className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
                                     title="معلومات الفئة"
                                   >
                                     <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
@@ -1576,7 +1576,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1793,7 +1793,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                       <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
                                     )}
                                     {/* Question count badge - top left corner */}
-                                    <div className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 md:top-1.5 md:left-1.5 lg:top-2 lg:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                    <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
                                       needsReset ? 'bg-red-600' : 'bg-blue-600'
                                     }`}>
                                       {getRemainingQuestions(category.id)}
@@ -1804,7 +1804,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                       tabIndex={0}
                                       onClick={(e) => handleShowCategoryInfo(e, category)}
                                       onTouchEnd={(e) => e.stopPropagation()}
-                                      className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 md:top-1.5 md:right-1.5 lg:top-2 lg:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                      className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
                                       title="معلومات الفئة"
                                     >
                                       <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
@@ -1830,7 +1830,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     tabIndex={0}
                                     onClick={(e) => toggleFavorite(category.id, e)}
                                     onTouchEnd={(e) => e.stopPropagation()}
-                                    className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                    className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                       favoriteCategories.includes(category.id)
                                         ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                         : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
