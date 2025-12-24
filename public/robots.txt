@@ -3,6 +3,7 @@
 
 User-agent: *
 Allow: /$
+Disallow: /lander
 Disallow: /my-games
 Disallow: /profile
 Disallow: /admin
