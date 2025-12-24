@@ -1172,7 +1172,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     <div
                                       className="inline-block max-w-full text-[10px] sm:text-xs md:text-sm lg:text-base"
                                       style={{
-                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 10))})`,
+                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 12))})`,
                                         transformOrigin: 'center'
                                       }}
                                     >
