@@ -1689,7 +1689,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     <div key={master.id} className="mb-10 relative">
                       {/* Categories Container with header badge */}
                       <div className={`bg-gradient-to-b from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl md:rounded-3xl px-3 sm:px-6 md:px-8 lg:px-10 relative transition-all duration-300 shadow-xl ${
-                        expandedMasters[master.id] ? 'pt-10 sm:pt-12 md:pt-14 pb-4 sm:pb-5 md:pb-6' : 'py-8'
+                        expandedMasters[master.id] ? 'pt-14 sm:pt-16 md:pt-20 pb-6 sm:pb-8 md:pb-10' : 'py-8'
                       }`}>
                         {/* Master Header Badge - centered at top */}
                         <div className="rounded-full bg-red-600 dark:bg-red-700 -top-4 sm:-top-5 md:-top-6 -translate-x-1/2 left-1/2 absolute flex items-center justify-center py-1.5 px-4 sm:py-2 sm:px-6 md:py-2.5 md:px-8 overflow-hidden transition-all shadow-lg">
