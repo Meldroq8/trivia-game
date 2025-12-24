@@ -91,6 +91,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [expandedMasters, setExpandedMasters] = useState({})
   const [searchText, setSearchText] = useState('')
   const [showSearchResults, setShowSearchResults] = useState(false)
+  const [viewMode, setViewMode] = useState('grouped') // 'grouped', 'ungrouped', 'favorites'
 
   // Game setup state - only pre-fill if continuing a game
   const [gameName, setGameName] = useState(isNewGame ? '' : (gameState.gameName || ''))
@@ -934,7 +935,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Search Bar */}
-            <div className="w-full max-w-sm mx-auto mb-8 md:mb-12 relative">
+            <div className="w-full max-w-sm mx-auto mb-4 relative">
               <div className="relative">
                 <input
                   type="text"
@@ -1003,6 +1004,64 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
               })()}
             </div>
 
+            {/* View Mode Toggle - Pill shaped */}
+            <div className="flex justify-center mb-6 md:mb-8">
+              <div className="inline-flex bg-white dark:bg-slate-800 rounded-full border-2 border-gray-300 dark:border-slate-600 shadow-md overflow-hidden">
+                {/* Ungrouped View - Grid of squares */}
+                <button
+                  onClick={() => setViewMode('ungrouped')}
+                  onTouchEnd={(e) => e.currentTarget.blur()}
+                  className={`px-4 py-2.5 md:px-5 md:py-3 transition-all duration-200 flex items-center justify-center ${
+                    viewMode === 'ungrouped'
+                      ? 'bg-red-600 text-white'
+                      : 'text-gray-500 dark:text-gray-400 [@media(hover:hover)]:hover:bg-gray-100 [@media(hover:hover)]:dark:hover:bg-slate-700'
+                  }`}
+                  title="عرض بدون تصنيف"
+                >
+                  <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                  </svg>
+                </button>
+
+                {/* Grouped View - Stacked rectangles */}
+                <button
+                  onClick={() => setViewMode('grouped')}
+                  onTouchEnd={(e) => e.currentTarget.blur()}
+                  className={`px-4 py-2.5 md:px-5 md:py-3 transition-all duration-200 flex items-center justify-center border-x-2 border-gray-300 dark:border-slate-600 ${
+                    viewMode === 'grouped'
+                      ? 'bg-red-600 text-white'
+                      : 'text-gray-500 dark:text-gray-400 [@media(hover:hover)]:hover:bg-gray-100 [@media(hover:hover)]:dark:hover:bg-slate-700'
+                  }`}
+                  title="عرض حسب التصنيف"
+                >
+                  <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="3" y="3" width="18" height="5" rx="1.5" />
+                    <rect x="3" y="10" width="18" height="5" rx="1.5" />
+                    <rect x="3" y="17" width="18" height="5" rx="1.5" />
+                  </svg>
+                </button>
+
+                {/* Favorites - Heart */}
+                <button
+                  onClick={() => setViewMode('favorites')}
+                  onTouchEnd={(e) => e.currentTarget.blur()}
+                  className={`px-4 py-2.5 md:px-5 md:py-3 transition-all duration-200 flex items-center justify-center ${
+                    viewMode === 'favorites'
+                      ? 'bg-red-600 text-white'
+                      : 'text-gray-500 dark:text-gray-400 [@media(hover:hover)]:hover:bg-gray-100 [@media(hover:hover)]:dark:hover:bg-slate-700'
+                  }`}
+                  title="المفضلة"
+                >
+                  <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
             {/* Categories Grid - Grouped by Master Categories */}
             <div className="w-full max-w-[1800px] mx-auto flex-1">
               {isLoading ? (
@@ -1022,9 +1081,143 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     </div>
                   ))}
                 </div>
+              ) : viewMode === 'favorites' ? (
+                // Favorites view - placeholder for now
+                <div className="flex flex-col items-center justify-center py-16 md:py-24">
+                  <svg className="w-16 h-16 md:w-24 md:h-24 text-gray-300 dark:text-slate-600 mb-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                  <h3 className="text-xl md:text-2xl font-bold text-gray-400 dark:text-slate-500 mb-2">المفضلة</h3>
+                  <p className="text-gray-400 dark:text-slate-500 text-center">قريباً... ستتمكن من حفظ فئاتك المفضلة هنا</p>
+                </div>
+              ) : viewMode === 'ungrouped' ? (
+                // Ungrouped view - flat grid without categories
+                (() => {
+                  // Get all categories sorted by master category order, then by displayOrder
+                  const allCategories = [...availableCategories].sort((a, b) => {
+                    // First sort by master category order
+                    const masterA = masterCategories.find(m => m.id === a.masterCategoryId)
+                    const masterB = masterCategories.find(m => m.id === b.masterCategoryId)
+                    const masterOrderA = masterA?.order ?? 999
+                    const masterOrderB = masterB?.order ?? 999
+                    if (masterOrderA !== masterOrderB) return masterOrderA - masterOrderB
+                    // Then sort by displayOrder within same master category
+                    return (a.displayOrder || 0) - (b.displayOrder || 0)
+                  })
+
+                  return (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+                      {allCategories.map((category) => {
+                        const selected = isSelected(category.id)
+                        const needsReset = categoryNeedsReset(category.id)
+                        const canSelect = (selectedCategories.length < 6 || selected) && !needsReset
+
+                        return (
+                          <button
+                            key={category.id}
+                            id={`category-${category.id}`}
+                            onClick={() => canSelect && toggleCategory(category.id)}
+                            disabled={!canSelect && !needsReset}
+                            onTouchEnd={(e) => e.currentTarget.blur()}
+                            className={`
+                              relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
+                              text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
+                              ${needsReset
+                                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
+                                : selected
+                                ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
+                                : canSelect
+                                ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
+                                : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
+                              }
+                            `}
+                          >
+                            {/* Reset overlay for exhausted categories */}
+                            {needsReset && (
+                              <div
+                                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-lg cursor-pointer"
+                                onClick={(e) => handleCategoryReset(e, category.id)}
+                              >
+                                <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 md:p-4 transition-colors shadow-lg">
+                                  <svg className="w-6 h-6 md:w-8 md:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                </div>
+                                <span className="text-white text-xs md:text-sm mt-2 font-bold">إعادة تعيين</span>
+                              </div>
+                            )}
+
+                            {/* Main content area with background image */}
+                            <BackgroundImage
+                              src={category.imageUrl}
+                              size="medium"
+                              context="category"
+                              categoryId={category.id}
+                              className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
+                                needsReset
+                                  ? 'bg-gray-400 dark:bg-slate-600'
+                                  : selected
+                                  ? 'bg-red-600 dark:bg-red-700'
+                                  : canSelect
+                                  ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                  : 'bg-gray-300 dark:bg-slate-700'
+                              }`}
+                              fallbackGradient={
+                                needsReset
+                                  ? 'from-gray-400 to-gray-500'
+                                  : selected
+                                  ? 'from-red-600 to-red-700'
+                                  : canSelect
+                                  ? 'from-white to-gray-50'
+                                  : 'from-gray-300 to-gray-400'
+                              }
+                            >
+                              {/* Overlay for better text readability when image is present */}
+                              {category.imageUrl && (
+                                <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                              )}
+                              {/* Question count badge - top left corner */}
+                              <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                needsReset ? 'bg-red-600' : 'bg-blue-600'
+                              }`}>
+                                {getRemainingQuestions(category.id)}
+                              </div>
+                              {/* Show emoji/icon only when no background image */}
+                              {!category.imageUrl && (
+                                <div className="relative z-10 text-center p-3 md:p-6">
+                                  <div className="text-lg md:text-2xl">
+                                    {category.image}
+                                  </div>
+                                </div>
+                              )}
+                            </BackgroundImage>
+
+                            {/* Bottom bar with category name */}
+                            <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
+                              needsReset
+                                ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
+                                : selected
+                                ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
+                                : canSelect
+                                ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
+                                : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
+                            }`}>
+                              <AutoFitText
+                                text={category.name}
+                                className="font-bold"
+                                minFontSize={8}
+                                maxFontSize={16}
+                              />
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                })()
               ) : (
                 (() => {
-                  // Group categories by masterCategoryId and sort by displayOrder
+                  // Grouped view (default) - Group categories by masterCategoryId and sort by displayOrder
                   const groupedCategories = {}
 
                   availableCategories.forEach(category => {
