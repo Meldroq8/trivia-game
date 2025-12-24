@@ -1159,7 +1159,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 </BackgroundImage>
 
                                 {/* Bottom bar with category name */}
-                                <div className={`p-1.5 sm:p-2 border-t-2 relative z-10 ${
+                                <div className={`h-7 sm:h-8 md:h-9 flex items-center justify-center px-1 border-t-2 relative z-10 ${
                                   needsReset
                                     ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                     : selected
@@ -1168,16 +1168,15 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
                                     : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                 }`}>
-                                  <div className="leading-tight font-bold text-center w-full overflow-hidden flex items-center justify-center">
-                                    <span
-                                      className="inline-block text-[11px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap"
-                                      style={{
-                                        transform: `scale(${Math.min(1, 11 / Math.max(11, category.name.length))})`,
-                                        transformOrigin: 'center'
-                                      }}
-                                    >
-                                      {category.name}
-                                    </span>
+                                  <div
+                                    className={`leading-tight font-bold text-center w-full overflow-hidden whitespace-nowrap ${
+                                      category.name.length <= 6 ? 'text-sm sm:text-base md:text-lg' :
+                                      category.name.length <= 10 ? 'text-xs sm:text-sm md:text-base' :
+                                      category.name.length <= 14 ? 'text-[11px] sm:text-xs md:text-sm' :
+                                      'text-[9px] sm:text-[11px] md:text-xs'
+                                    }`}
+                                  >
+                                    {category.name}
                                   </div>
                                 </div>
                               </button>
