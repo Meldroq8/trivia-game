@@ -1168,16 +1168,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
                                     : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                 }`}>
-                                  <div className="leading-tight font-bold text-center whitespace-nowrap overflow-hidden w-full">
-                                    <div
-                                      className="inline-block max-w-full text-[10px] sm:text-xs md:text-sm lg:text-base"
-                                      style={{
-                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 12))})`,
-                                        transformOrigin: 'center'
-                                      }}
-                                    >
-                                      {category.name}
-                                    </div>
+                                  <div className="leading-tight font-bold text-center w-full text-xs sm:text-sm md:text-base lg:text-lg truncate">
+                                    {category.name}
                                   </div>
                                 </div>
                               </button>
