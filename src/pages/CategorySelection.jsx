@@ -1159,7 +1159,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 </BackgroundImage>
 
                                 {/* Bottom bar with category name */}
-                                <div className={`h-7 sm:h-8 md:h-9 flex items-center justify-center px-1 border-t-2 relative z-10 ${
+                                <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
                                   needsReset
                                     ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                     : selected
@@ -1170,10 +1170,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 }`}>
                                   <div
                                     className={`leading-tight font-bold text-center w-full overflow-hidden whitespace-nowrap ${
-                                      category.name.length <= 6 ? 'text-sm sm:text-base md:text-lg' :
-                                      category.name.length <= 10 ? 'text-xs sm:text-sm md:text-base' :
-                                      category.name.length <= 14 ? 'text-[11px] sm:text-xs md:text-sm' :
-                                      'text-[9px] sm:text-[11px] md:text-xs'
+                                      category.name.length <= 6 ? 'text-sm sm:text-base md:text-lg lg:text-xl' :
+                                      category.name.length <= 10 ? 'text-xs sm:text-sm md:text-base lg:text-lg' :
+                                      category.name.length <= 14 ? 'text-[11px] sm:text-xs md:text-sm lg:text-base' :
+                                      'text-[9px] sm:text-[11px] md:text-xs lg:text-sm'
                                     }`}
                                   >
                                     {category.name}
