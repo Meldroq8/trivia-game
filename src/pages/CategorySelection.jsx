@@ -1413,7 +1413,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0 -right-0.5 sm:bottom-0.5 sm:right-0 md:bottom-1 md:right-0.5 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1576,7 +1576,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0 -right-0.5 sm:bottom-0.5 sm:right-0 md:bottom-1 md:right-0.5 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1830,7 +1830,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     tabIndex={0}
                                     onClick={(e) => toggleFavorite(category.id, e)}
                                     onTouchEnd={(e) => e.stopPropagation()}
-                                    className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
+                                    className={`absolute bottom-0 -right-0.5 sm:bottom-0.5 sm:right-0 md:bottom-1 md:right-0.5 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                       favoriteCategories.includes(category.id)
                                         ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                         : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
