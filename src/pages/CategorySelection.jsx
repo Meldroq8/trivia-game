@@ -1159,7 +1159,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 </BackgroundImage>
 
                                 {/* Bottom bar with category name */}
-                                <div className={`p-2 md:p-3 border-t-2 relative z-10 ${
+                                <div className={`p-1.5 sm:p-2 border-t-2 relative z-10 ${
                                   needsReset
                                     ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                     : selected
@@ -1170,9 +1170,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 }`}>
                                   <div className="leading-tight font-bold text-center whitespace-nowrap overflow-hidden w-full">
                                     <div
-                                      className="inline-block max-w-full text-sm sm:text-base md:text-lg lg:text-xl"
+                                      className="inline-block max-w-full text-[10px] sm:text-xs md:text-sm lg:text-base"
                                       style={{
-                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 14))})`,
+                                        transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 10))})`,
                                         transformOrigin: 'center'
                                       }}
                                     >
