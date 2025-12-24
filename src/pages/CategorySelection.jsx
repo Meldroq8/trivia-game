@@ -1143,15 +1143,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 id={`category-${category.id}`}
                                 onClick={() => canSelect && toggleCategory(category.id)}
                                 disabled={!canSelect && !needsReset}
+                                onTouchEnd={(e) => e.currentTarget.blur()}
                                 className={`
                                   relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
                                   text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
                                   ${needsReset
                                     ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
                                     : selected
-                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500 hover:scale-105'
+                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
                                     : canSelect
-                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 hover:border-red-300 dark:hover:border-red-500 hover:shadow-lg hover:scale-105'
+                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
                                     : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                                   }
                                 `}
