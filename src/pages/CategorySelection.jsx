@@ -1178,66 +1178,67 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                             )}
 
                             {/* Main content area with background image */}
-                            <BackgroundImage
-                              src={category.imageUrl}
-                              size="medium"
-                              context="category"
-                              categoryId={category.id}
-                              className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
-                                needsReset
-                                  ? 'bg-gray-400 dark:bg-slate-600'
-                                  : selected
-                                  ? 'bg-red-600 dark:bg-red-700'
-                                  : canSelect
-                                  ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                  : 'bg-gray-300 dark:bg-slate-700'
-                              }`}
-                              fallbackGradient={
-                                needsReset
-                                  ? 'from-gray-400 to-gray-500'
-                                  : selected
-                                  ? 'from-red-600 to-red-700'
-                                  : canSelect
-                                  ? 'from-white to-gray-50'
-                                  : 'from-gray-300 to-gray-400'
-                              }
-                            >
-                              {/* Overlay for better text readability when image is present */}
-                              {category.imageUrl && (
-                                <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                              )}
-                              {/* Question count badge - top left corner */}
-                              <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                needsReset ? 'bg-red-600' : 'bg-blue-600'
-                              }`}>
-                                {getRemainingQuestions(category.id)}
-                              </div>
-                              {/* Show emoji/icon only when no background image */}
-                              {!category.imageUrl && (
-                                <div className="relative z-10 text-center p-3 md:p-6">
-                                  <div className="text-lg md:text-2xl">
-                                    {category.image}
-                                  </div>
+                            <div className="flex-1 relative">
+                              <BackgroundImage
+                                src={category.imageUrl}
+                                size="medium"
+                                context="category"
+                                categoryId={category.id}
+                                className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
+                                  needsReset
+                                    ? 'bg-gray-400 dark:bg-slate-600'
+                                    : selected
+                                    ? 'bg-red-600 dark:bg-red-700'
+                                    : canSelect
+                                    ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                    : 'bg-gray-300 dark:bg-slate-700'
+                                }`}
+                                fallbackGradient={
+                                  needsReset
+                                    ? 'from-gray-400 to-gray-500'
+                                    : selected
+                                    ? 'from-red-600 to-red-700'
+                                    : canSelect
+                                    ? 'from-white to-gray-50'
+                                    : 'from-gray-300 to-gray-400'
+                                }
+                              >
+                                {/* Overlay for better text readability when image is present */}
+                                {category.imageUrl && (
+                                  <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                                )}
+                                {/* Question count badge - top left corner */}
+                                <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                  needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                }`}>
+                                  {getRemainingQuestions(category.id)}
                                 </div>
-                              )}
-                            </BackgroundImage>
-
-                            {/* Favorite heart - positioned above bottom bar */}
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => toggleFavorite(category.id, e)}
-                              onTouchEnd={(e) => e.stopPropagation()}
-                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
-                                favoriteCategories.includes(category.id)
-                                  ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                  : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                              } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                              title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                            >
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                              </svg>
+                                {/* Show emoji/icon only when no background image */}
+                                {!category.imageUrl && (
+                                  <div className="relative z-10 text-center p-3 md:p-6">
+                                    <div className="text-lg md:text-2xl">
+                                      {category.image}
+                                    </div>
+                                  </div>
+                                )}
+                              </BackgroundImage>
+                              {/* Favorite heart - bottom right of image area */}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => toggleFavorite(category.id, e)}
+                                onTouchEnd={(e) => e.stopPropagation()}
+                                className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                  favoriteCategories.includes(category.id)
+                                    ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                    : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                                } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                                title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                              >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                </svg>
+                              </div>
                             </div>
 
                             {/* Bottom bar with category name */}
@@ -1320,66 +1321,67 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                             )}
 
                             {/* Main content area with background image */}
-                            <BackgroundImage
-                              src={category.imageUrl}
-                              size="medium"
-                              context="category"
-                              categoryId={category.id}
-                              className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
-                                needsReset
-                                  ? 'bg-gray-400 dark:bg-slate-600'
-                                  : selected
-                                  ? 'bg-red-600 dark:bg-red-700'
-                                  : canSelect
-                                  ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                  : 'bg-gray-300 dark:bg-slate-700'
-                              }`}
-                              fallbackGradient={
-                                needsReset
-                                  ? 'from-gray-400 to-gray-500'
-                                  : selected
-                                  ? 'from-red-600 to-red-700'
-                                  : canSelect
-                                  ? 'from-white to-gray-50'
-                                  : 'from-gray-300 to-gray-400'
-                              }
-                            >
-                              {/* Overlay for better text readability when image is present */}
-                              {category.imageUrl && (
-                                <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                              )}
-                              {/* Question count badge - top left corner */}
-                              <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                needsReset ? 'bg-red-600' : 'bg-blue-600'
-                              }`}>
-                                {getRemainingQuestions(category.id)}
-                              </div>
-                              {/* Show emoji/icon only when no background image */}
-                              {!category.imageUrl && (
-                                <div className="relative z-10 text-center p-3 md:p-6">
-                                  <div className="text-lg md:text-2xl">
-                                    {category.image}
-                                  </div>
+                            <div className="flex-1 relative">
+                              <BackgroundImage
+                                src={category.imageUrl}
+                                size="medium"
+                                context="category"
+                                categoryId={category.id}
+                                className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
+                                  needsReset
+                                    ? 'bg-gray-400 dark:bg-slate-600'
+                                    : selected
+                                    ? 'bg-red-600 dark:bg-red-700'
+                                    : canSelect
+                                    ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                    : 'bg-gray-300 dark:bg-slate-700'
+                                }`}
+                                fallbackGradient={
+                                  needsReset
+                                    ? 'from-gray-400 to-gray-500'
+                                    : selected
+                                    ? 'from-red-600 to-red-700'
+                                    : canSelect
+                                    ? 'from-white to-gray-50'
+                                    : 'from-gray-300 to-gray-400'
+                                }
+                              >
+                                {/* Overlay for better text readability when image is present */}
+                                {category.imageUrl && (
+                                  <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                                )}
+                                {/* Question count badge - top left corner */}
+                                <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                  needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                }`}>
+                                  {getRemainingQuestions(category.id)}
                                 </div>
-                              )}
-                            </BackgroundImage>
-
-                            {/* Favorite heart - positioned above bottom bar */}
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => toggleFavorite(category.id, e)}
-                              onTouchEnd={(e) => e.stopPropagation()}
-                              className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
-                                favoriteCategories.includes(category.id)
-                                  ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                  : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                              } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                              title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                            >
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                              </svg>
+                                {/* Show emoji/icon only when no background image */}
+                                {!category.imageUrl && (
+                                  <div className="relative z-10 text-center p-3 md:p-6">
+                                    <div className="text-lg md:text-2xl">
+                                      {category.image}
+                                    </div>
+                                  </div>
+                                )}
+                              </BackgroundImage>
+                              {/* Favorite heart - bottom right of image area */}
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => toggleFavorite(category.id, e)}
+                                onTouchEnd={(e) => e.stopPropagation()}
+                                className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                  favoriteCategories.includes(category.id)
+                                    ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                    : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                                } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                                title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                              >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                </svg>
+                              </div>
                             </div>
 
                             {/* Bottom bar with category name */}
@@ -1556,66 +1558,67 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 )}
 
                                 {/* Main content area with background image */}
-                                <BackgroundImage
-                                  src={category.imageUrl}
-                                  size="medium"
-                                  context="category"
-                                  categoryId={category.id}
-                                  className={`flex-1 relative flex items-center justify-center rounded-t-lg ${
-                                    needsReset
-                                      ? 'bg-gray-400 dark:bg-slate-600'
-                                      : selected
-                                      ? 'bg-red-600 dark:bg-red-700'
-                                      : canSelect
-                                      ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                      : 'bg-gray-300 dark:bg-slate-700'
-                                  }`}
-                                  fallbackGradient={
-                                    needsReset
-                                      ? 'from-gray-400 to-gray-500'
-                                      : selected
-                                      ? 'from-red-600 to-red-700'
-                                      : canSelect
-                                      ? 'from-white to-gray-50'
-                                      : 'from-gray-300 to-gray-400'
-                                  }
-                                >
-                                  {/* Overlay for better text readability when image is present */}
-                                  {category.imageUrl && (
-                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                  )}
-                                                                    {/* Question count badge - top left corner */}
-                                  <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                  }`}>
-                                    {getRemainingQuestions(category.id)}
-                                  </div>
-                                  {/* Show emoji/icon only when no background image */}
-                                  {!category.imageUrl && (
-                                    <div className="relative z-10 text-center p-3 md:p-6">
-                                      <div className="text-lg md:text-2xl">
-                                        {category.image}
-                                      </div>
+                                <div className="flex-1 relative">
+                                  <BackgroundImage
+                                    src={category.imageUrl}
+                                    size="medium"
+                                    context="category"
+                                    categoryId={category.id}
+                                    className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
+                                      needsReset
+                                        ? 'bg-gray-400 dark:bg-slate-600'
+                                        : selected
+                                        ? 'bg-red-600 dark:bg-red-700'
+                                        : canSelect
+                                        ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
+                                        : 'bg-gray-300 dark:bg-slate-700'
+                                    }`}
+                                    fallbackGradient={
+                                      needsReset
+                                        ? 'from-gray-400 to-gray-500'
+                                        : selected
+                                        ? 'from-red-600 to-red-700'
+                                        : canSelect
+                                        ? 'from-white to-gray-50'
+                                        : 'from-gray-300 to-gray-400'
+                                    }
+                                  >
+                                    {/* Overlay for better text readability when image is present */}
+                                    {category.imageUrl && (
+                                      <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                                    )}
+                                    {/* Question count badge - top left corner */}
+                                    <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                      needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                    }`}>
+                                      {getRemainingQuestions(category.id)}
                                     </div>
-                                  )}
-                                </BackgroundImage>
-
-                                {/* Favorite heart - positioned above bottom bar */}
-                                <div
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={(e) => toggleFavorite(category.id, e)}
-                                  onTouchEnd={(e) => e.stopPropagation()}
-                                  className={`absolute bottom-8 right-1 sm:bottom-9 sm:right-1.5 md:bottom-11 md:right-2 lg:bottom-12 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
-                                    favoriteCategories.includes(category.id)
-                                      ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                      : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                                  } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                                  title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                                >
-                                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                  </svg>
+                                    {/* Show emoji/icon only when no background image */}
+                                    {!category.imageUrl && (
+                                      <div className="relative z-10 text-center p-3 md:p-6">
+                                        <div className="text-lg md:text-2xl">
+                                          {category.image}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </BackgroundImage>
+                                  {/* Favorite heart - bottom right of image area */}
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => toggleFavorite(category.id, e)}
+                                    onTouchEnd={(e) => e.stopPropagation()}
+                                    className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                      favoriteCategories.includes(category.id)
+                                        ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                        : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                                    } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                                    title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                                  >
+                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                    </svg>
+                                  </div>
                                 </div>
 
                                 {/* Bottom bar with category name */}
