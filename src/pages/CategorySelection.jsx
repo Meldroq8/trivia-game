@@ -1235,7 +1235,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     text={category.name}
                                     className="font-bold"
                                     minFontSize={8}
-                                    maxFontSize={20}
+                                    maxFontSize={16}
                                   />
                                 </div>
                               </button>
