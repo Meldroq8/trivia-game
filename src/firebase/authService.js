@@ -443,6 +443,31 @@ export class AuthService {
           await setDoc(gameRef, { statsCounted: true }, { merge: true })
           devLog('✅ Game marked as statsCounted')
         }
+      } else {
+        // User document doesn't exist - create it with game stats
+        devLog('⚠️ User document does not exist, creating with game stats...')
+        const currentUser = AuthService.getCurrentUser()
+        await setDoc(userRef, {
+          uid: uid,
+          email: currentUser?.email || '',
+          displayName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'لاعب مجهول',
+          createdAt: new Date(),
+          isAdmin: false,
+          gameStats: {
+            gamesPlayed: shouldCountGame ? 1 : 0,
+            totalScore: shouldCountGame ? (gameData.finalScore || 0) : 0,
+            favoriteCategories: [],
+            lastPlayed: new Date()
+          }
+        })
+        devLog('✅ User document created with initial game stats')
+
+        // Mark game as counted
+        if (shouldCountGame && gameId) {
+          const gameRef = doc(db, 'games', gameId)
+          await setDoc(gameRef, { statsCounted: true }, { merge: true })
+          devLog('✅ Game marked as statsCounted')
+        }
       }
 
       devLog('✅ Game data saved to Firebase successfully')
