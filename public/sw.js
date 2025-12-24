@@ -1,5 +1,5 @@
 // Service Worker for PWA, Firebase Storage Image Caching, and Auto-Updates
-const STATIC_CACHE_NAME = 'lamma-static-v2'
+const STATIC_CACHE_NAME = 'rasbras-static-v3'
 const IMAGE_CACHE_NAME = 'firebase-images-v1'
 const CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000 // 7 days
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000 // Check every 5 minutes
@@ -11,8 +11,8 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ]
 
 // Files that should NEVER be cached (always fetch fresh)
