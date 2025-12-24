@@ -93,10 +93,10 @@ function GuessWordGame() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-800 font-bold">جاري التحميل...</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
         </div>
       </div>
     )
@@ -105,11 +105,11 @@ function GuessWordGame() {
   // Error state
   if (error && !session) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-md">
+      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center max-w-md">
           <div className="text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">خطأ</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">خطأ</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
         </div>
       </div>
     )

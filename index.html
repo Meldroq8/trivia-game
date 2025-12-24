@@ -7,8 +7,8 @@
       if (location.hostname.includes('lamah') || location.hostname.includes('firebaseapp')) {
         location.replace('https://rasbras.com' + location.pathname + location.search + location.hash);
       }
-      // Apply dark mode immediately to prevent flash
-      if (localStorage.getItem('darkMode') === 'true') {
+      // Apply dark mode immediately to prevent flash (dark mode is default)
+      if (localStorage.getItem('darkMode') !== 'false') {
         document.documentElement.classList.add('dark');
       }
     </script>

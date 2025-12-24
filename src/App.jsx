@@ -29,10 +29,10 @@ const Loader = lazy(() => import('./pages/Loader'))
 
 // Reusable loading fallback component
 const PageLoading = ({ message = "جاري التحميل..." }) => (
-  <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-    <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+  <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+    <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-      <h1 className="text-lg font-bold text-red-800">{message}</h1>
+      <h1 className="text-lg font-bold text-red-800 dark:text-red-400">{message}</h1>
     </div>
   </div>
 )
@@ -806,10 +806,10 @@ function App() {
 
   if (authLoading && !isAuthenticated && !hasCachedState) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6]">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <h1 className="text-xl font-bold text-red-800">جاري التحميل...</h1>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
         </div>
       </div>
     )

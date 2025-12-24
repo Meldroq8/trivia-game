@@ -14,8 +14,16 @@ function DrawingGame() {
   const [isReady, setIsReady] = useState(false)
   const [currentTool, setCurrentTool] = useState('pen')
   const [currentColor, setCurrentColor] = useState('#000000')
+  const [brushSize, setBrushSize] = useState(12) // Default medium thickness
   const isDrawingRef = useRef(false) // Use ref to avoid state updates during drawing
   const currentStrokeRef = useRef([]) // Use ref for stroke points to avoid iOS lag
+
+  // Available brush sizes
+  const brushSizes = [
+    { size: 5, label: 'S', icon: '•' },
+    { size: 12, label: 'M', icon: '●' },
+    { size: 25, label: 'L', icon: '⬤' },
+  ]
 
   // Available colors for drawing
   const colors = [
@@ -213,16 +221,15 @@ function DrawingGame() {
     if (currentTool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.fillStyle = 'rgba(0,0,0,1)'
-      const dotSize = 20
+      const dotSize = brushSize * 4 // Eraser is bigger
       ctx.beginPath()
       ctx.arc(point.x * canvas.width, point.y * canvas.height, dotSize / 2, 0, Math.PI * 2)
       ctx.fill()
     } else {
       ctx.globalCompositeOperation = 'source-over'
       ctx.fillStyle = currentColor
-      const dotSize = 3
       ctx.beginPath()
-      ctx.arc(point.x * canvas.width, point.y * canvas.height, dotSize / 2, 0, Math.PI * 2)
+      ctx.arc(point.x * canvas.width, point.y * canvas.height, brushSize / 2, 0, Math.PI * 2)
       ctx.fill()
     }
   }
@@ -242,11 +249,11 @@ function DrawingGame() {
     if (currentTool === 'eraser') {
       ctx.globalCompositeOperation = 'destination-out'
       ctx.strokeStyle = 'rgba(0,0,0,1)' // Need full alpha for eraser to work
-      ctx.lineWidth = 20
+      ctx.lineWidth = brushSize * 4 // Eraser is bigger
     } else {
       ctx.globalCompositeOperation = 'source-over'
       ctx.strokeStyle = currentColor
-      ctx.lineWidth = 3
+      ctx.lineWidth = brushSize
     }
 
     ctx.lineCap = 'round'
@@ -276,6 +283,7 @@ function DrawingGame() {
         points: [...strokePoints], // Copy the points array
         tool: currentTool,
         color: currentTool === 'pen' ? currentColor : null, // Only save color for pen strokes
+        lineWidth: currentTool === 'pen' ? brushSize : brushSize * 4, // Include brush thickness
         timestamp: Date.now()
       }
 
@@ -334,10 +342,10 @@ function DrawingGame() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-800 dark:text-gray-100 font-bold">جاري التحميل...</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
         </div>
       </div>
     )
@@ -553,7 +561,7 @@ function DrawingGame() {
         </div>
 
         {/* Right Sidebar - Tools */}
-        <div className="bg-gray-100 dark:bg-slate-800 p-1 flex flex-col gap-2 justify-center items-center flex-shrink-0">
+        <div className="bg-gray-100 dark:bg-slate-800 p-1 flex flex-col gap-1.5 justify-center items-center flex-shrink-0">
           {/* Pen Tool */}
           <button
             onClick={() => setCurrentTool('pen')}
@@ -580,6 +588,30 @@ function DrawingGame() {
           >
             🧹
           </button>
+
+          {/* Divider */}
+          <div className="w-8 h-px bg-gray-300 dark:bg-slate-600 my-1"></div>
+
+          {/* Brush Size Selector */}
+          {brushSizes.map((brush) => (
+            <button
+              key={brush.size}
+              onClick={() => setBrushSize(brush.size)}
+              className={`w-10 h-10 rounded-lg font-bold transition-all flex items-center justify-center ${
+                brushSize === brush.size
+                  ? 'bg-blue-600 text-white shadow-lg scale-105'
+                  : 'bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-100'
+              }`}
+              title={`سمك ${brush.label}`}
+            >
+              <span style={{ fontSize: brush.size === 5 ? '12px' : brush.size === 12 ? '18px' : '26px' }}>
+                {brush.icon}
+              </span>
+            </button>
+          ))}
+
+          {/* Divider */}
+          <div className="w-8 h-px bg-gray-300 dark:bg-slate-600 my-1"></div>
 
           {/* Clear Canvas */}
           <button

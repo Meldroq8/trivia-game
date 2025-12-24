@@ -306,10 +306,10 @@ function ProfilePage() {
     // Show loading while auth is still loading
     if (authLoading) {
       return (
-        <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
-          <div className="text-gray-800 dark:text-gray-100 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-            <div style={{ fontSize: '16px' }}>جاري التحميل...</div>
+        <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+            <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
           </div>
         </div>
       )
@@ -321,10 +321,10 @@ function ProfilePage() {
   // Now show loading for data if authenticated
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center">
-        <div className="text-gray-800 dark:text-gray-100 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-          <div style={{ fontSize: `${styles?.textFontSize || 16}px` }}>جاري التحميل...</div>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
         </div>
       </div>
     )

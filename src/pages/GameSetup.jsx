@@ -170,7 +170,7 @@ function GameSetup({ gameState, setGameState }) {
   }
 
   return (
-    <div className="h-screen bg-[#f7f2e6] flex flex-col">
+    <div className="h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col">
       {/* Red Header Bar - Fixed Height */}
       <div
         ref={headerRef}
@@ -199,7 +199,7 @@ function GameSetup({ gameState, setGameState }) {
 
       {/* Main Content - Perfectly Scaled to Fill Remaining Space */}
       <div
-        className="flex-1 bg-[#f7f2e6] flex flex-col justify-center"
+        className="flex-1 bg-[#f7f2e6] dark:bg-slate-900 flex flex-col justify-center"
         style={{
           minHeight: `${styles.availableHeight}px`,
           maxHeight: `${styles.availableHeight}px`,
@@ -207,7 +207,7 @@ function GameSetup({ gameState, setGameState }) {
           overflow: 'visible'
         }}
       >
-        <div className="bg-[#f7f2e6] rounded-2xl shadow-lg w-full max-w-4xl mx-auto flex flex-col justify-between" style={{
+        <div className="bg-[#f7f2e6] dark:bg-slate-800 rounded-2xl shadow-lg w-full max-w-4xl mx-auto flex flex-col justify-between" style={{
           height: 'auto',
           minHeight: `${styles.availableHeight * 0.9}px`,
           padding: `${styles.basePadding}px`,

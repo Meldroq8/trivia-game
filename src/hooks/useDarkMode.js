@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 
 export const useDarkMode = () => {
-  // Check localStorage for saved preference, default to light mode
+  // Check localStorage for saved preference, default to dark mode
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode')
-    return saved === 'true'
+    // Default to dark mode (true) unless user explicitly chose light mode ('false')
+    return saved !== 'false'
   })
 
   useEffect(() => {

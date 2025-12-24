@@ -31,19 +31,20 @@ function DrawingCanvas({ strokes = [], width = 1920, height = 1080, className = 
       if (stroke.tool === 'eraser') {
         // Eraser mode - removes ink
         ctx.globalCompositeOperation = 'destination-out'
-        ctx.lineWidth = 20
+        ctx.lineWidth = stroke.lineWidth || 20 // Use saved lineWidth or fallback
       } else {
         // Pen mode - draws with color (default black for backwards compatibility)
         ctx.globalCompositeOperation = 'source-over'
         ctx.strokeStyle = stroke.color || '#000000'
-        ctx.lineWidth = 3
+        ctx.lineWidth = stroke.lineWidth || 3 // Use saved lineWidth or fallback
       }
 
       // Draw the stroke (simple lines for reliability)
       if (stroke.points.length === 1) {
         // Single point - draw a dot
         const point = stroke.points[0]
-        const dotRadius = stroke.tool === 'eraser' ? 10 : 1.5 // Match line width / 2
+        const lineW = stroke.lineWidth || (stroke.tool === 'eraser' ? 20 : 3)
+        const dotRadius = lineW / 2 // Match line width / 2
         ctx.beginPath()
         ctx.arc(point.x * width, point.y * height, dotRadius, 0, Math.PI * 2)
         if (stroke.tool === 'eraser') {

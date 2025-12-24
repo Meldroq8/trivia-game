@@ -129,7 +129,7 @@ function Loader() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f2e6]">
+    <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900">
       {/* Header */}
       <div className="bg-red-600 text-white p-4 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto flex justify-between items-center">

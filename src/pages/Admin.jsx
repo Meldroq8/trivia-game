@@ -103,10 +103,10 @@ function Admin() {
   // Show loading while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-md text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">جاري التحقق من الصلاحيات...</h1>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحقق من الصلاحيات...</h1>
         </div>
       </div>
     )
@@ -115,13 +115,13 @@ function Admin() {
   // Show access denied message if not authenticated or not admin/moderator
   if (!isAuthenticated || !isAdminOrModerator) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-md text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">غير مصرح لك بالدخول</h1>
-          <p className="text-gray-900 mb-6">يجب أن تكون مديراً للوصول إلى هذه الصفحة</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-md text-center">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">غير مصرح لك بالدخول</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">يجب أن تكون مديراً للوصول إلى هذه الصفحة</p>
           <button
             onClick={() => navigate('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg"
           >
             العودة إلى الصفحة الرئيسية
           </button>

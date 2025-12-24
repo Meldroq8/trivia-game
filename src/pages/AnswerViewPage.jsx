@@ -71,10 +71,10 @@ function AnswerViewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-red-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-xl">جاري تحميل الإجابة...</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري تحميل الإجابة...</h1>
         </div>
       </div>
     )
@@ -82,17 +82,17 @@ function AnswerViewPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#f7f2e6] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">❌</div>
-          <p className="text-red-600 text-xl font-bold">{error}</p>
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
+        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
+          <div className="text-5xl mb-3">❌</div>
+          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">{error}</h1>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f2e6] flex flex-col">
+    <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col">
       {/* Minimal header - logo only */}
       <header className="bg-red-600 py-2 flex-shrink-0">
         <div className="flex justify-center">
