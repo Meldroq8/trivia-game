@@ -791,7 +791,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const getCategoryDescription = (category) => {
     if (!category) return null
 
-    const isMiniGame = category.isMiniGame
+    const isMiniGame = category.enableQrMiniGame || category.isMiniGame
     const miniGameType = category.miniGameType
 
     // If category has a saved description, use it
@@ -2200,7 +2200,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-bold">
                     <span>📚</span>
-                    معلومات عامة
+                    فئة عامة
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm font-bold">
@@ -2209,7 +2209,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
               </div>
 
               {/* Mini game instructions if applicable */}
-              {showCategoryInfo.isMiniGame && (
+              {(showCategoryInfo.enableQrMiniGame || showCategoryInfo.isMiniGame) && (
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 mb-4">
                   <h3 className="font-bold text-amber-900 dark:text-amber-300 mb-2 flex items-center gap-2">
                     <span>💡</span>
