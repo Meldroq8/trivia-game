@@ -1168,13 +1168,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
                                     : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
                                 }`}>
-                                  <div className="leading-tight font-bold text-center w-full whitespace-nowrap overflow-visible flex items-center justify-center">
+                                  <div className="leading-tight font-bold text-center w-full overflow-hidden flex items-center justify-center">
                                     <span
-                                      className="inline-block text-sm sm:text-base md:text-lg lg:text-xl"
+                                      className="inline-block text-[11px] sm:text-xs md:text-sm lg:text-base whitespace-nowrap"
                                       style={{
-                                        transform: `scale(${Math.min(1, 10 / Math.max(1, category.name.length * 0.7))})`,
-                                        transformOrigin: 'center',
-                                        maxWidth: '100%'
+                                        transform: `scale(${Math.min(1, 11 / Math.max(11, category.name.length))})`,
+                                        transformOrigin: 'center'
                                       }}
                                     >
                                       {category.name}
