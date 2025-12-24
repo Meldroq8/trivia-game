@@ -1201,12 +1201,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
                                   )}
                                   {selected && !needsReset && (
-                                    <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20">
+                                    <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 bg-green-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20">
                                       ✓
                                     </div>
                                   )}
                                   {/* Question count - top left corner, opposite of checkmark */}
-                                  <div className={`absolute top-2 left-2 text-white rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center text-xs md:text-sm font-bold z-20 ${
+                                  <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
                                     needsReset ? 'bg-red-600' : 'bg-blue-600'
                                   }`}>
                                     {getRemainingQuestions(category.id)}
