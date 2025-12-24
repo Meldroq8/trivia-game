@@ -934,7 +934,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             </div>
 
             {/* Search Bar */}
-            <div className="w-full max-w-2xl mx-auto mb-8 md:mb-12 relative">
+            <div className="w-full max-w-sm mx-auto mb-8 md:mb-12 relative">
               <div className="relative">
                 <input
                   type="text"
