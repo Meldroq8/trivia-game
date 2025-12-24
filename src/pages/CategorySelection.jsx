@@ -110,6 +110,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [showSidebar, setShowSidebar] = useState(false)
   const [isRandomizing, setIsRandomizing] = useState(false)
   const [isStartingGame, setIsStartingGame] = useState(false)
+  const [showCategoryInfo, setShowCategoryInfo] = useState(null) // Category object to show info for
 
   const navigate = useNavigate()
   const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
@@ -786,6 +787,170 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     return rawCount < 6
   }
 
+  // Generate category description based on saved description or fallback to auto-generated
+  const getCategoryDescription = (category) => {
+    if (!category) return null
+
+    const isMiniGame = category.isMiniGame
+    const miniGameType = category.miniGameType
+
+    // If category has a saved description, use it
+    if (category.description && category.description.trim()) {
+      return {
+        title: category.name,
+        description: category.description,
+        type: isMiniGame ? 'interactive' : 'trivia'
+      }
+    }
+
+    // Fallback: Mini game descriptions
+    if (isMiniGame) {
+      switch (miniGameType) {
+        case 'drawing':
+          return {
+            title: 'لعبة الرسم 🎨',
+            description: 'يرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية ليخمنها الفريق',
+            type: 'interactive'
+          }
+        case 'headband':
+          return {
+            title: 'لعبة العصابة 🎯',
+            description: 'يضع لاعب الهاتف على رأسه ويرى الفريق الصورة، ثم يصفونها له ليخمنها',
+            type: 'interactive'
+          }
+        case 'guessword':
+          return {
+            title: 'لعبة تخمين الكلمة 💬',
+            description: 'يصف لاعب الكلمة لفريقه بدون ذكرها أو ذكر كلمات مشابهة',
+            type: 'interactive'
+          }
+        case 'charades':
+        default:
+          return {
+            title: 'لعبة التمثيل 🎭',
+            description: 'يمسح لاعب كود QR ويرى الإجابة، ثم يمثلها أو يشرحها لفريقه بدون كلام',
+            type: 'interactive'
+          }
+      }
+    }
+
+    const name = category.name?.toLowerCase() || ''
+
+    // Fallback: Normal category descriptions based on name keywords
+    if (name.includes('بوستر') || name.includes('أفلام') || name.includes('فيلم')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة تتعلق ببوسترات الأفلام والسينما',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('علم') || name.includes('أعلام') || name.includes('دول')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة تتعلق بأعلام الدول',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('مسلسل')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن المسلسلات العربية والعالمية',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('موسيق') || name.includes('أغان') || name.includes('أغني') || name.includes('فنان')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الأغاني والفنانين',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('رياض') || name.includes('كرة') || name.includes('sport')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة رياضية متنوعة',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('جغرافي') || name.includes('خريط') || name.includes('أقاليم') || name.includes('مدن')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الدول والمدن والمعالم الجغرافية',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('تاريخ') || name.includes('تراث')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة تاريخية متنوعة',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('علوم') || name.includes('علم')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة علمية متنوعة',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('أنمي') || name.includes('anime')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الأنمي والمانغا اليابانية',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('مسرح') || name.includes('كويت')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن المسرح الكويتي والخليجي',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('براند') || name.includes('شعار') || name.includes('logo')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن شعارات الشركات والماركات العالمية',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('طعام') || name.includes('أكل') || name.includes('مطبخ')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الأطعمة والمطبخ',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('حيوان')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الحيوانات',
+        type: 'trivia'
+      }
+    }
+    if (name.includes('شخصي') || name.includes('مشاهير')) {
+      return {
+        title: category.name,
+        description: 'تحتوي على أسئلة عن الشخصيات المشهورة',
+        type: 'trivia'
+      }
+    }
+
+    // Default description
+    return {
+      title: category.name,
+      description: `تحتوي على أسئلة متنوعة في مجال ${category.name}`,
+      type: 'trivia'
+    }
+  }
+
+  // Handle showing category info
+  const handleShowCategoryInfo = (e, category) => {
+    e.stopPropagation() // Prevent category selection
+    e.preventDefault()
+    setShowCategoryInfo(category)
+  }
+
   // Handle category reset
   const handleCategoryReset = async (e, categoryId) => {
     e.stopPropagation() // Prevent category selection
@@ -1203,15 +1368,35 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     : 'from-gray-300 to-gray-400'
                                 }
                               >
-                                {/* Overlay for better text readability when image is present */}
-                                {category.imageUrl && (
-                                  <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                )}
-                                {/* Question count badge - top left corner */}
-                                <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                  needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                }`}>
-                                  {getRemainingQuestions(category.id)}
+                                {/* Full-size positioning container */}
+                                <div className="absolute inset-0">
+                                  {/* Overlay for better text readability when image is present */}
+                                  {category.imageUrl && (
+                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                                  )}
+                                  {/* Question count badge - top left corner */}
+                                  <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                  }`}>
+                                    {getRemainingQuestions(category.id)}
+                                  </div>
+                                  {/* Alert badge - top right corner (clickable for info) */}
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => handleShowCategoryInfo(e, category)}
+                                    onTouchEnd={(e) => e.stopPropagation()}
+                                    className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                    title="معلومات الفئة"
+                                  >
+                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                      <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                      <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                      <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                      <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                      <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                                    </svg>
+                                  </div>
                                 </div>
                                 {/* Show emoji/icon only when no background image */}
                                 {!category.imageUrl && (
@@ -1222,13 +1407,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   </div>
                                 )}
                               </BackgroundImage>
-                              {/* Favorite heart - bottom right of image area */}
+                              {/* Favorite heart - positioned in flex-1 relative container, outside BackgroundImage */}
                               <div
                                 role="button"
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1346,15 +1531,35 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     : 'from-gray-300 to-gray-400'
                                 }
                               >
-                                {/* Overlay for better text readability when image is present */}
-                                {category.imageUrl && (
-                                  <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                )}
-                                {/* Question count badge - top left corner */}
-                                <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                  needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                }`}>
-                                  {getRemainingQuestions(category.id)}
+                                {/* Full-size positioning container */}
+                                <div className="absolute inset-0">
+                                  {/* Overlay for better text readability when image is present */}
+                                  {category.imageUrl && (
+                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
+                                  )}
+                                  {/* Question count badge - top left corner */}
+                                  <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
+                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
+                                  }`}>
+                                    {getRemainingQuestions(category.id)}
+                                  </div>
+                                  {/* Alert badge - top right corner (clickable for info) */}
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => handleShowCategoryInfo(e, category)}
+                                    onTouchEnd={(e) => e.stopPropagation()}
+                                    className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                    title="معلومات الفئة"
+                                  >
+                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                      <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                      <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                      <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                      <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                      <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                                    </svg>
+                                  </div>
                                 </div>
                                 {/* Show emoji/icon only when no background image */}
                                 {!category.imageUrl && (
@@ -1365,13 +1570,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   </div>
                                 )}
                               </BackgroundImage>
-                              {/* Favorite heart - bottom right of image area */}
+                              {/* Favorite heart - positioned in flex-1 relative container, outside BackgroundImage */}
                               <div
                                 role="button"
                                 tabIndex={0}
                                 onClick={(e) => toggleFavorite(category.id, e)}
                                 onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                   favoriteCategories.includes(category.id)
                                     ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                     : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1593,6 +1798,23 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                     }`}>
                                       {getRemainingQuestions(category.id)}
                                     </div>
+                                    {/* Alert badge - top right corner (clickable for info) */}
+                                    <div
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={(e) => handleShowCategoryInfo(e, category)}
+                                      onTouchEnd={(e) => e.stopPropagation()}
+                                      className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                      title="معلومات الفئة"
+                                    >
+                                      <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                        <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                        <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                        <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                        <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                        <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                                      </svg>
+                                    </div>
                                     {/* Show emoji/icon only when no background image */}
                                     {!category.imageUrl && (
                                       <div className="relative z-10 text-center p-3 md:p-6">
@@ -1602,13 +1824,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                       </div>
                                     )}
                                   </BackgroundImage>
-                                  {/* Favorite heart - bottom right of image area */}
+                                  {/* Favorite heart - positioned in flex-1 relative container, outside BackgroundImage */}
                                   <div
                                     role="button"
                                     tabIndex={0}
                                     onClick={(e) => toggleFavorite(category.id, e)}
                                     onTouchEnd={(e) => e.stopPropagation()}
-                                    className={`absolute bottom-1 right-1 sm:bottom-1.5 sm:right-1.5 md:bottom-2 md:right-2 z-20 p-1 sm:p-1.5 rounded-full transition-all duration-200 cursor-pointer ${
+                                    className={`absolute bottom-0.5 right-0.5 sm:bottom-1 sm:right-1 z-20 p-0.5 sm:p-1 rounded-full transition-all duration-200 cursor-pointer ${
                                       favoriteCategories.includes(category.id)
                                         ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
                                         : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
@@ -1914,6 +2136,105 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           </div>
         )}
       </div>
+
+      {/* Category Info Modal */}
+      {showCategoryInfo && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCategoryInfo(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with category image */}
+            <div className="relative h-32 bg-gradient-to-br from-amber-400 to-amber-600">
+              {showCategoryInfo.imageUrl && (
+                <BackgroundImage
+                  src={showCategoryInfo.imageUrl}
+                  size="medium"
+                  context="category"
+                  categoryId={showCategoryInfo.id}
+                  className="absolute inset-0"
+                >
+                  <div className="absolute inset-0 bg-black/40"></div>
+                </BackgroundImage>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-white">
+                  <div className="text-4xl mb-2">
+                    {showCategoryInfo.imageUrl ? '' : (showCategoryInfo.image || '📚')}
+                  </div>
+                  <h2 className="text-xl font-bold drop-shadow-lg">
+                    {getCategoryDescription(showCategoryInfo)?.title || showCategoryInfo.name}
+                  </h2>
+                </div>
+              </div>
+              {/* Close button */}
+              <button
+                onClick={() => setShowCategoryInfo(null)}
+                className="absolute top-3 left-3 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Description */}
+              <div className="mb-4">
+                <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                  {getCategoryDescription(showCategoryInfo)?.description}
+                </p>
+              </div>
+
+              {/* Category type badge */}
+              <div className="flex items-center gap-2 mb-4">
+                {getCategoryDescription(showCategoryInfo)?.type === 'interactive' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm font-bold">
+                    <span>🎮</span>
+                    لعبة تفاعلية
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-bold">
+                    <span>📚</span>
+                    معلومات عامة
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-sm font-bold">
+                  {getRemainingQuestions(showCategoryInfo.id)} سؤال متبقي
+                </span>
+              </div>
+
+              {/* Mini game instructions if applicable */}
+              {showCategoryInfo.isMiniGame && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 mb-4">
+                  <h3 className="font-bold text-amber-900 dark:text-amber-300 mb-2 flex items-center gap-2">
+                    <span>💡</span>
+                    طريقة اللعب
+                  </h3>
+                  <p className="text-amber-800 dark:text-amber-200 text-sm">
+                    {showCategoryInfo.miniGameType === 'drawing' && 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!'}
+                    {showCategoryInfo.miniGameType === 'headband' && 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!'}
+                    {showCategoryInfo.miniGameType === 'guessword' && 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!'}
+                    {(showCategoryInfo.miniGameType === 'charades' || !showCategoryInfo.miniGameType) && 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'}
+                  </p>
+                </div>
+              )}
+
+              {/* Close button */}
+              <button
+                onClick={() => setShowCategoryInfo(null)}
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200"
+              >
+                فهمت!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

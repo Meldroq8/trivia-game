@@ -342,6 +342,10 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   const [mergedCategoryImage, setMergedCategoryImage] = useState('🔀')
   const [mergedCategoryImageUrl, setMergedCategoryImageUrl] = useState('')
   const [masterCategories, setMasterCategories] = useState([])
+  const [showCategoryDescriptions, setShowCategoryDescriptions] = useState(false)
+  const [categoryDescriptions, setCategoryDescriptions] = useState({}) // { categoryId: description }
+  const [savingDescriptions, setSavingDescriptions] = useState(false)
+  const [descriptionsChanged, setDescriptionsChanged] = useState(false)
 
   useEffect(() => {
     // Don't load until admin/moderator status is confirmed
@@ -359,6 +363,18 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       if (gameData) {
         setCategories(gameData.categories || [])
         setQuestions(gameData.questions || {})
+        // Initialize category descriptions - auto-generate for empty ones
+        const descriptions = {}
+        ;(gameData.categories || []).forEach(cat => {
+          // Use saved description if exists, otherwise auto-generate
+          if (cat.description && cat.description.trim()) {
+            descriptions[cat.id] = cat.description
+          } else {
+            // Auto-generate smart description based on category
+            descriptions[cat.id] = generateAutoDescription(cat)
+          }
+        })
+        setCategoryDescriptions(descriptions)
         devLog('✅ Categories manager data loaded from Firebase')
       }
 
@@ -400,7 +416,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
-            masterCategoryId: category.masterCategoryId || 'general' // Save master category
+            masterCategoryId: category.masterCategoryId || 'general', // Save master category
+            description: category.description || '' // Save description
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -421,6 +438,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                 isMergedCategory: category.isMergedCategory || false,
                 sourceCategoryIds: category.sourceCategoryIds || [],
                 masterCategoryId: category.masterCategoryId || 'general',
+                description: category.description || '',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
@@ -457,6 +475,144 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       cat.id === categoryId ? { ...cat, imageUrl: newImageUrl } : cat
     )
     saveCategories(updatedCategories)
+  }
+
+  // Auto-generate smart description based on category name and type
+  const generateAutoDescription = (category) => {
+    if (!category) return ''
+
+    const name = category.name || ''
+    const isMiniGame = category.enableQrMiniGame
+    const miniGameType = category.miniGameType || 'charades'
+
+    // Exact category name matches first (most accurate)
+    const exactDescriptions = {
+      // Kuwaiti/Gulf Shows
+      "الحيالة": "أسئلة عن مسلسل الحيالة الكويتي الكوميدي وشخصياته وأحداثه",
+      "بباي قديم": "أسئلة عن برامج ومسلسلات تلفزيون الكويت القديمة",
+      "فن خليجي": "أسئلة عن المسلسلات والمسرحيات والفنانين الخليجيين",
+      "مسرح البلام": "أسئلة عن مسرحيات الفنان الكويتي حسن البلام الكوميدية",
+      "مسرح طارق": "أسئلة عن مسرحيات الفنان الكويتي طارق العلي وأعماله",
+      "مسلسلات رمضان": "أسئلة عن مسلسلات رمضان الخليجية والعربية المشهورة",
+      "مقاطع فن خليجي": "مقاطع صوتية وفيديو من مسلسلات ومسرحيات خليجية للتخمين",
+      "أغاني خليجية": "مقاطع من أغاني خليجية لتخمين اسم الأغنية أو الفنان",
+      // Foreign Shows & Movies
+      "Friends": "أسئلة عن مسلسل فريندز الأمريكي وشخصياته العشر مواسم",
+      "The Last Of Us": "أسئلة عن لعبة ومسلسل The Last of Us وقصته وشخصياته",
+      "الحفرة": "أسئلة عن المسلسل التركي الحفرة (Çukur) وعائلة كوتشوفالي",
+      "Squid Game": "أسئلة عن مسلسل لعبة الحبار الكوري وألعابه وشخصياته",
+      "Game Of Thrones": "أسئلة عن مسلسل صراع العروش وممالكه وشخصياته",
+      "Breaking Bad": "أسئلة عن مسلسل بريكنج باد ووالتر وايت وجيسي",
+      "The Office": "أسئلة عن مسلسل ذا أوفيس الأمريكي ومكتب دندر مفلن",
+      "أفلام أجنبية": "أسئلة عن الأفلام الأجنبية المشهورة وأبطالها ومخرجيها",
+      "قصة فلم أجنبي": "ملخص قصة فلم أجنبي لتخمين اسم الفلم من القصة",
+      "بوسترات أفلام": "صور بوسترات أفلام لتخمين اسم الفلم من البوستر",
+      "مقاطع فن اجنبي": "مقاطع من أفلام ومسلسلات أجنبية للتخمين",
+      "اغاني اجنبية": "مقاطع من أغاني أجنبية لتخمين اسم الأغنية أو المغني",
+      "مسرح الرعب": "أسئلة عن أفلام الرعب العالمية المشهورة",
+      // Anime
+      "انمي": "أسئلة متنوعة عن أفلام ومسلسلات الأنمي اليابانية",
+      "أنا منو (انمي)": "صور لشخصيات أنمي لتخمين اسم الشخصية",
+      "أغاني انمي": "مقاطع من أغاني أنمي (أوبننج/إندنج) للتخمين",
+      "One Piece": "أسئلة عن أنمي ون بيس ولوفي وطاقم قبعة القش",
+      "Naruto": "أسئلة عن أنمي ناروتو والنينجا وقرية كونوها",
+      "بوكيمون": "أسئلة عن عالم بوكيمون وأنواعه ومدربيه",
+      "من هذا البوكيمون؟": "صور ظلية لبوكيمونات لتخمين اسمها",
+      // Video Games
+      "العاب السولز": "أسئلة عن ألعاب سولز (Dark Souls, Elden Ring, Bloodborne)",
+      "Video Games": "أسئلة متنوعة عن ألعاب الفيديو الشهيرة",
+      "Valorant": "أسئلة عن لعبة فالورانت وعملائها وأسلحتها وخرائطها",
+      "ريزيدنت ايفل": "أسئلة عن سلسلة ألعاب وأفلام ريزدنت إيفل",
+      // Superheroes
+      "Marvel Universe": "أسئلة عن عالم مارفل والأفنجرز وأفلام MCU",
+      "DC Universe": "أسئلة عن عالم DC وباتمان وسوبرمان وجستس ليق",
+      "Harry Potter": "أسئلة عن عالم هاري بوتر وهوجورتس والسحر",
+      // Hollywood
+      "أنا منو (هوليوود)": "صور لنجوم ومشاهير هوليوود لتخمين أسمائهم",
+      "Makeup Artist": "أسئلة عن فن المكياج ومستحضرات التجميل",
+      // Geography
+      "خرائط و أقاليم": "أسئلة جغرافية عن الخرائط والأقاليم والدول ومواقعها",
+      "أعلام": "صور أعلام دول لتخمين اسم الدولة من علمها",
+      "أعلام قديمة": "صور أعلام تاريخية وقديمة لدول ومماليك سابقة",
+      "لون العلم": "أسئلة عن ألوان أعلام الدول ورموزها",
+      "عواصم و دول": "أسئلة عن عواصم ودول العالم ومعلوماتها",
+      "الكويت": "أسئلة متنوعة عن الكويت تاريخها وثقافتها ومعالمها",
+      // Sports
+      "كرة قدم": "أسئلة عن كرة القدم واللاعبين والأندية والبطولات",
+      "مسيرة لاعب": "معلومات عن مسيرة لاعب كرة قدم لتخمين من هو",
+      // General
+      "معلومات عامة": "أسئلة ثقافية ومعلومات عامة في مختلف المجالات",
+      "تاريخ": "أسئلة عن التاريخ العالمي والأحداث التاريخية المهمة",
+      "تكنولوجيا": "أسئلة عن التقنية والتكنولوجيا والشركات التقنية",
+      "العسكرية": "أسئلة عن الأسلحة والمعدات العسكرية والجيوش",
+      "سيارات": "أسئلة عن ماركات السيارات وموديلاتها وشعاراتها",
+      "براندات": "أسئلة عن الماركات العالمية وشعاراتها ومنتجاتها",
+      "منتجات": "أسئلة عن المنتجات والسلع الاستهلاكية المشهورة",
+      "منوعات اسلامية": "أسئلة دينية وإسلامية متنوعة",
+      "امثال و الغاز": "أمثال شعبية وألغاز للحل والتخمين",
+      // Mini Games
+      "ولا كلمة": "تمثيل بدون كلام - امسح الكود ومثّل الإجابة لفريقك",
+      "ولا كلمة عربي": "تمثيل عربي بدون كلام - أفلام ومسلسلات ومسرحيات عربية",
+      "ولا كلمة انجليزي": "تمثيل انجليزي بدون كلام - أفلام ومسلسلات أجنبية",
+      "خمنها": "لعبة تخمين الكلمة - صف الكلمة لفريقك بدون ذكرها",
+      "خمن الرسمة": "لعبة رسم - ارسم الكلمة على هاتفك ودع فريقك يخمن",
+      "عيش الدور": "تقمص شخصية - عيش دور الشخصية ودع فريقك يخمن من أنت",
+      // Special
+      "الفئة الغامضة": "فئة غامضة تحتوي على أسئلة عشوائية من فئات مختلفة"
+    }
+
+    // Check exact match first
+    if (exactDescriptions[name]) {
+      return exactDescriptions[name]
+    }
+
+    // Mini-game specific descriptions
+    if (isMiniGame) {
+      switch (miniGameType) {
+        case 'charades':
+          return `تمثيل بدون كلام - مثّل ${name} لفريقك`
+        case 'drawing':
+          return `لعبة رسم - ارسم ${name} ودع فريقك يخمن`
+        case 'headband':
+          return `كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته`
+        case 'guessword':
+          return `صف ${name} لفريقك بدون ذكر الكلمة`
+        default:
+          return `فئة تفاعلية - ${name}`
+      }
+    }
+
+    // General fallback
+    return `أسئلة متنوعة عن ${name}`
+  }
+
+  // Handle description change (local state only)
+  const handleDescriptionChange = (categoryId, newDescription) => {
+    setCategoryDescriptions(prev => ({
+      ...prev,
+      [categoryId]: newDescription
+    }))
+    setDescriptionsChanged(true)
+  }
+
+  // Save all category descriptions to Firebase
+  const saveAllDescriptions = async () => {
+    setSavingDescriptions(true)
+    try {
+      // Update categories with new descriptions
+      const updatedCategories = categories.map(cat => ({
+        ...cat,
+        description: categoryDescriptions[cat.id] || ''
+      }))
+      await saveCategories(updatedCategories)
+      setDescriptionsChanged(false)
+      alert('تم حفظ جميع الأوصاف بنجاح!')
+    } catch (error) {
+      prodError('Error saving descriptions:', error)
+      alert('فشل في حفظ الأوصاف: ' + error.message)
+    } finally {
+      setSavingDescriptions(false)
+    }
   }
 
   const handleImageFileUpload = async (categoryId, file) => {
@@ -967,6 +1123,129 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6">إدارة الفئات</h2>
+
+      {/* Collapsible Category Descriptions */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowCategoryDescriptions(!showCategoryDescriptions)}
+          className="w-full flex items-center justify-between bg-amber-100 hover:bg-amber-200 border-2 border-amber-400 rounded-xl p-4 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+              <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="2" width="20" height="20" rx="6" fill="currentColor"/>
+                <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+              </svg>
+            </div>
+            <span className="font-bold text-amber-900 text-lg">دليل أنواع الفئات</span>
+          </div>
+          <svg
+            className={`w-6 h-6 text-amber-700 transition-transform duration-300 ${showCategoryDescriptions ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {showCategoryDescriptions && (
+          <div className="mt-3 bg-white border-2 border-amber-200 rounded-xl p-6 shadow-lg">
+            {/* Header with save button */}
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-gray-600 text-sm">
+                أضف وصفاً لكل فئة ليظهر للمستخدمين عند الضغط على علامة (!) في صفحة اختيار الفئات
+              </p>
+              <button
+                onClick={saveAllDescriptions}
+                disabled={savingDescriptions || !descriptionsChanged}
+                className={`px-4 py-2 rounded-lg font-bold text-white transition-colors flex items-center gap-2 ${
+                  descriptionsChanged
+                    ? 'bg-green-500 hover:bg-green-600'
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {savingDescriptions ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    حفظ جميع الأوصاف
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Categories list with editable descriptions */}
+            <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className={`bg-gray-50 rounded-lg p-3 border ${
+                    category.isMiniGame ? 'border-purple-200' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    {category.imageUrl ? (
+                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                        <SmartImage
+                          src={category.imageUrl}
+                          alt={category.name}
+                          size="thumb"
+                          context="thumbnail"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0 text-xl">
+                        {category.image}
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900">{category.name}</span>
+                        {category.isMiniGame && (
+                          <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                            {category.miniGameType === 'drawing' ? '🎨 رسم' :
+                             category.miniGameType === 'headband' ? '🎯 عصابة' :
+                             category.miniGameType === 'guessword' ? '💬 تخمين' : '🎭 تمثيل'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {(questions[category.id] || []).length} سؤال
+                      </span>
+                    </div>
+                  </div>
+                  <textarea
+                    value={categoryDescriptions[category.id] || ''}
+                    onChange={(e) => handleDescriptionChange(category.id, e.target.value)}
+                    placeholder={`أدخل وصفاً للفئة "${category.name}"...`}
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm resize-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 text-gray-800 bg-white"
+                    rows={2}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Info note */}
+            <div className="mt-4 bg-amber-50 rounded-lg p-3 border border-amber-200">
+              <p className="text-sm text-amber-800">
+                <span className="font-bold">💡 ملاحظة:</span> الأوصاف ستظهر للمستخدمين عند الضغط على علامة (!) الموجودة على كل فئة في صفحة اختيار الفئات.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((category) => (
@@ -2136,7 +2415,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             isMystery: category.isMystery || false, // Save mystery flag
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
-            masterCategoryId: category.masterCategoryId || 'general' // Save master category
+            masterCategoryId: category.masterCategoryId || 'general', // Save master category
+            description: category.description || '' // Save description
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -2157,6 +2437,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                 isMergedCategory: category.isMergedCategory || false,
                 sourceCategoryIds: category.sourceCategoryIds || [],
                 masterCategoryId: category.masterCategoryId || 'general',
+                description: category.description || '',
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
