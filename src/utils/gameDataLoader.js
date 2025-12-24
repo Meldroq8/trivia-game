@@ -123,6 +123,7 @@ export class GameDataLoader {
       sourceCategoryIds: cat.sourceCategoryIds || [],         // Source category references
       masterCategoryId: cat.masterCategoryId || 'general',    // Master category for grouping
       displayOrder: cat.displayOrder || 0,                    // Display order within master
+      description: cat.description || '',                     // Category description for info modal
       createdAt: cat.createdAt?.toDate?.() || cat.createdAt || null  // For "newest categories" feature
     }))
 
