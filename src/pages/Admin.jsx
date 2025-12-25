@@ -6002,6 +6002,15 @@ function SettingsManager() {
       'اسأل أسئلة لتخمين صورة الخصم'
     ]
   })
+
+  // Mini game instructions state (shown in category info modal)
+  const [miniGameInstructions, setMiniGameInstructions] = useState({
+    drawing: 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!',
+    headband: 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!',
+    guessword: 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!',
+    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
+  })
+
   const [savingRules, setSavingRules] = useState(false)
   const [migratingLeaderboard, setMigratingLeaderboard] = useState(false)
   const [migrationResult, setMigrationResult] = useState(null)
@@ -6052,6 +6061,12 @@ function SettingsManager() {
             ...settings.miniGameRules,
             // Ensure headband exists even if not in saved settings
             headband: settings.miniGameRules.headband || prev.headband
+          }))
+        }
+        if (settings?.miniGameInstructions) {
+          setMiniGameInstructions(prev => ({
+            ...prev,
+            ...settings.miniGameInstructions
           }))
         }
       } catch (error) {
@@ -6406,7 +6421,7 @@ function SettingsManager() {
   const handleSaveMiniGameRules = async () => {
     setSavingRules(true)
     try {
-      const success = await saveAppSettings({ miniGameRules })
+      const success = await saveAppSettings({ miniGameRules, miniGameInstructions })
       if (success) {
         alert('تم حفظ قواعد الألعاب المصغرة بنجاح!')
       } else {
@@ -6418,6 +6433,13 @@ function SettingsManager() {
     } finally {
       setSavingRules(false)
     }
+  }
+
+  const handleInstructionChange = (gameType, value) => {
+    setMiniGameInstructions(prev => ({
+      ...prev,
+      [gameType]: value
+    }))
   }
 
   const handleMigrateLeaderboard = async () => {
@@ -7001,11 +7023,82 @@ function SettingsManager() {
           </button>
         </div>
 
+        {/* Mini Game Instructions Section */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span>💡</span>
+            تعليمات طريقة اللعب (تظهر في صفحة اختيار الفئات)
+          </h4>
+          <p className="text-gray-600 text-sm mb-4">
+            هذه التعليمات تظهر عند الضغط على الفئة في صفحة اختيار الفئات
+          </p>
+
+          {/* Drawing Instructions */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-blue-800 mb-1 flex items-center gap-2">
+              <span>🎨</span>
+              تعليمات الرسم
+            </label>
+            <input
+              type="text"
+              value={miniGameInstructions.drawing}
+              onChange={(e) => handleInstructionChange('drawing', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-right text-gray-900"
+              dir="rtl"
+            />
+          </div>
+
+          {/* Headband Instructions */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-orange-800 mb-1 flex items-center gap-2">
+              <span>🎯</span>
+              تعليمات العصابة (Headband)
+            </label>
+            <input
+              type="text"
+              value={miniGameInstructions.headband}
+              onChange={(e) => handleInstructionChange('headband', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-right text-gray-900"
+              dir="rtl"
+            />
+          </div>
+
+          {/* Guessword Instructions */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-green-800 mb-1 flex items-center gap-2">
+              <span>💬</span>
+              تعليمات تخمين الكلمة
+            </label>
+            <input
+              type="text"
+              value={miniGameInstructions.guessword}
+              onChange={(e) => handleInstructionChange('guessword', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-right text-gray-900"
+              dir="rtl"
+            />
+          </div>
+
+          {/* Charades Instructions */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-purple-800 mb-1 flex items-center gap-2">
+              <span>🎭</span>
+              تعليمات التمثيل (الافتراضي)
+            </label>
+            <input
+              type="text"
+              value={miniGameInstructions.charades}
+              onChange={(e) => handleInstructionChange('charades', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right text-gray-900"
+              dir="rtl"
+            />
+          </div>
+        </div>
+
         {/* Save Button */}
         <button
           onClick={handleSaveMiniGameRules}
           disabled={savingRules}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors"
+          className="w-full mt-6 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors"
         >
           {savingRules ? 'جاري الحفظ...' : 'حفظ قواعد الألعاب المصغرة'}
         </button>

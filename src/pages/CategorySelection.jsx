@@ -117,6 +117,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [newestCategoriesDays, setNewestCategoriesDays] = useState(7)
   const [newestCategoriesName, setNewestCategoriesName] = useState('🆕 أجدد الفئات')
+  const [miniGameInstructions, setMiniGameInstructions] = useState({
+    drawing: 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!',
+    headband: 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!',
+    guessword: 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!',
+    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
+  })
 
   // Responsive dimensions tracking
   useEffect(() => {
@@ -139,6 +145,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         }
         if (settings?.newestCategoriesName !== undefined) {
           setNewestCategoriesName(settings.newestCategoriesName)
+        }
+        if (settings?.miniGameInstructions) {
+          setMiniGameInstructions(prev => ({
+            ...prev,
+            ...settings.miniGameInstructions
+          }))
         }
       } catch (error) {
         prodError('Error loading newest categories setting:', error)
@@ -2223,10 +2235,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     طريقة اللعب
                   </h3>
                   <p className="text-amber-800 dark:text-amber-200 text-sm">
-                    {showCategoryInfo.miniGameType === 'drawing' && 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!'}
-                    {showCategoryInfo.miniGameType === 'headband' && 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!'}
-                    {showCategoryInfo.miniGameType === 'guessword' && 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!'}
-                    {(showCategoryInfo.miniGameType === 'charades' || !showCategoryInfo.miniGameType) && 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'}
+                    {miniGameInstructions[showCategoryInfo.miniGameType] || miniGameInstructions.charades}
                   </p>
                 </div>
               )}
