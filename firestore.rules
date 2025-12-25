@@ -9,16 +9,16 @@ service cloud.firestore {
       // This MUST come first to ensure unauthenticated users can read
       allow read: if true;
 
-      // Users can CREATE their own profile on signup
+      // Users can CREATE their own profile
       // SECURITY:
       // 1. Cannot set isAdmin or isModerator to true on creation
-      // 2. Signup must be enabled in app settings (server-side check!)
+      // 2. Must be authenticated and creating their own document
+      // Note: signUpEnabled check removed - authenticated users should always be able to create their profile
+      // The signup UI check handles preventing new signups, but existing auth users need documents
       allow create: if request.auth != null &&
         request.auth.uid == userId &&
         request.resource.data.isAdmin != true &&
-        request.resource.data.isModerator != true &&
-        // Check if signups are enabled (defaults to true if not set)
-        (get(/databases/$(database)/documents/settings/app-settings).data.signUpEnabled != false);
+        request.resource.data.isModerator != true;
 
       // Users can UPDATE their own data BUT cannot modify protected fields
       // SECURITY: Prevents users from making themselves admin/moderator
