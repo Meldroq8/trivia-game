@@ -10,6 +10,7 @@ import { getTextDirection, formatText } from '../utils/textDirection'
 import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
+import { AuthService } from '../firebase/authService'
 import { ImageUploadService } from '../utils/imageUpload'
 import { S3UploadServiceSecure as S3UploadService } from '../utils/s3UploadSecure'
 import { parseExcelFile, extractZipFile, processBulkQuestions } from '../utils/bulkImport'
@@ -5991,6 +5992,8 @@ function SettingsManager() {
     ]
   })
   const [savingRules, setSavingRules] = useState(false)
+  const [migratingLeaderboard, setMigratingLeaderboard] = useState(false)
+  const [migrationResult, setMigrationResult] = useState(null)
 
   const { getAppSettings, saveAppSettings } = useAuth()
 
@@ -6398,6 +6401,24 @@ function SettingsManager() {
       alert('حدث خطأ أثناء حفظ القواعد')
     } finally {
       setSavingRules(false)
+    }
+  }
+
+  const handleMigrateLeaderboard = async () => {
+    if (!window.confirm('هل تريد نقل بيانات المتصدرين من جدول المستخدمين إلى جدول المتصدرين العام؟\n\nهذا الإجراء آمن ولن يحذف أي بيانات.')) {
+      return
+    }
+
+    setMigratingLeaderboard(true)
+    setMigrationResult(null)
+    try {
+      const count = await AuthService.migrateLeaderboard()
+      setMigrationResult({ success: true, count })
+    } catch (error) {
+      prodError('Error migrating leaderboard:', error)
+      setMigrationResult({ success: false, error: error.message })
+    } finally {
+      setMigratingLeaderboard(false)
     }
   }
 
@@ -6884,6 +6905,45 @@ function SettingsManager() {
         >
           {savingRules ? 'جاري الحفظ...' : 'حفظ قواعد الألعاب المصغرة'}
         </button>
+      </div>
+
+      {/* Leaderboard Migration Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md border">
+        <h3 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+          <span>🏆</span>
+          أدوات المتصدرين
+        </h3>
+        <p className="text-gray-600 mb-4">
+          نقل بيانات المتصدرين من جدول المستخدمين إلى جدول المتصدرين العام. هذا يحمي خصوصية البريد الإلكتروني ويسمح للزوار برؤية المتصدرين.
+        </p>
+
+        <button
+          onClick={handleMigrateLeaderboard}
+          disabled={migratingLeaderboard}
+          className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2"
+        >
+          {migratingLeaderboard ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              جاري النقل...
+            </>
+          ) : (
+            <>
+              <span>📊</span>
+              نقل بيانات المتصدرين
+            </>
+          )}
+        </button>
+
+        {migrationResult && (
+          <div className={`mt-4 p-4 rounded-lg ${migrationResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {migrationResult.success ? (
+              <p>✅ تم نقل {migrationResult.count} مستخدم بنجاح!</p>
+            ) : (
+              <p>❌ حدث خطأ: {migrationResult.error}</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

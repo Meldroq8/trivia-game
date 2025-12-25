@@ -3,11 +3,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ===== USERS COLLECTION =====
-    // Users collection with public read for leaderboard
+    // Users collection - restricted read access to protect emails
     match /users/{userId} {
-      // Public read access for leaderboard display (limited fields exposed by frontend)
-      // This MUST come first to ensure unauthenticated users can read
-      allow read: if true;
+      // Users can read their own document
+      // Admins and moderators can read any user document
+      // Public leaderboard uses separate /leaderboard collection (no emails there)
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isModerator == true);
 
       // Users can CREATE their own profile
       // SECURITY:

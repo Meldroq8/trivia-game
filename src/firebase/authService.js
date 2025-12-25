@@ -453,6 +453,7 @@ export class AuthService {
           displayName: currentUser?.displayName || currentUser?.email?.split('@')[0] || 'لاعب مجهول',
           createdAt: new Date(),
           isAdmin: false,
+          isModerator: false,
           gameStats: {
             gamesPlayed: shouldCountGame ? 1 : 0,
             totalScore: shouldCountGame ? (gameData.finalScore || 0) : 0,
@@ -766,52 +767,47 @@ export class AuthService {
    */
   static async getPublicLeaderboard() {
     try {
-      // Check cache first (5 minute TTL)
+      // Check cache first (1 minute TTL)
       const cached = AuthService.getCached('leaderboard')
       if (cached) {
         devLog('🏆 Using cached leaderboard:', cached.length, 'entries')
         return cached
       }
 
-      devLog('🏆 Loading public leaderboard from users collection')
+      devLog('🏆 Loading public leaderboard from /leaderboard collection')
 
-      // Load from users collection instead - their gameStats should be populated
-      const usersSnapshot = await getDocs(collection(db, 'users'))
+      // Load from public /leaderboard collection (no emails stored there)
+      const leaderboardSnapshot = await getDocs(collection(db, 'leaderboard'))
       const leaderboard = []
 
-      usersSnapshot.forEach(doc => {
-        const userData = doc.data()
-        const gamesPlayed = userData.gameStats?.gamesPlayed || 0
-
-        // Only include users who have played at least one game
-        if (gamesPlayed > 0) {
-          leaderboard.push({
-            id: doc.id,
-            userId: doc.id,
-            name: userData.displayName || userData.email?.split('@')[0] || 'لاعب مجهول',
-            gamesPlayed: gamesPlayed,
-            lastUpdated: userData.gameStats?.lastPlayed || new Date()
-          })
-        }
+      leaderboardSnapshot.forEach(doc => {
+        const data = doc.data()
+        leaderboard.push({
+          id: doc.id,
+          userId: data.userId || doc.id,
+          name: data.name || 'لاعب مجهول',
+          gamesPlayed: data.gamesPlayed || 0,
+          lastUpdated: data.lastUpdated || new Date()
+        })
       })
 
-      devLog('🏆 Loaded', leaderboard.length, 'users with games')
+      devLog('🏆 Loaded', leaderboard.length, 'leaderboard entries')
 
       // Sort by games played
       const sortedLeaderboard = leaderboard
         .sort((a, b) => (b.gamesPlayed || 0) - (a.gamesPlayed || 0))
-        .slice(0, 10)
+        .slice(0, 5)
 
-      devLog('🏆 Sorted top 10:', sortedLeaderboard)
+      devLog('🏆 Sorted top 5:', sortedLeaderboard)
 
-      // Cache the result for 1 minute for everyone (short TTL for quick updates)
+      // Cache the result for 1 minute (short TTL for quick updates)
       AuthService.setCached('leaderboard', sortedLeaderboard, 1)
 
       return sortedLeaderboard
     } catch (error) {
-      // If permission denied (not logged in), return empty array instead of throwing
+      // If permission denied, return empty array instead of throwing
       if (error.code === 'permission-denied') {
-        devLog('⚠️ Leaderboard not accessible (not logged in) - returning empty array')
+        devLog('⚠️ Leaderboard not accessible - returning empty array')
         return []
       }
       prodError('❌ Error loading public leaderboard:', error)
@@ -821,16 +817,45 @@ export class AuthService {
 
   /**
    * Invalidate leaderboard cache after game stats change
-   * Note: Leaderboard data is read from users.gameStats (updated in updateGameStats)
-   * This method just ensures cache is cleared so fresh data is fetched
+   * Syncs user's game stats to the public /leaderboard collection
+   * Only stores displayName and gamesPlayed - NO email for privacy
    */
   static async updateLeaderboard() {
     try {
-      // Invalidate leaderboard cache so next fetch gets fresh data from users collection
-      AuthService.cache.delete('leaderboard')
-      devLog('🏆 Leaderboard cache invalidated - will fetch fresh data on next request')
+      const user = auth.currentUser
+      if (!user) {
+        devLog('⚠️ No user logged in, skipping leaderboard update')
+        return
+      }
 
-      // Return updated public leaderboard with fresh data
+      // Get user's current stats from their document
+      const userRef = doc(db, 'users', user.uid)
+      const userDoc = await getDoc(userRef)
+
+      if (!userDoc.exists()) {
+        devLog('⚠️ User document not found, skipping leaderboard update')
+        return
+      }
+
+      const userData = userDoc.data()
+      const gamesPlayed = userData.gameStats?.gamesPlayed || 0
+
+      // Only add to leaderboard if user has played at least one game
+      if (gamesPlayed > 0) {
+        const leaderboardRef = doc(db, 'leaderboard', user.uid)
+        await setDoc(leaderboardRef, {
+          userId: user.uid,
+          name: userData.displayName || user.email?.split('@')[0] || 'لاعب مجهول',
+          gamesPlayed: gamesPlayed,
+          lastUpdated: new Date()
+          // Note: NO email stored here for privacy
+        })
+        devLog('🏆 Leaderboard entry updated for user:', user.uid)
+      }
+
+      // Invalidate cache so next fetch gets fresh data
+      AuthService.cache.delete('leaderboard')
+
       return await AuthService.getPublicLeaderboard()
     } catch (error) {
       prodError('❌ Error updating leaderboard:', error)
@@ -846,32 +871,28 @@ export class AuthService {
   static subscribeToLeaderboard(callback) {
     devLog('🏆 Setting up real-time leaderboard subscription')
 
-    const usersRef = collection(db, 'users')
+    // Subscribe to public /leaderboard collection (no emails stored there)
+    const leaderboardRef = collection(db, 'leaderboard')
 
-    const unsubscribe = onSnapshot(usersRef, (snapshot) => {
+    const unsubscribe = onSnapshot(leaderboardRef, (snapshot) => {
       try {
         const leaderboard = []
 
         snapshot.forEach(doc => {
-          const userData = doc.data()
-          const gamesPlayed = userData.gameStats?.gamesPlayed || 0
-
-          // Only include users who have played at least one game
-          if (gamesPlayed > 0) {
-            leaderboard.push({
-              id: doc.id,
-              userId: doc.id,
-              name: userData.displayName || userData.email?.split('@')[0] || 'لاعب مجهول',
-              gamesPlayed: gamesPlayed,
-              lastUpdated: userData.gameStats?.lastPlayed || new Date()
-            })
-          }
+          const data = doc.data()
+          leaderboard.push({
+            id: doc.id,
+            userId: data.userId || doc.id,
+            name: data.name || 'لاعب مجهول',
+            gamesPlayed: data.gamesPlayed || 0,
+            lastUpdated: data.lastUpdated || new Date()
+          })
         })
 
-        // Sort by games played and get top 10
+        // Sort by games played and get top 5
         const sortedLeaderboard = leaderboard
           .sort((a, b) => (b.gamesPlayed || 0) - (a.gamesPlayed || 0))
-          .slice(0, 10)
+          .slice(0, 5)
 
         devLog('🏆 Real-time leaderboard update:', sortedLeaderboard.length, 'entries')
 
@@ -896,5 +917,49 @@ export class AuthService {
     })
 
     return unsubscribe
+  }
+
+  /**
+   * Migrate existing users' game stats to the /leaderboard collection
+   * This is a one-time migration for admins to run
+   * @returns {Promise<number>} Number of users migrated
+   */
+  static async migrateLeaderboard() {
+    try {
+      devLog('🔄 Starting leaderboard migration...')
+
+      // Get all users (admin only)
+      const usersSnapshot = await getDocs(collection(db, 'users'))
+      let migratedCount = 0
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data()
+        const gamesPlayed = userData.gameStats?.gamesPlayed || 0
+
+        // Only migrate users who have played at least one game
+        if (gamesPlayed > 0) {
+          const leaderboardRef = doc(db, 'leaderboard', userDoc.id)
+          await setDoc(leaderboardRef, {
+            userId: userDoc.id,
+            name: userData.displayName || userData.email?.split('@')[0] || 'لاعب مجهول',
+            gamesPlayed: gamesPlayed,
+            lastUpdated: userData.gameStats?.lastPlayed || new Date()
+            // Note: NO email stored here for privacy
+          })
+          migratedCount++
+          devLog(`✅ Migrated user ${userDoc.id} with ${gamesPlayed} games`)
+        }
+      }
+
+      devLog(`🎉 Migration complete! Migrated ${migratedCount} users to leaderboard`)
+
+      // Clear cache so fresh data is fetched
+      AuthService.cache.delete('leaderboard')
+
+      return migratedCount
+    } catch (error) {
+      prodError('❌ Error migrating leaderboard:', error)
+      throw error
+    }
   }
 }
