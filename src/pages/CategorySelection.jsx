@@ -333,10 +333,20 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   }, [user, authLoading, isAuthenticated])
 
   // Load question counts when game data is available or refresh is triggered
+  // IMPORTANT: Wait for sync to complete first to ensure accurate counts
   useEffect(() => {
-    if (gameData && user?.uid) {
+    const loadCountsAfterSync = async () => {
+      if (!gameData || !user?.uid) return
+
+      // Wait for sync to complete before loading counts
+      devLog('⏳ Waiting for usage sync before loading counts...')
+      await questionUsageTracker.waitForSync(5000) // Wait up to 5 seconds
+      devLog('✅ Sync complete, loading question counts')
+
       loadQuestionCounts()
     }
+
+    loadCountsAfterSync()
   }, [gameData, user?.uid, countsRefreshTrigger])
 
   const toggleCategory = (categoryId) => {
@@ -980,24 +990,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         questionUsageTracker.setUserId(user.uid)
       }
 
-      // Reset usage using questionIds (these ARE the tracking IDs)
-      // We pass fake question objects that the tracker can use to extract tracking IDs
-      // But since questionIds are already tracking IDs, we just need to reset them directly
-      const usageData = await questionUsageTracker.getUsageData()
-
-      // Reset all questions in this category
-      const resetData = { ...usageData }
-      questionIds.forEach(trackingId => {
-        if (resetData[trackingId] !== undefined) {
-          resetData[trackingId] = 0
-        }
-      })
-
-      // Save the reset data
-      await questionUsageTracker.saveUsageData(resetData, true)
-
-      // Save category reset time to prevent sync from re-marking old games
-      await questionUsageTracker.saveCategoryResetTime(categoryId, Date.now())
+      // Use atomic reset method - this uses Firestore's dot notation
+      // to update only the specific fields, preventing race conditions
+      // with concurrent syncs that might overwrite the whole usageData
+      await questionUsageTracker.resetCategoryByTrackingIds(categoryId, questionIds)
 
       // All questions should now be available
       const availableCount = questionIds.length

@@ -68,7 +68,12 @@ function ProfilePage() {
         // Update question pool and get stats (ensure user ID is set)
         if (user?.uid) {
           questionUsageTracker.setUserId(user.uid)
-          questionUsageTracker.updateQuestionPool(data)
+
+          // Wait for sync to complete before getting stats
+          await questionUsageTracker.waitForSync(5000)
+
+          // Now update pool and get stats
+          await questionUsageTracker.updateQuestionPool(data)
           const statistics = await questionUsageTracker.getUsageStatistics()
           setStats(statistics)
         } else {

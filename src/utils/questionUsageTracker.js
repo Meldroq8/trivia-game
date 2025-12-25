@@ -29,6 +29,47 @@ class QuestionUsageTracker {
 
     // Prevent duplicate sync operations
     this.syncInProgress = false
+
+    // Sync completion tracking - allows components to wait for sync
+    this.syncPromise = null
+    this.syncResolve = null
+    this.syncComplete = false
+
+    // Prevent concurrent data loads
+    this.loadingPromise = null
+  }
+
+  /**
+   * Wait for the initial sync to complete
+   * Components should call this before loading counts to ensure data is ready
+   * @param {number} timeout - Maximum time to wait in ms (default 10s)
+   * @returns {Promise<boolean>} True if sync completed, false if timed out
+   */
+  async waitForSync(timeout = 10000) {
+    // If no sync is in progress and not complete, return immediately
+    if (!this.syncPromise && !this.syncComplete) {
+      devLog('⏳ No sync in progress, proceeding without wait')
+      return true
+    }
+
+    // If already complete, return immediately
+    if (this.syncComplete) {
+      devLog('✅ Sync already complete, proceeding')
+      return true
+    }
+
+    // Wait for sync with timeout
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Sync timeout')), timeout)
+      )
+      await Promise.race([this.syncPromise, timeoutPromise])
+      devLog('✅ Sync completed, proceeding')
+      return true
+    } catch (error) {
+      devWarn('⚠️ Sync wait timed out or failed:', error.message)
+      return false
+    }
   }
 
   /**
@@ -41,6 +82,12 @@ class QuestionUsageTracker {
       this.localCache = null // Clear cache when user changes
       this.poolUpdatedInSession = false // Allow pool update for new user
       this.poolUpdateInProgress = false
+      // Reset sync state for new user
+      this.syncPromise = null
+      this.syncResolve = null
+      this.syncComplete = false
+      this.syncInProgress = false
+      this.loadingPromise = null
     }
   }
 
@@ -74,26 +121,45 @@ class QuestionUsageTracker {
       return this.getLocalUsageData()
     }
 
-    try {
-      // Return cached data if available
-      if (this.localCache) {
-        return this.localCache
-      }
+    // Return cached data if available
+    if (this.localCache) {
+      return this.localCache
+    }
 
+    // Prevent concurrent loads - if already loading, wait for it
+    if (this.loadingPromise) {
+      return this.loadingPromise
+    }
+
+    this.loadingPromise = this._loadUsageDataFromFirestore()
+
+    try {
+      const result = await this.loadingPromise
+      return result
+    } finally {
+      this.loadingPromise = null
+    }
+  }
+
+  /**
+   * Internal method to load usage data from Firestore
+   * Should only be called from getUsageData()
+   */
+  async _loadUsageDataFromFirestore() {
+    try {
       const userDoc = doc(db, 'questionUsage', this.currentUserId)
       const docSnap = await getDoc(userDoc)
 
       if (docSnap.exists()) {
         const data = docSnap.data()
         this.localCache = data.usageData || {}
-        devLog('📱 Loaded question usage from Firestore')
+        devLog(`📱 Loaded question usage from Firestore (${Object.keys(this.localCache).length} entries)`)
         return this.localCache
       } else {
-        // Create new document for user
-        const initialData = { usageData: {}, poolSize: 0, lastUpdated: Date.now() }
-        await setDoc(userDoc, initialData)
+        // Document doesn't exist - DON'T create it here, just return empty
+        // The document will be created when we first save data
         this.localCache = {}
-        devLog('✨ Created new question usage document for user')
+        devLog('📭 No usage document found, starting fresh')
         return this.localCache
       }
     } catch (error) {
@@ -172,14 +238,16 @@ class QuestionUsageTracker {
       const userDoc = doc(db, 'questionUsage', this.currentUserId)
       const poolSize = await this.getPoolSize()
 
-      await updateDoc(userDoc, {
+      // Use setDoc with merge to create document if it doesn't exist
+      await setDoc(userDoc, {
         usageData: usageData,
         poolSize: poolSize,
         lastUpdated: Date.now()
-      })
+      }, { merge: true })
 
       this.lastWriteTime = Date.now()
-      devLog('💾 Saved question usage data to Firestore (throttled)')
+      const usedCount = Object.values(usageData).filter(v => v > 0).length
+      devLog(`💾 Saved question usage to Firestore (${usedCount} used / ${Object.keys(usageData).length} total)`)
     } catch (error) {
       prodError('❌ Error saving question usage to Firestore:', error)
       // Fallback to localStorage
@@ -264,13 +332,12 @@ class QuestionUsageTracker {
           poolSize: size,
           lastUpdated: Date.now()
         }).catch(async (error) => {
-          // If document doesn't exist, create it
+          // If document doesn't exist, create it with merge to preserve any other fields
           if (error.code === 'not-found') {
             await setDoc(userDoc, {
-              usageData: {},
               poolSize: size,
               lastUpdated: Date.now()
-            })
+            }, { merge: true })
           } else {
             throw error
           }
@@ -589,6 +656,72 @@ class QuestionUsageTracker {
   }
 
   /**
+   * Reset a category using tracking IDs with atomic Firestore updates
+   * This method is safer than resetCategoryUsage as it uses Firestore's field updates
+   * to prevent race conditions with concurrent syncs
+   * @param {string} categoryId - Category ID to reset
+   * @param {Array<string>} trackingIds - Array of tracking IDs to reset
+   * @returns {Promise<number>} Number of questions reset
+   */
+  async resetCategoryByTrackingIds(categoryId, trackingIds) {
+    if (!this.currentUserId) {
+      devWarn('⚠️ Cannot reset category: No user ID set')
+      return 0
+    }
+
+    if (!trackingIds || trackingIds.length === 0) {
+      devWarn('⚠️ No tracking IDs provided for category reset')
+      return 0
+    }
+
+    devLog(`🔄 Atomic reset for category ${categoryId} (${trackingIds.length} questions)`)
+
+    try {
+      const userDoc = doc(db, 'questionUsage', this.currentUserId)
+
+      // First, load current data to preserve other entries
+      const docSnap = await getDoc(userDoc)
+      let currentUsageData = {}
+      let currentResetTimes = {}
+
+      if (docSnap.exists()) {
+        const data = docSnap.data()
+        currentUsageData = data.usageData || {}
+        currentResetTimes = data.categoryResetTimes || {}
+        devLog(`📱 Loaded existing data: ${Object.keys(currentUsageData).length} entries, ${Object.keys(currentResetTimes).length} reset times`)
+      }
+
+      // Update only the specific tracking IDs
+      let resetCount = 0
+      trackingIds.forEach(trackingId => {
+        if (currentUsageData[trackingId] !== undefined && currentUsageData[trackingId] > 0) {
+          resetCount++
+        }
+        currentUsageData[trackingId] = 0
+      })
+
+      // Add the category reset time
+      currentResetTimes[categoryId] = Date.now()
+
+      // Save everything back with proper structure
+      await setDoc(userDoc, {
+        usageData: currentUsageData,
+        categoryResetTimes: currentResetTimes,
+        lastUpdated: Date.now()
+      }, { merge: true })
+
+      // Update local cache
+      this.localCache = currentUsageData
+
+      devLog(`✅ Atomic reset complete for category ${categoryId}: ${resetCount} used questions reset, timestamp saved`)
+      return trackingIds.length
+    } catch (error) {
+      prodError('❌ Error in atomic category reset:', error)
+      return 0
+    }
+  }
+
+  /**
    * Clear all usage data for current user (reset questions)
    */
   async clearAllUsageData() {
@@ -738,13 +871,21 @@ class QuestionUsageTracker {
    * @param {number} timestamp - Reset timestamp
    */
   async saveCategoryResetTime(categoryId, timestamp) {
-    if (!this.currentUserId) return
+    if (!this.currentUserId) {
+      devWarn('⚠️ Cannot save category reset time: No user ID')
+      return
+    }
 
     try {
       const userDoc = doc(db, 'questionUsage', this.currentUserId)
-      await updateDoc(userDoc, {
-        [`categoryResetTimes.${categoryId}`]: timestamp
-      })
+
+      // Use setDoc with merge to handle both new and existing documents
+      await setDoc(userDoc, {
+        categoryResetTimes: {
+          [categoryId]: timestamp
+        }
+      }, { merge: true })
+
       devLog(`💾 Saved reset time for category ${categoryId}:`, new Date(timestamp).toISOString())
     } catch (error) {
       prodError('❌ Error saving category reset time:', error)
@@ -791,22 +932,41 @@ class QuestionUsageTracker {
     const { replaceMode = false } = options
     if (!this.currentUserId) {
       devWarn('⚠️ Cannot sync: No user ID set')
+      this.syncComplete = true // Mark as complete even on failure
       return { synced: 0, categories: {} }
     }
 
     // Check if already synced this session
     const syncKey = `usage_synced_${this.currentUserId}`
     if (sessionStorage.getItem(syncKey) === 'true') {
-      devLog('⏭️ Usage already synced this session, skipping')
-      return { synced: 0, categories: {} }
+      // Verify that sync actually resulted in data - if not, force re-sync
+      const existingData = await this.getUsageData()
+      const usedCount = Object.values(existingData).filter(v => v > 0).length
+      if (usedCount > 0) {
+        devLog(`⏭️ Usage already synced this session (${usedCount} used), skipping`)
+        this.syncComplete = true // Mark as complete
+        return { synced: 0, categories: {} }
+      } else {
+        devLog('⚠️ Session flag set but no used questions found - forcing re-sync')
+        sessionStorage.removeItem(syncKey) // Clear the flag to allow re-sync
+      }
     }
 
     // Prevent concurrent sync operations
     if (this.syncInProgress) {
-      devLog('⏳ Sync already in progress, skipping')
+      devLog('⏳ Sync already in progress, waiting...')
+      // Return the existing promise so callers can wait
+      if (this.syncPromise) {
+        return this.syncPromise
+      }
       return { synced: 0, categories: {} }
     }
     this.syncInProgress = true
+
+    // Create sync promise for other components to wait on
+    this.syncPromise = new Promise(resolve => {
+      this.syncResolve = resolve
+    })
 
     devLog('🔄 Syncing usage data from game history...')
 
@@ -816,17 +976,30 @@ class QuestionUsageTracker {
         // No games found - DON'T clear existing data, just mark as synced
         // This prevents data loss if the query fails
         sessionStorage.setItem(syncKey, 'true')
-        return { synced: 0, categories: {} }
+
+        // Still resolve sync promise so waiting components can proceed
+        const result = { synced: 0, categories: {} }
+        this.syncComplete = true
+        if (this.syncResolve) {
+          this.syncResolve(result)
+        }
+        return result
       }
 
       // Get reset timestamps to filter out old games
       const { lastResetTime, categoryResetTimes } = await this.getResetTimes()
-      devLog('📅 Reset times:', { lastResetTime: lastResetTime ? new Date(lastResetTime).toISOString() : 'none', categoryResetTimes })
+      const resetCategoryCount = Object.keys(categoryResetTimes).length
+      devLog('📅 Reset times:', {
+        lastResetTime: lastResetTime ? new Date(lastResetTime).toISOString() : 'none',
+        categoryResetCount: resetCategoryCount,
+        categoryResetTimes: resetCategoryCount > 0 ? categoryResetTimes : 'none'
+      })
 
       // Collect all trackingIds from all games' assignedQuestions
       // Also fall back to usedQuestions for older games that don't have assignedQuestions
       const newUsageData = {}
       const categoryBreakdown = {}
+      const skippedByCategory = {} // Track questions skipped due to category reset
       let gamesWithAssigned = 0
       let gamesWithUsed = 0
       let gamesSkippedByReset = 0
@@ -858,7 +1031,7 @@ class QuestionUsageTracker {
             // Skip this question if its category was reset after this game
             const categoryResetTime = categoryResetTimes[catId]
             if (categoryResetTime && gameTime < categoryResetTime) {
-              devLog(`⏭️ Skipping question (category ${catId} reset after game)`)
+              skippedByCategory[catId] = (skippedByCategory[catId] || 0) + 1
               return // Skip this question
             }
 
@@ -892,6 +1065,7 @@ class QuestionUsageTracker {
               // Skip this question if its category was reset after this game
               const categoryResetTime = categoryResetTimes[catId]
               if (categoryResetTime && gameTime < categoryResetTime) {
+                skippedByCategory[catId] = (skippedByCategory[catId] || 0) + 1
                 return // Skip this question
               }
 
@@ -903,6 +1077,29 @@ class QuestionUsageTracker {
       })
 
       devLog(`📊 Sync stats: ${gamesWithAssigned} games with assigned, ${gamesWithUsed} with used fallback, ${gamesSkippedByReset} skipped by reset, ${Object.keys(newUsageData).length} unique questions`)
+
+      // Log skipped questions by category reset
+      const totalSkipped = Object.values(skippedByCategory).reduce((a, b) => a + b, 0)
+      if (totalSkipped > 0) {
+        devLog(`🔄 Skipped ${totalSkipped} questions due to category resets:`, skippedByCategory)
+      }
+
+      // Debug: Show sample of tracking IDs if we have any
+      const sampleIds = Object.keys(newUsageData).slice(0, 3)
+      if (sampleIds.length > 0) {
+        devLog(`📝 Sample tracking IDs from sync:`, sampleIds)
+      }
+
+      // Debug: If no tracking IDs found, log first game's data structure
+      if (Object.keys(newUsageData).length === 0 && games.length > 0) {
+        const firstGame = games[0]
+        devLog('🔍 DEBUG - First game structure:', {
+          hasAssignedQuestions: !!firstGame.gameData?.assignedQuestions,
+          assignedQuestionsCount: Object.keys(firstGame.gameData?.assignedQuestions || {}).length,
+          hasUsedQuestions: !!firstGame.gameData?.usedQuestions,
+          sampleAssignment: firstGame.gameData?.assignedQuestions ? Object.values(firstGame.gameData.assignedQuestions)[0] : null
+        })
+      }
 
       // Handle based on mode
       if (replaceMode) {
@@ -958,10 +1155,26 @@ class QuestionUsageTracker {
       // Mark as synced for this session
       sessionStorage.setItem(syncKey, 'true')
 
-      return {
+      const result = {
         synced: Object.keys(newUsageData).length,
         categories: categoryBreakdown
       }
+
+      // Resolve the sync promise so waiting components can proceed
+      this.syncComplete = true
+      if (this.syncResolve) {
+        this.syncResolve(result)
+      }
+
+      return result
+    } catch (error) {
+      prodError('❌ Error in syncUsageFromGameHistory:', error)
+      // Still mark as complete on error so components don't wait forever
+      this.syncComplete = true
+      if (this.syncResolve) {
+        this.syncResolve({ synced: 0, categories: {} })
+      }
+      throw error
     } finally {
       this.syncInProgress = false
     }
