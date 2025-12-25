@@ -32,6 +32,25 @@ export class FirebaseQuestionsService {
   }
 
   /**
+   * Generate a tracking ID for a question (must match questionUsageTracker.getQuestionId)
+   * @param {Object} question - Question object
+   * @param {string} categoryId - Category ID
+   * @returns {string} Tracking ID
+   */
+  static generateTrackingId(question, categoryId) {
+    // PREFERRED: Use Firebase document ID if available (most unique)
+    if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+      return `${categoryId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+    }
+    // FALLBACK: Use text + answer combination
+    const text = String(question.text || '')
+    const answer = String(question.answer || '')
+    const textPart = text.substring(0, 100)
+    const answerPart = answer.substring(0, 50)
+    return `${categoryId}-${textPart}-${answerPart}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+  }
+
+  /**
    * Get all questions from Firebase
    * @returns {Promise<Array>} Array of questions with their IDs
    */
@@ -1718,6 +1737,235 @@ export class FirebaseQuestionsService {
         flagged: 0,
         approved: 0
       }
+    }
+  }
+
+  // ===== LAZY LOADING METHODS (questionIds) =====
+
+  /**
+   * Get all categories with their questionIds arrays (for lazy loading)
+   * This is a lightweight load - just categories + their tracking IDs, no full questions
+   * @returns {Promise<Array>} Array of categories with questionIds
+   */
+  static async getCategoriesWithQuestionIds() {
+    try {
+      const categoriesRef = collection(db, this.COLLECTIONS.CATEGORIES)
+      const snapshot = await getDocs(categoriesRef)
+
+      const categories = []
+      snapshot.forEach(doc => {
+        const data = doc.data()
+        categories.push({
+          id: doc.id,
+          ...data,
+          questionIds: data.questionIds || [], // Array of tracking IDs
+          questionCount: data.questionIds?.length || 0
+        })
+      })
+
+      devLog(`✅ Loaded ${categories.length} categories with questionIds`)
+      return categories
+    } catch (error) {
+      prodError('Error getting categories with questionIds:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Backfill questionIds for all existing categories
+   * This is a one-time migration function to populate questionIds arrays
+   * @param {Function} progressCallback - Optional callback for progress updates
+   * @returns {Promise<Object>} Results with stats
+   */
+  static async backfillQuestionIds(progressCallback = null) {
+    try {
+      devLog('🔄 Starting questionIds backfill...')
+
+      const results = {
+        categoriesUpdated: 0,
+        questionsProcessed: 0,
+        errors: []
+      }
+
+      // Get all categories
+      const categories = await this.getAllCategories()
+      devLog(`📦 Found ${categories.length} categories to process`)
+
+      // Process each category
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i]
+
+        try {
+          // Get all questions for this category
+          const questions = await this.getQuestionsByCategory(category.id)
+
+          // Generate tracking IDs for all questions
+          const questionIds = questions.map(q => this.generateTrackingId(q, category.id))
+
+          // Update category document with questionIds
+          const categoryRef = doc(db, this.COLLECTIONS.CATEGORIES, category.id)
+          await updateDoc(categoryRef, {
+            questionIds: questionIds,
+            updatedAt: serverTimestamp()
+          })
+
+          results.categoriesUpdated++
+          results.questionsProcessed += questions.length
+
+          devLog(`✅ Updated ${category.name}: ${questions.length} questionIds`)
+
+          if (progressCallback) {
+            progressCallback(i + 1, categories.length, category.name, questions.length)
+          }
+        } catch (error) {
+          prodError(`Error processing category ${category.id}:`, error)
+          results.errors.push({
+            categoryId: category.id,
+            error: error.message
+          })
+        }
+      }
+
+      devLog(`✅ Backfill complete: ${results.categoriesUpdated} categories, ${results.questionsProcessed} questions`)
+      return results
+    } catch (error) {
+      prodError('Error in backfillQuestionIds:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Add a tracking ID to a category's questionIds array
+   * Call this after adding a new question
+   * @param {string} categoryId - Category ID
+   * @param {string} trackingId - Tracking ID to add
+   * @returns {Promise<void>}
+   */
+  static async addQuestionIdToCategory(categoryId, trackingId) {
+    try {
+      const categoryRef = doc(db, this.COLLECTIONS.CATEGORIES, categoryId)
+      await updateDoc(categoryRef, {
+        questionIds: arrayUnion(trackingId),
+        updatedAt: serverTimestamp()
+      })
+      devLog(`✅ Added tracking ID to category ${categoryId}`)
+    } catch (error) {
+      prodError('Error adding questionId to category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Remove a tracking ID from a category's questionIds array
+   * Call this after deleting a question
+   * @param {string} categoryId - Category ID
+   * @param {string} trackingId - Tracking ID to remove
+   * @returns {Promise<void>}
+   */
+  static async removeQuestionIdFromCategory(categoryId, trackingId) {
+    try {
+      // arrayRemove is needed - import it
+      const { arrayRemove } = await import('firebase/firestore')
+
+      const categoryRef = doc(db, this.COLLECTIONS.CATEGORIES, categoryId)
+      await updateDoc(categoryRef, {
+        questionIds: arrayRemove(trackingId),
+        updatedAt: serverTimestamp()
+      })
+      devLog(`✅ Removed tracking ID from category ${categoryId}`)
+    } catch (error) {
+      prodError('Error removing questionId from category:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Add a single question and update category's questionIds
+   * @param {string} categoryId - The category ID to add the question to
+   * @param {Object} questionData - The question data
+   * @returns {Promise<string>} The ID of the added question
+   */
+  static async addSingleQuestionWithTracking(categoryId, questionData) {
+    try {
+      devLog('Adding single question with tracking to category:', categoryId)
+
+      // Prepare the question data with all required fields
+      const questionWithMetadata = {
+        ...questionData,
+        categoryId: categoryId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }
+
+      // Add the question to Firebase
+      const docRef = await addDoc(collection(db, this.COLLECTIONS.QUESTIONS), questionWithMetadata)
+      devLog('Single question added with ID:', docRef.id)
+
+      // Generate tracking ID and add to category
+      const questionWithId = { ...questionWithMetadata, id: docRef.id }
+      const trackingId = this.generateTrackingId(questionWithId, categoryId)
+      await this.addQuestionIdToCategory(categoryId, trackingId)
+
+      return docRef.id
+    } catch (error) {
+      prodError('Error adding single question with tracking:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete a question and update category's questionIds
+   * @param {string} questionId - The question document ID
+   * @param {string} categoryId - The category ID
+   * @param {Object} questionData - The question data (needed to generate tracking ID)
+   * @returns {Promise<void>}
+   */
+  static async deleteQuestionWithTracking(questionId, categoryId, questionData) {
+    try {
+      devLog('Deleting question with tracking:', questionId)
+
+      // Generate tracking ID before deletion
+      const trackingId = this.generateTrackingId({ id: questionId, ...questionData }, categoryId)
+
+      // Delete the question
+      await deleteDoc(doc(db, this.COLLECTIONS.QUESTIONS, questionId))
+      devLog(`Question ${questionId} deleted successfully`)
+
+      // Remove tracking ID from category
+      await this.removeQuestionIdFromCategory(categoryId, trackingId)
+    } catch (error) {
+      prodError('Error deleting question with tracking:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get questions for specific categories only (lazy loading)
+   * Use this when user starts a game - load only selected categories
+   * @param {Array<string>} categoryIds - Array of category IDs to load
+   * @returns {Promise<Object>} Questions grouped by category
+   */
+  static async getQuestionsForCategories(categoryIds) {
+    try {
+      devLog(`📥 Loading questions for ${categoryIds.length} categories...`)
+
+      const questionsByCategory = {}
+
+      // Load questions for each category in parallel
+      const promises = categoryIds.map(async (categoryId) => {
+        const questions = await this.getQuestionsByCategory(categoryId)
+        questionsByCategory[categoryId] = questions
+        return { categoryId, count: questions.length }
+      })
+
+      const results = await Promise.all(promises)
+      const totalQuestions = results.reduce((sum, r) => sum + r.count, 0)
+
+      devLog(`✅ Loaded ${totalQuestions} questions for ${categoryIds.length} categories`)
+      return questionsByCategory
+    } catch (error) {
+      prodError('Error loading questions for categories:', error)
+      throw error
     }
   }
 }

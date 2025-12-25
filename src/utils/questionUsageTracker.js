@@ -284,10 +284,11 @@ class QuestionUsageTracker {
 
   /**
    * Update the question pool with current game data
-   * @param {Object} gameData - Game data with questions and categories
+   * Supports both full questions mode and lazy loading mode (questionIds only)
+   * @param {Object} gameData - Game data with questions and/or categories with questionIds
    */
   async updateQuestionPool(gameData) {
-    if (!gameData || !gameData.questions) return
+    if (!gameData) return
 
     // Skip if already updated in this session or currently updating
     if (this.poolUpdatedInSession) {
@@ -303,33 +304,54 @@ class QuestionUsageTracker {
     this.poolUpdateInProgress = true
 
     try {
-      const totalQuestions = Object.values(gameData.questions).flat()
-      const currentPoolSize = totalQuestions.length
+      // Check if we have full questions or just questionIds (lazy loading)
+      const hasFullQuestions = gameData.questions && Object.keys(gameData.questions).length > 0
+      const hasQuestionIds = gameData.categories?.some(c => c.questionIds?.length > 0)
 
-      devLog(`📊 Current question pool size: ${currentPoolSize}`)
-      await this.savePoolSize(currentPoolSize)
+      if (!hasFullQuestions && !hasQuestionIds) {
+        devLog('⚠️ No questions or questionIds available, skipping pool update')
+        return
+      }
 
-      // Initialize usage tracking for new questions
-      // IMPORTANT: Use categoryId from the key, not from question.category
-      // This ensures consistent ID generation across all functions
-      const usageData = await this.getUsageData()
-      let newQuestionsCount = 0
+      let currentPoolSize = 0
 
-      // Iterate by category to ensure we use the correct categoryId (the key)
-      Object.entries(gameData.questions).forEach(([categoryId, questions]) => {
-        questions.forEach(question => {
-          // Use categoryId from key, not question.category (which might be the name)
-          const questionId = this.getQuestionId(question, categoryId)
-          if (!usageData[questionId]) {
-            usageData[questionId] = 0
-            newQuestionsCount++
-          }
+      if (hasFullQuestions) {
+        // Full questions mode - count from questions object
+        const totalQuestions = Object.values(gameData.questions).flat()
+        currentPoolSize = totalQuestions.length
+
+        devLog(`📊 Current question pool size (full mode): ${currentPoolSize}`)
+        await this.savePoolSize(currentPoolSize)
+
+        // Initialize usage tracking for new questions
+        const usageData = await this.getUsageData()
+        let newQuestionsCount = 0
+
+        Object.entries(gameData.questions).forEach(([categoryId, questions]) => {
+          questions.forEach(question => {
+            const questionId = this.getQuestionId(question, categoryId)
+            if (!usageData[questionId]) {
+              usageData[questionId] = 0
+              newQuestionsCount++
+            }
+          })
         })
-      })
 
-      if (newQuestionsCount > 0) {
-        devLog(`✨ Added ${newQuestionsCount} new questions to tracking`)
-        await this.saveUsageData(usageData)
+        if (newQuestionsCount > 0) {
+          devLog(`✨ Added ${newQuestionsCount} new questions to tracking`)
+          await this.saveUsageData(usageData)
+        }
+      } else if (hasQuestionIds) {
+        // Lazy loading mode - count from questionIds arrays
+        currentPoolSize = gameData.categories.reduce((total, cat) => {
+          return total + (cat.questionIds?.length || 0)
+        }, 0)
+
+        devLog(`📊 Current question pool size (lazy mode): ${currentPoolSize}`)
+        await this.savePoolSize(currentPoolSize)
+
+        // In lazy mode, we don't add new tracking entries here
+        // They will be added when questions are actually loaded for a game
       }
 
       this.poolUpdatedInSession = true
@@ -954,6 +976,137 @@ class QuestionUsageTracker {
       const syncKey = `usage_synced_${this.currentUserId}`
       sessionStorage.removeItem(syncKey)
       devLog('🔄 Sync cache invalidated, will re-sync on next load')
+    }
+  }
+
+  /**
+   * Force rebuild usage data from game history
+   * This bypasses session checks and completely rebuilds usageData
+   * Use this after backfill migration to ensure tracking IDs match
+   * @param {Array} games - Array of all user games from Firebase
+   * @returns {Promise<{synced: number, categories: Object}>} Rebuild stats
+   */
+  async forceRebuildUsageData(games) {
+    if (!this.currentUserId) {
+      devWarn('⚠️ Cannot rebuild: No user ID set')
+      return { synced: 0, categories: {} }
+    }
+
+    devLog('🔄 Force rebuilding usage data from game history...')
+
+    try {
+      if (!games || games.length === 0) {
+        devLog('📭 No games found - clearing usage data')
+        this.localCache = {}
+        await this.saveUsageData({}, true)
+        return { synced: 0, categories: {} }
+      }
+
+      // Get reset timestamps to filter out old games
+      const { lastResetTime, categoryResetTimes } = await this.getResetTimes()
+
+      // Collect all trackingIds from all games
+      const newUsageData = {}
+      const categoryBreakdown = {}
+      let gamesWithAssigned = 0
+      let gamesWithUsed = 0
+      let gamesSkipped = 0
+
+      games.forEach(game => {
+        // Get game timestamp
+        const gameTime = game.createdAt?.toDate?.()?.getTime() ||
+                         game.createdAt?.getTime?.() ||
+                         (typeof game.createdAt === 'number' ? game.createdAt : null) ||
+                         game.gameData?.playedAt ||
+                         0
+
+        // Skip game if older than full reset
+        if (lastResetTime && gameTime < lastResetTime) {
+          gamesSkipped++
+          return
+        }
+
+        const assignedQuestions = game.gameData?.assignedQuestions
+        const usedQuestions = game.gameData?.usedQuestions
+
+        // Prefer assignedQuestions (newer format with trackingId)
+        if (assignedQuestions && Object.keys(assignedQuestions).length > 0) {
+          gamesWithAssigned++
+          Object.values(assignedQuestions).forEach(assignment => {
+            const catId = assignment.categoryId || 'unknown'
+
+            // Skip if category was reset after this game
+            const categoryResetTime = categoryResetTimes[catId]
+            if (categoryResetTime && gameTime < categoryResetTime) {
+              return
+            }
+
+            // Use trackingId from assignment (preferred)
+            // This is the exact ID stored when game was created
+            let trackingId = assignment.trackingId
+
+            // Fallback: generate from categoryId + questionId
+            if (!trackingId && assignment.categoryId && assignment.questionId) {
+              trackingId = `${assignment.categoryId}-${assignment.questionId}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+            }
+
+            if (trackingId) {
+              newUsageData[trackingId] = 1
+              categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
+            }
+          })
+        }
+        // Fallback to usedQuestions for older games
+        else if (usedQuestions) {
+          gamesWithUsed++
+          const usedKeys = Array.isArray(usedQuestions)
+            ? usedQuestions
+            : Object.keys(usedQuestions)
+
+          usedKeys.forEach(key => {
+            if (key && typeof key === 'string') {
+              const catId = key.split('-')[0] || 'unknown'
+
+              // Skip if category was reset after this game
+              const categoryResetTime = categoryResetTimes[catId]
+              if (categoryResetTime && gameTime < categoryResetTime) {
+                return
+              }
+
+              // Note: usedQuestions keys are button keys like "categoryId-points"
+              // These don't match the new questionIds format, but we store them anyway
+              // for older games that don't have assignedQuestions
+              newUsageData[key] = 1
+              categoryBreakdown[catId] = (categoryBreakdown[catId] || 0) + 1
+            }
+          })
+        }
+      })
+
+      devLog(`📊 Rebuild stats: ${gamesWithAssigned} games with assignedQuestions, ${gamesWithUsed} with usedQuestions, ${gamesSkipped} skipped`)
+      devLog(`📊 Total: ${Object.keys(newUsageData).length} unique tracking IDs`)
+
+      // Save the rebuilt data
+      this.localCache = newUsageData
+      await this.saveUsageData(newUsageData, true)
+
+      // Clear session sync flag to allow normal sync next time
+      const syncKey = `usage_synced_${this.currentUserId}`
+      sessionStorage.setItem(syncKey, 'true')
+
+      devLog(`✅ Usage data rebuilt: ${Object.keys(newUsageData).length} questions marked as used`)
+
+      return {
+        synced: Object.keys(newUsageData).length,
+        categories: categoryBreakdown,
+        gamesProcessed: gamesWithAssigned + gamesWithUsed,
+        gamesWithAssigned,
+        gamesWithUsed,
+        gamesSkipped
+      }
+    } catch (error) {
+      prodError('❌ Error rebuilding usage data:', error)
+      throw error
     }
   }
 }

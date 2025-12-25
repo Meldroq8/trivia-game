@@ -7,7 +7,7 @@ import { FirebaseQuestionsService } from '../utils/firebaseQuestions'
 import { debugFirebaseAuth, testFirebaseConnection } from '../utils/firebaseDebug'
 import { GameDataLoader } from '../utils/gameDataLoader'
 import { getTextDirection, formatText } from '../utils/textDirection'
-import { deleteField, doc, deleteDoc, getDoc, collection, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { deleteField, doc, deleteDoc, getDoc, getDocs, collection, setDoc, serverTimestamp, updateDoc, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../hooks/useAuth'
 import { AuthService } from '../firebase/authService'
@@ -883,6 +883,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
         if (!isMergedCategory) {
           // First, delete all questions with this categoryId
           // This handles both regular categories and "orphaned" categories
+          // Note: Since category will be deleted, we use simple delete (no need to update questionIds)
           devLog(`🗑️ Deleting all questions with categoryId: ${categoryId}`)
           const categoryQuestions = questions[categoryId] || []
 
@@ -2203,7 +2204,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
     try {
       if (question.id) {
-        await FirebaseQuestionsService.deleteQuestion(question.id)
+        // Delete with tracking to update category's questionIds
+        await FirebaseQuestionsService.deleteQuestionWithTracking(
+          question.id,
+          question.categoryId,
+          question
+        )
       }
 
       // Update local state
@@ -2653,8 +2659,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
               categoryId: targetCategoryId,
               categoryName: bulkCategoryName
             })
-            // Use addSingleQuestion which properly associates the question with the category
-            const addedQuestionId = await FirebaseQuestionsService.addSingleQuestion(targetCategoryId, question)
+            // Use addSingleQuestionWithTracking to also update category's questionIds
+            const addedQuestionId = await FirebaseQuestionsService.addSingleQuestionWithTracking(targetCategoryId, question)
             devLog(`✅ Question ${i + 1} added with ID:`, addedQuestionId)
             addedCount++
             success = true
@@ -2781,8 +2787,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
         if (questionToDelete?.id) {
           devLog(`🗑️ Deleting question from Firebase: ${questionToDelete.id}`)
-          // Delete from Firebase first
-          await FirebaseQuestionsService.deleteQuestion(questionToDelete.id)
+          // Delete from Firebase and update category's questionIds
+          await FirebaseQuestionsService.deleteQuestionWithTracking(
+            questionToDelete.id,
+            categoryId,
+            questionToDelete
+          )
           devLog(`✅ Question deleted from Firebase successfully`)
         } else {
           devWarn('⚠️ Question has no Firebase ID, skipping Firebase deletion')
@@ -3617,11 +3627,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       })
 
       if (isAdmin) {
-        // Admins can directly add questions
-        await FirebaseQuestionsService.addSingleQuestion(singleQuestion.categoryId, newQuestion)
+        // Admins can directly add questions with tracking
+        await FirebaseQuestionsService.addSingleQuestionWithTracking(singleQuestion.categoryId, newQuestion)
 
         // Clear cache and force refresh to show new question immediately
         GameDataLoader.clearCache()
+        GameDataLoader.clearCategoriesCache() // Also clear categories cache for lazy loading
         await loadDataForceRefresh()
 
         // Expand the category where the question was added to show it immediately
@@ -5994,6 +6005,11 @@ function SettingsManager() {
   const [savingRules, setSavingRules] = useState(false)
   const [migratingLeaderboard, setMigratingLeaderboard] = useState(false)
   const [migrationResult, setMigrationResult] = useState(null)
+  const [backfillingQuestionIds, setBackfillingQuestionIds] = useState(false)
+  const [rebuildingUsage, setRebuildingUsage] = useState(false)
+  const [usageRebuildResult, setUsageRebuildResult] = useState(null)
+  const [backfillResult, setBackfillResult] = useState(null)
+  const [backfillProgress, setBackfillProgress] = useState(null)
 
   const { getAppSettings, saveAppSettings } = useAuth()
 
@@ -6419,6 +6435,94 @@ function SettingsManager() {
       setMigrationResult({ success: false, error: error.message })
     } finally {
       setMigratingLeaderboard(false)
+    }
+  }
+
+  const handleBackfillQuestionIds = async () => {
+    if (!window.confirm('هل تريد تحديث معرفات الأسئلة لجميع الفئات؟\n\nهذا ضروري لتفعيل التحميل البطيء (Lazy Loading) وتحسين الأداء.\n\nقد يستغرق هذا بعض الوقت حسب عدد الأسئلة.')) {
+      return
+    }
+
+    setBackfillingQuestionIds(true)
+    setBackfillResult(null)
+    setBackfillProgress(null)
+    try {
+      const result = await FirebaseQuestionsService.backfillQuestionIds((current, total, categoryName, questionCount) => {
+        setBackfillProgress({ current, total, categoryName, questionCount })
+      })
+      // Clear all caches after backfill so new questionIds are loaded
+      GameDataLoader.clearCache()
+      GameDataLoader.clearCategoriesCache()
+      setBackfillResult({ success: true, ...result })
+    } catch (error) {
+      prodError('Error backfilling questionIds:', error)
+      setBackfillResult({ success: false, error: error.message })
+    } finally {
+      setBackfillingQuestionIds(false)
+      setBackfillProgress(null)
+    }
+  }
+
+  const handleRebuildAllUsersUsage = async () => {
+    if (!window.confirm('هل تريد إعادة بناء بيانات استخدام الأسئلة لجميع المستخدمين؟\n\nهذا سيجعل عدادات الأسئلة تعكس الألعاب الفعلية المسجلة.\n\nقد يستغرق هذا بضع دقائق.')) {
+      return
+    }
+
+    setRebuildingUsage(true)
+    setUsageRebuildResult(null)
+    try {
+      // Import questionUsageTracker
+      const { questionUsageTracker } = await import('../utils/questionUsageTracker')
+
+      // Get all users
+      const usersSnapshot = await getDocs(collection(db, 'users'))
+      const users = []
+      usersSnapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }))
+
+      let usersProcessed = 0
+      let totalQuestionsMarked = 0
+      const errors = []
+
+      for (const user of users) {
+        try {
+          // Get all games for this user from /games collection
+          const gamesQuery = query(
+            collection(db, 'games'),
+            where('userId', '==', user.id)
+          )
+          const gamesSnapshot = await getDocs(gamesQuery)
+          const games = []
+          gamesSnapshot.forEach(doc => games.push({ id: doc.id, ...doc.data() }))
+
+          if (games.length > 0) {
+            // Set user ID and rebuild their usage data
+            questionUsageTracker.setUserId(user.id)
+            const result = await questionUsageTracker.forceRebuildUsageData(games)
+            totalQuestionsMarked += result.synced
+            usersProcessed++
+            devLog(`✅ Rebuilt usage for ${user.email || user.id}: ${result.synced} questions from ${result.gamesProcessed} games`)
+          }
+        } catch (error) {
+          prodError(`Error rebuilding usage for user ${user.id}:`, error)
+          errors.push({ userId: user.id, error: error.message })
+        }
+      }
+
+      // Clear caches
+      GameDataLoader.clearCache()
+      GameDataLoader.clearCategoriesCache()
+
+      setUsageRebuildResult({
+        success: true,
+        usersProcessed,
+        totalQuestionsMarked,
+        errors: errors.length > 0 ? errors : null
+      })
+    } catch (error) {
+      prodError('Error rebuilding usage data:', error)
+      setUsageRebuildResult({ success: false, error: error.message })
+    } finally {
+      setRebuildingUsage(false)
     }
   }
 
@@ -6941,6 +7045,98 @@ function SettingsManager() {
               <p>✅ تم نقل {migrationResult.count} مستخدم بنجاح!</p>
             ) : (
               <p>❌ حدث خطأ: {migrationResult.error}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Question IDs Backfill Section */}
+      <div className="bg-white p-6 rounded-xl shadow-md border">
+        <h3 className="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2">
+          <span>⚡</span>
+          تحسين الأداء (Lazy Loading)
+        </h3>
+        <p className="text-gray-600 mb-4">
+          تحديث معرفات الأسئلة لجميع الفئات لتفعيل التحميل البطيء. هذا يقلل من حجم البيانات المحملة ويحسن سرعة التطبيق.
+        </p>
+
+        <button
+          onClick={handleBackfillQuestionIds}
+          disabled={backfillingQuestionIds}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2"
+        >
+          {backfillingQuestionIds ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              جاري التحديث...
+            </>
+          ) : (
+            <>
+              <span>🔄</span>
+              تحديث معرفات الأسئلة
+            </>
+          )}
+        </button>
+
+        {backfillProgress && (
+          <div className="mt-4 p-4 rounded-lg bg-blue-50 text-blue-800">
+            <p>جاري معالجة: {backfillProgress.categoryName} ({backfillProgress.questionCount} سؤال)</p>
+            <div className="w-full bg-blue-200 rounded-full h-2.5 mt-2">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${(backfillProgress.current / backfillProgress.total) * 100}%` }}
+              ></div>
+            </div>
+            <p className="text-sm mt-1">{backfillProgress.current} / {backfillProgress.total}</p>
+          </div>
+        )}
+
+        {backfillResult && (
+          <div className={`mt-4 p-4 rounded-lg ${backfillResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {backfillResult.success ? (
+              <p>✅ تم تحديث {backfillResult.categoriesUpdated} فئة ({backfillResult.questionsProcessed} سؤال) بنجاح!</p>
+            ) : (
+              <p>❌ حدث خطأ: {backfillResult.error}</p>
+            )}
+          </div>
+        )}
+
+        <hr className="my-6 border-gray-200" />
+
+        <h4 className="text-lg font-bold mb-2 text-gray-700">إعادة بناء بيانات الاستخدام</h4>
+        <p className="text-gray-600 mb-4">
+          إعادة بناء بيانات استخدام الأسئلة لجميع المستخدمين بناءً على سجل الألعاب. استخدم هذا بعد تحديث معرفات الأسئلة.
+        </p>
+
+        <button
+          onClick={handleRebuildAllUsersUsage}
+          disabled={rebuildingUsage}
+          className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2"
+        >
+          {rebuildingUsage ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              جاري إعادة البناء...
+            </>
+          ) : (
+            <>
+              <span>🔧</span>
+              إعادة بناء بيانات الاستخدام
+            </>
+          )}
+        </button>
+
+        {usageRebuildResult && (
+          <div className={`mt-4 p-4 rounded-lg ${usageRebuildResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {usageRebuildResult.success ? (
+              <>
+                <p>✅ تم إعادة بناء بيانات {usageRebuildResult.usersProcessed} مستخدم ({usageRebuildResult.totalQuestionsMarked} سؤال مستخدم)</p>
+                {usageRebuildResult.errors && (
+                  <p className="text-orange-700 mt-2">⚠️ فشل لـ {usageRebuildResult.errors.length} مستخدم</p>
+                )}
+              </>
+            ) : (
+              <p>❌ حدث خطأ: {usageRebuildResult.error}</p>
             )}
           </div>
         )}

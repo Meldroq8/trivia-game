@@ -261,16 +261,17 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       return
     }
 
-    // Load categories from Firebase with local cache
+    // Load categories from Firebase with local cache (LAZY LOADING - no questions)
     const loadData = async () => {
       try {
         setLoadingError(null)
 
-        devLog('🎮 CategorySelection: Loading game data...')
-        const gameData = await GameDataLoader.loadGameData()
+        devLog('🎮 CategorySelection: Loading categories only (lazy mode)...')
+        // Use loadCategoriesOnly for lightweight initial load
+        const gameData = await GameDataLoader.loadCategoriesOnly()
 
         if (gameData && gameData.categories) {
-          devLog('🔍 CategorySelection: All categories loaded:', gameData.categories)
+          devLog('🔍 CategorySelection: All categories loaded:', gameData.categories.length)
           const mysteryCategory = gameData.categories.find(cat => cat.id === 'mystery')
           if (mysteryCategory) {
             devLog('🔍 CategorySelection: Mystery category found:', mysteryCategory)
@@ -278,7 +279,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
           }
           setAvailableCategories(gameData.categories)
           setGameData(gameData)
-          devLog('✅ CategorySelection: Loaded', gameData.categories.length, 'categories')
+          devLog('✅ CategorySelection: Loaded', gameData.categories.length, 'categories (lazy mode)')
 
           // Load master categories and initialize all as expanded
           if (gameData.masterCategories) {
@@ -293,10 +294,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             devLog('✅ CategorySelection: Loaded', gameData.masterCategories.length, 'master categories')
           }
 
-          // Update question pool for global usage tracking (only if user is set)
+          // Set user ID for question usage tracking (no updateQuestionPool needed with lazy loading)
           if (user?.uid) {
-            questionUsageTracker.setUserId(user.uid) // Ensure user ID is set
-            questionUsageTracker.updateQuestionPool(gameData)
+            questionUsageTracker.setUserId(user.uid)
           } else {
             devLog('⏳ CategorySelection: Delaying questionUsageTracker until user is authenticated')
           }
@@ -550,7 +550,21 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       // Pre-assign questions to all button slots and mark as used (paid game - questions reserved)
       const preAssignedQuestions = {}
 
-      if (gameData && gameData.questions) {
+      // LAZY LOADING: Load full questions for selected categories if not already loaded
+      let questionsData = gameData.questions || {}
+      if (gameData.lazyLoaded || Object.keys(questionsData).length === 0) {
+        devLog('📥 Lazy loading: Fetching questions for selected categories...')
+        try {
+          questionsData = await GameDataLoader.loadQuestionsForCategories(selectedCategories)
+          devLog('✅ Loaded questions for', Object.keys(questionsData).length, 'categories')
+        } catch (error) {
+          prodError('❌ Failed to load questions:', error)
+          setIsStartingGame(false)
+          return
+        }
+      }
+
+      if (questionsData && Object.keys(questionsData).length > 0) {
         // Get current usage data to filter out already-used questions
         const usageData = await questionUsageTracker.getUsageData()
 
@@ -589,7 +603,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
         // For each selected category, pre-assign questions to all 6 buttons (3 point values × 2 buttons)
         for (const categoryId of selectedCategories) {
-          const categoryQuestions = gameData.questions[categoryId]
+          const categoryQuestions = questionsData[categoryId]
           if (!categoryQuestions || !Array.isArray(categoryQuestions)) continue
 
           const category = gameData.categories?.find(c => c.id === categoryId)
@@ -690,7 +704,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
   // Load question counts asynchronously
   const loadQuestionCounts = async () => {
-    if (!gameData || !gameData.questions) return
+    if (!gameData || !gameData.categories) return
 
     // Ensure user ID is set before getting question counts
     if (user?.uid) {
@@ -700,69 +714,59 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     // Load usage data ONCE (not per category)
     const usageData = await questionUsageTracker.getUsageData()
 
-    // Helper to generate question ID (use categoryId from iteration, not question's own category)
-    // MUST match questionUsageTracker.getQuestionId logic exactly!
-    const getQuestionId = (question, categoryId) => {
-      // PREFERRED: Use Firebase document ID if available (most unique)
-      if (question.id && typeof question.id === 'string' && question.id.length > 5) {
-        return `${categoryId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-      }
-      // FALLBACK: Use text + answer with MORE characters
-      const text = String(question.text || question.question?.text || '')
-      const answer = String(question.answer || question.question?.answer || '')
-      return `${categoryId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-    }
-
     const counts = {}
     const rawCounts = {}
 
-    // Debug: Log ALL category IDs with their names
-    const allCategoryIds = Object.keys(gameData.questions)
-    const categoryIdToName = {}
-    gameData.categories?.forEach(cat => {
-      categoryIdToName[cat.id] = cat.name
-    })
-    const categoriesWithNames = allCategoryIds.map(id => ({ id, name: categoryIdToName[id] || 'Unknown' }))
-    const matchingCategories = categoriesWithNames.filter(c =>
-      c.name?.includes('امثال') || c.name?.includes('الغاز') || c.name?.includes('أمثال') || c.name?.includes('ألغاز')
-    )
-    devLog(`🔍 DEBUG ALL Categories with names:`, categoriesWithNames)
-    devLog(`🔍 DEBUG Categories matching امثال/الغاز: ${matchingCategories.length}`, matchingCategories)
-
-    // Count questions for all categories locally (no Firebase calls per category)
-    for (const categoryId of Object.keys(gameData.questions)) {
-      const categoryQuestions = gameData.questions[categoryId]
-      if (!categoryQuestions) continue
-
-      // Debug logging for امثال و الغاز (use category name, not ID)
-      const categoryName = categoryIdToName[categoryId] || ''
-      const isDebugCategory = categoryName.includes('امثال') || categoryName.includes('الغاز') ||
-                              categoryName.includes('أمثال') || categoryName.includes('ألغاز')
-
-      // Count available (unused) questions locally
-      let usedCount = 0
-      const availableCount = categoryQuestions.filter(question => {
-        const questionId = getQuestionId(question, categoryId)
-        const isUsed = usageData[questionId] && usageData[questionId] > 0
-        if (isUsed) usedCount++
-
-        // Debug: log each question ID for the problem category
-        if (isDebugCategory && isUsed) {
-          devLog(`🔍 DEBUG ${categoryId}: Used question ID = ${questionId}`)
-        }
-
-        return !isUsed
-      }).length
-
-      if (isDebugCategory) {
-        devLog(`📊 DEBUG ${categoryName} (${categoryId}): Total=${categoryQuestions.length}, Used=${usedCount}, Available=${availableCount}`)
-        // Also log all usage data keys that START with this category ID
-        const categoryUsageKeys = Object.keys(usageData).filter(key => key.startsWith(categoryId))
-        devLog(`🔑 DEBUG Usage keys for ${categoryName}: ${categoryUsageKeys.length} entries`, categoryUsageKeys)
+    // Helper to generate question ID (must match questionUsageTracker.getQuestionId)
+    const getQuestionId = (question, categoryId) => {
+      if (question.id && typeof question.id === 'string' && question.id.length > 5) {
+        return `${categoryId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
       }
+      const text = String(question.text || '')
+      const answer = String(question.answer || '')
+      return `${categoryId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
+    }
 
-      rawCounts[categoryId] = availableCount
-      counts[categoryId] = Math.round(availableCount / 6)
+    // Check if we have full questions loaded (old method) or just questionIds (lazy loading)
+    const hasFullQuestions = gameData.questions && Object.keys(gameData.questions).length > 0
+    const hasQuestionIds = gameData.categories.some(c => c.questionIds?.length > 0)
+
+    devLog(`📊 Count Mode: ${hasFullQuestions ? 'Full Questions' : hasQuestionIds ? 'QuestionIds (Lazy)' : 'No Data'}`)
+
+    for (const category of gameData.categories) {
+      const categoryId = category.id
+      const questionIds = category.questionIds || []
+      const categoryQuestions = hasFullQuestions ? (gameData.questions[categoryId] || []) : []
+
+      // Use full questions if available, otherwise use questionIds
+      if (hasFullQuestions && categoryQuestions.length > 0) {
+        // OLD METHOD: Count from full questions
+        let usedCount = 0
+        const availableCount = categoryQuestions.filter(question => {
+          const qId = getQuestionId(question, categoryId)
+          const isUsed = usageData[qId] && usageData[qId] > 0
+          if (isUsed) usedCount++
+          return !isUsed
+        }).length
+
+        rawCounts[categoryId] = availableCount
+        counts[categoryId] = Math.round(availableCount / 6)
+      } else if (questionIds.length > 0) {
+        // LAZY LOADING: Count from questionIds
+        let usedCount = 0
+        const availableCount = questionIds.filter(trackingId => {
+          const isUsed = usageData[trackingId] && usageData[trackingId] > 0
+          if (isUsed) usedCount++
+          return !isUsed
+        }).length
+
+        rawCounts[categoryId] = availableCount
+        counts[categoryId] = Math.round(availableCount / 6)
+      } else {
+        // No data - show 0
+        rawCounts[categoryId] = 0
+        counts[categoryId] = 0
+      }
     }
 
     // Special handling for Mystery Category
@@ -951,16 +955,24 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     setShowCategoryInfo(category)
   }
 
-  // Handle category reset
+  // Handle category reset (works with lazy loading - uses questionIds from category)
   const handleCategoryReset = async (e, categoryId) => {
     e.stopPropagation() // Prevent category selection
 
-    if (!gameData || !gameData.questions[categoryId]) {
-      devWarn('No questions found for category reset:', categoryId)
+    // Find category from gameData.categories
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    if (!category) {
+      devWarn('Category not found for reset:', categoryId)
       return
     }
 
-    devLog(`🔄 Resetting category: ${categoryId}`)
+    const questionIds = category.questionIds || []
+    if (questionIds.length === 0) {
+      devWarn('No questionIds found for category reset (needs backfill):', categoryId)
+      return
+    }
+
+    devLog(`🔄 Resetting category: ${categoryId} (${questionIds.length} questions)`)
 
     try {
       // Ensure user ID is set before reset
@@ -968,28 +980,27 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
         questionUsageTracker.setUserId(user.uid)
       }
 
-      const categoryQuestions = gameData.questions[categoryId]
-      await questionUsageTracker.resetCategoryUsage(categoryId, categoryQuestions)
-
-      // Helper to generate question ID (same as loadQuestionCounts)
-      // MUST match questionUsageTracker.getQuestionId logic exactly!
-      const getQuestionId = (question, catId) => {
-        // PREFERRED: Use Firebase document ID if available (most unique)
-        if (question.id && typeof question.id === 'string' && question.id.length > 5) {
-          return `${catId}-${question.id}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-        }
-        // FALLBACK: Use text + answer with MORE characters
-        const text = String(question.text || question.question?.text || '')
-        const answer = String(question.answer || question.question?.answer || '')
-        return `${catId}-${text.substring(0, 100)}-${answer.substring(0, 50)}`.replace(/[^a-zA-Z0-9\u0600-\u06FF]/g, '_')
-      }
-
-      // Refresh counts using local calculation (consistent with loadQuestionCounts)
+      // Reset usage using questionIds (these ARE the tracking IDs)
+      // We pass fake question objects that the tracker can use to extract tracking IDs
+      // But since questionIds are already tracking IDs, we just need to reset them directly
       const usageData = await questionUsageTracker.getUsageData()
-      const availableCount = categoryQuestions.filter(question => {
-        const questionId = getQuestionId(question, categoryId)
-        return !usageData[questionId] || usageData[questionId] === 0
-      }).length
+
+      // Reset all questions in this category
+      const resetData = { ...usageData }
+      questionIds.forEach(trackingId => {
+        if (resetData[trackingId] !== undefined) {
+          resetData[trackingId] = 0
+        }
+      })
+
+      // Save the reset data
+      await questionUsageTracker.saveUsageData(resetData, true)
+
+      // Save category reset time to prevent sync from re-marking old games
+      await questionUsageTracker.saveCategoryResetTime(categoryId, Date.now())
+
+      // All questions should now be available
+      const availableCount = questionIds.length
 
       setRawQuestionCounts(prev => ({
         ...prev,
