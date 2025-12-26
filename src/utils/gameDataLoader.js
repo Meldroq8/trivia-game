@@ -9,7 +9,17 @@ import { FirebaseQuestionsService } from './firebaseQuestions'
  * - loadCategoriesOnly(): Loads only categories with their questionIds arrays (lightweight)
  * - loadQuestionsForCategories(categoryIds): Loads full questions for specific categories
  * - loadGameData(): Full load for backward compatibility (downloads everything)
+ *
+ * MEMORY CACHE:
+ * - Module-level cache that survives component remounts
+ * - Use getMemoryCache() for instant synchronous access
+ * - Prevents lag when returning from QuestionView to GameBoard
  */
+
+// Module-level memory cache - survives component remounts
+let memoryCache = null
+let memoryCacheSelectedCategories = null // Track which categories the cache was built for
+
 export class GameDataLoader {
   static CACHE_KEY = 'triviaData'
   static CACHE_TIMESTAMP_KEY = 'triviaDataTimestamp'
@@ -17,6 +27,86 @@ export class GameDataLoader {
   static CATEGORIES_CACHE_KEY = 'triviaCategories'
   static CATEGORIES_CACHE_TIMESTAMP_KEY = 'triviaCategoriesTimestamp'
   static CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours - categories rarely change
+
+  // ============================================
+  // MEMORY CACHE - Instant synchronous access
+  // ============================================
+
+  /**
+   * Get cached game data synchronously (for instant component initialization)
+   * @param {Array<string>} selectedCategories - Current selected categories to validate cache
+   * @returns {Object|null} Cached game data or null if cache is invalid/empty
+   */
+  static getMemoryCache(selectedCategories = null) {
+    if (!memoryCache) {
+      devLog('📭 Memory cache empty')
+      return null
+    }
+
+    // If categories are specified, check if cache matches
+    if (selectedCategories && selectedCategories.length > 0) {
+      const cacheCategories = memoryCacheSelectedCategories || []
+      const categoriesMatch = selectedCategories.every(cat =>
+        cat === 'mystery' || cacheCategories.includes(cat)
+      )
+
+      if (!categoriesMatch) {
+        devLog('🔄 Memory cache categories mismatch - cache invalid')
+        return null
+      }
+    }
+
+    devLog('⚡ Using memory cache for instant render')
+    return memoryCache
+  }
+
+  /**
+   * Save game data to memory cache
+   * @param {Object} data - Game data to cache
+   * @param {Array<string>} selectedCategories - Categories this cache was built for
+   */
+  static setMemoryCache(data, selectedCategories = null) {
+    memoryCache = data
+    memoryCacheSelectedCategories = selectedCategories
+    devLog('💾 Saved to memory cache', {
+      categories: data?.categories?.length || 0,
+      questions: Object.keys(data?.questions || {}).length,
+      selectedCategories: selectedCategories?.length || 0
+    })
+  }
+
+  /**
+   * Merge additional questions into memory cache (for lazy loading)
+   * @param {Object} newQuestions - New questions to merge (keyed by categoryId)
+   */
+  static mergeQuestionsToMemoryCache(newQuestions) {
+    if (!memoryCache) return
+
+    memoryCache = {
+      ...memoryCache,
+      questions: {
+        ...memoryCache.questions,
+        ...newQuestions
+      }
+    }
+    devLog('🔀 Merged questions into memory cache', {
+      newCategories: Object.keys(newQuestions).length,
+      totalQuestions: Object.keys(memoryCache.questions).length
+    })
+  }
+
+  /**
+   * Clear memory cache (call when starting a completely new game)
+   */
+  static clearMemoryCache() {
+    memoryCache = null
+    memoryCacheSelectedCategories = null
+    devLog('🗑️ Memory cache cleared')
+  }
+
+  // ============================================
+  // DATA LOADING METHODS
+  // ============================================
 
   /**
    * Load questions and categories with Firebase-first approach

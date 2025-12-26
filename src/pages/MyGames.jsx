@@ -206,6 +206,9 @@ function MyGames({ gameState, setGameState }) {
     }
 
     try {
+      // Clear memory cache to ensure fresh data for this game's categories
+      GameDataLoader.clearMemoryCache()
+
       // Restore the exact game state
       const savedGameData = selectedGame.gameData
 
@@ -275,6 +278,9 @@ function MyGames({ gameState, setGameState }) {
 
   const handleRestartGame = () => {
     devLog('🆕 Restarting game with exact same questions:', selectedGame)
+
+    // Clear memory cache to ensure fresh data for this game's categories
+    GameDataLoader.clearMemoryCache()
 
     if (!selectedGame?.gameData?.selectedCategories) {
       prodError('❌ No categories to restart with')

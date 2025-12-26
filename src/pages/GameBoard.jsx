@@ -34,9 +34,19 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
   })
   const [headerHeight, setHeaderHeight] = useState(0)
   const [footerHeight, setFooterHeight] = useState(0)
-  const [gameData, setGameData] = useState(null)
+  // Initialize gameData from memory cache for instant render (prevents lag when returning from QuestionView)
+  const [gameData, setGameData] = useState(() => {
+    const cached = GameDataLoader.getMemoryCache(gameState.selectedCategories)
+    if (cached) {
+      devLog('⚡ GameBoard: Initialized with memory cache - instant render!')
+    }
+    return cached
+  })
   const [loadingError, setLoadingError] = useState(null)
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(() => {
+    // If we have cached data, we're already loaded
+    return !!GameDataLoader.getMemoryCache(gameState.selectedCategories)
+  })
   const [loadedImages, setLoadedImages] = useState(new Set())
 
   // Confirmation modal state
@@ -481,58 +491,119 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
   }
 
-  // Load game data from Firebase - runs once per mount
+  // Load game data from Firebase - runs once per mount (or uses memory cache for instant render)
   useEffect(() => {
     // Don't load data until auth check is complete and user is authenticated
     if (authLoading || !isAuthenticated) {
       return
     }
 
+    // INSTANT PATH: If we already have gameData from memory cache, skip loading
+    if (gameData && initialLoadComplete) {
+      devLog('⚡ GameBoard: Already have data from memory cache - skipping load')
+      // Still run deferred operations for question tracking
+      setTimeout(() => {
+        if (user?.uid) {
+          questionUsageTracker.setUserId(user.uid)
+          questionUsageTracker.updateQuestionPool(gameData)
+        }
+      }, 100)
+      return
+    }
+
     const loadGameData = async () => {
       try {
         setLoadingError(null)
-        const data = await GameDataLoader.loadGameData(false) // Use cache if available
 
-        if (data) {
-          setGameData(data)
-          setInitialLoadComplete(true)
+        // OPTIMIZATION: Use lazy loading - only load questions for selected categories
+        // Step 1: Get categories (lightweight, cached)
+        const categoriesData = await GameDataLoader.loadCategoriesOnly(false)
 
-          // Defer non-critical operations to avoid blocking UI
-          setTimeout(() => {
-            // Update question pool for global usage tracking (only if user is set)
-            if (user?.uid) {
-              questionUsageTracker.setUserId(user.uid)
-              questionUsageTracker.updateQuestionPool(data)
-            }
-
-            // Start background preloading (non-blocking)
-            preloadSelectedCategoryImages(data)
-            startSmartPreloading(data)
-
-            // Preload media for current gameboard questions
-            preloadGameBoardMedia(data)
-          }, 100) // Small delay to let UI render first
-        } else {
-          throw new Error('No game data received')
+        if (!categoriesData) {
+          throw new Error('No categories data received')
         }
+
+        // Step 2: Determine which category IDs we need questions for
+        const selectedCategories = gameState.selectedCategories || []
+        const requiredCategoryIds = new Set(selectedCategories.filter(id => id !== 'mystery'))
+
+        // Also include originalCategoryId from mystery question assignments
+        if (gameState.assignedQuestions) {
+          Object.values(gameState.assignedQuestions).forEach(assignment => {
+            if (assignment.originalCategoryId) {
+              requiredCategoryIds.add(assignment.originalCategoryId)
+            }
+          })
+        }
+
+        // Step 3: Load questions only for required categories
+        let questions = {}
+        if (requiredCategoryIds.size > 0) {
+          devLog(`📥 GameBoard: Loading questions for ${requiredCategoryIds.size} categories (lazy mode)`)
+          questions = await GameDataLoader.loadQuestionsForCategories([...requiredCategoryIds])
+        }
+
+        // Step 4: Merge into gameData
+        const data = {
+          ...categoriesData,
+          questions: questions,
+          lazyLoaded: true
+        }
+
+        setGameData(data)
+        setInitialLoadComplete(true)
+
+        // Save to memory cache for instant render on subsequent mounts
+        GameDataLoader.setMemoryCache(data, [...requiredCategoryIds])
+
+        // Defer non-critical operations to avoid blocking UI
+        setTimeout(() => {
+          // Update question pool for global usage tracking (only if user is set)
+          if (user?.uid) {
+            questionUsageTracker.setUserId(user.uid)
+            questionUsageTracker.updateQuestionPool(data)
+          }
+
+          // Start background preloading (non-blocking)
+          preloadSelectedCategoryImages(data)
+          startSmartPreloading(data)
+
+          // Preload media for current gameboard questions
+          preloadGameBoardMedia(data)
+        }, 100) // Small delay to let UI render first
+
+        devLog('✅ GameBoard: Lazy loaded data:', {
+          categories: data.categories?.length || 0,
+          loadedCategories: requiredCategoryIds.size,
+          totalQuestions: Object.values(questions).flat().length
+        })
+
       } catch (error) {
         prodError('❌ GameBoard: Error loading game data:', error)
         setLoadingError(error.message)
 
-        // Try fallback
+        // Try fallback - load everything if lazy loading fails
         try {
-          const fallbackData = await GameDataLoader.loadSampleData()
-          setGameData(fallbackData)
-          setInitialLoadComplete(true)
+          devLog('🔄 GameBoard: Falling back to full load...')
+          const fallbackData = await GameDataLoader.loadGameData(false)
+          if (fallbackData) {
+            setGameData(fallbackData)
+            setInitialLoadComplete(true)
 
-          // Update question pool for global usage tracking with fallback data (only if user is set)
-          if (user?.uid) {
-            questionUsageTracker.setUserId(user.uid)
-            questionUsageTracker.updateQuestionPool(fallbackData)
+            // Save fallback data to memory cache too
+            GameDataLoader.setMemoryCache(fallbackData, gameState.selectedCategories)
+
+            // Update question pool for global usage tracking with fallback data (only if user is set)
+            if (user?.uid) {
+              questionUsageTracker.setUserId(user.uid)
+              questionUsageTracker.updateQuestionPool(fallbackData)
+            }
+
+            // Start smart preloading with fallback data (deferred)
+            setTimeout(() => startSmartPreloading(fallbackData), 100)
+          } else {
+            throw new Error('Fallback also returned no data')
           }
-
-          // Start smart preloading with fallback data (deferred)
-          setTimeout(() => startSmartPreloading(fallbackData), 100)
         } catch (fallbackError) {
           prodError('❌ GameBoard: Fallback failed:', fallbackError)
           setLoadingError('Unable to load game data. Please refresh the page.')
@@ -541,7 +612,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     }
 
     loadGameData()
-  }, [authLoading, isAuthenticated]) // Run when auth is ready
+  }, [authLoading, isAuthenticated, gameState.selectedCategories?.length, gameData, initialLoadComplete]) // Run when auth is ready or categories change
 
   useEffect(() => {
     // Only wait for essential data for dimensions - don't block on everything
@@ -731,9 +802,39 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     const allCategories = gameData?.categories || []
 
     devLog('🔍 Mystery Category Debug:')
-    devLog('  - All categories:', allCategories.map(c => c.name))
-    devLog('  - Selected categories:', selectedCategoryIds)
-    devLog('  - Categories with questions:', Object.keys(gameData?.questions || {}))
+    devLog('  - All categories:', allCategories.length)
+    devLog('  - Selected categories:', selectedCategoryIds.length)
+    devLog('  - Categories with questions loaded:', Object.keys(gameData?.questions || {}).length)
+
+    // Find unselected categories that have questions (either loaded or can be loaded)
+    let unselectedCategoryIds = allCategories
+      .filter(cat => !selectedCategoryIds.includes(cat.id) && cat.id !== 'mystery')
+      .map(cat => cat.id)
+
+    // Check which unselected categories need questions loaded (lazy loading support)
+    const categoriesNeedingLoad = unselectedCategoryIds.filter(catId =>
+      !gameData.questions[catId] || gameData.questions[catId].length === 0
+    )
+
+    // Dynamically load questions for unselected categories if needed (lazy loading)
+    if (categoriesNeedingLoad.length > 0 && gameData.lazyLoaded) {
+      devLog(`📥 Mystery: Loading questions for ${categoriesNeedingLoad.length} unselected categories...`)
+      try {
+        const newQuestions = await GameDataLoader.loadQuestionsForCategories(categoriesNeedingLoad)
+        // Merge into gameData
+        setGameData(prev => ({
+          ...prev,
+          questions: { ...prev.questions, ...newQuestions }
+        }))
+        // Update local reference for this function
+        Object.assign(gameData.questions, newQuestions)
+        // Also update memory cache so it persists across remounts
+        GameDataLoader.mergeQuestionsToMemoryCache(newQuestions)
+        devLog(`✅ Mystery: Loaded ${Object.values(newQuestions).flat().length} questions for mystery`)
+      } catch (error) {
+        prodError('❌ Failed to load mystery category questions:', error)
+      }
+    }
 
     const unselectedCategories = allCategories.filter(cat =>
       !selectedCategoryIds.includes(cat.id) &&
@@ -742,7 +843,7 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
       gameData.questions[cat.id].length > 0
     )
 
-    devLog('  - Unselected categories available for mystery:', unselectedCategories.map(c => `${c.name} (${gameData.questions[c.id].length} questions)`))
+    devLog('  - Unselected categories available for mystery:', unselectedCategories.length)
 
     if (unselectedCategories.length === 0) {
       devWarn('❌ No unselected categories available for mystery question')

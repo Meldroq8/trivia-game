@@ -559,6 +559,10 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
     if (selectedCategories.length === 6 && selectedPerks.length === 3 && gameName.trim() && team1Name.trim() && team2Name.trim()) {
       setIsStartingGame(true)
+
+      // Clear memory cache when starting a NEW game (ensures fresh data for new categories)
+      GameDataLoader.clearMemoryCache()
+
       // Build perkUsage dynamically from selected perks
       const perkUsageObj = {}
       selectedPerks.forEach(perkId => {
