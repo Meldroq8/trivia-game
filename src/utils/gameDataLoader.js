@@ -219,6 +219,7 @@ export class GameDataLoader {
         masterCategoryId: cat.masterCategoryId || 'general',
         displayOrder: cat.displayOrder || 0,
         description: cat.description || '',
+        isHidden: cat.isHidden || false,
         createdAt: cat.createdAt?.toDate?.() || cat.createdAt || null,
         // LAZY LOADING FIELDS:
         questionIds: cat.questionIds || [],
@@ -451,6 +452,7 @@ export class GameDataLoader {
       masterCategoryId: cat.masterCategoryId || 'general',    // Master category for grouping
       displayOrder: cat.displayOrder || 0,                    // Display order within master
       description: cat.description || '',                     // Category description for info modal
+      isHidden: cat.isHidden || false,                        // Visibility toggle for category
       createdAt: cat.createdAt?.toDate?.() || cat.createdAt || null  // For "newest categories" feature
     }))
 

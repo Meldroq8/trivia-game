@@ -113,7 +113,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
   const [showCategoryInfo, setShowCategoryInfo] = useState(null) // Category object to show info for
 
   const navigate = useNavigate()
-  const { user, isAuthenticated, loading: authLoading, getAppSettings } = useAuth()
+  const { user, isAuthenticated, loading: authLoading, getAppSettings, isAdmin } = useAuth()
   const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight })
   const [newestCategoriesDays, setNewestCategoriesDays] = useState(7)
   const [newestCategoriesName, setNewestCategoriesName] = useState('🆕 أجدد الفئات')
@@ -289,7 +289,12 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             devLog('🔍 CategorySelection: Mystery category found:', mysteryCategory)
             devLog('🔍 CategorySelection: Mystery imageUrl:', mysteryCategory.imageUrl)
           }
-          setAvailableCategories(gameData.categories)
+          // Filter out hidden categories for non-admin users
+          const visibleCategories = isAdmin
+            ? gameData.categories
+            : gameData.categories.filter(cat => !cat.isHidden)
+          devLog('🔍 CategorySelection: Visible categories:', visibleCategories.length, isAdmin ? '(admin view)' : '(user view)')
+          setAvailableCategories(visibleCategories)
           setGameData(gameData)
           devLog('✅ CategorySelection: Loaded', gameData.categories.length, 'categories (lazy mode)')
 
@@ -342,7 +347,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     }
 
     loadData()
-  }, [user, authLoading, isAuthenticated])
+  }, [user, authLoading, isAuthenticated, isAdmin])
 
   // Load question counts when game data is available or refresh is triggered
   // IMPORTANT: Wait for sync to complete first to ensure accurate counts
@@ -1365,6 +1370,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               </div>
                             )}
 
+                            {/* Hidden overlay for admin view - shows eye-slash icon */}
+                            {isAdmin && category.isHidden && (
+                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                                <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                                <span className="text-white text-xs md:text-sm mt-1 font-bold">مخفي</span>
+                              </div>
+                            )}
+
                             {/* Main content area with background image */}
                             <div className="flex-1 relative">
                               <BackgroundImage
@@ -1525,6 +1540,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   </svg>
                                 </div>
                                 <span className="text-white text-xs md:text-sm mt-2 font-bold">إعادة تعيين</span>
+                              </div>
+                            )}
+
+                            {/* Hidden overlay for admin view - shows eye-slash icon */}
+                            {isAdmin && category.isHidden && (
+                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                                <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                </svg>
+                                <span className="text-white text-xs md:text-sm mt-1 font-bold">مخفي</span>
                               </div>
                             )}
 
@@ -1782,6 +1807,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                       </svg>
                                     </div>
                                     <span className="text-white text-xs md:text-sm mt-2 font-bold">إعادة تعيين</span>
+                                  </div>
+                                )}
+
+                                {/* Hidden overlay for admin view - shows eye-slash icon */}
+                                {isAdmin && category.isHidden && (
+                                  <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                                    <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                    <span className="text-white text-xs md:text-sm mt-1 font-bold">مخفي</span>
                                   </div>
                                 )}
 

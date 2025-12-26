@@ -418,7 +418,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
             masterCategoryId: category.masterCategoryId || 'general', // Save master category
-            description: category.description || '' // Save description
+            description: category.description || '', // Save description
+            isHidden: category.isHidden || false // Save visibility state
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -440,6 +441,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                 sourceCategoryIds: category.sourceCategoryIds || [],
                 masterCategoryId: category.masterCategoryId || 'general',
                 description: category.description || '',
+                isHidden: category.isHidden || false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
@@ -457,8 +459,10 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       }
       devLog('✅ Categories saved to Firebase')
 
-      // Clear game data cache to force reload with updated mystery category
+      // Clear game data cache to force reload with updated categories
       GameDataLoader.clearCache()
+      GameDataLoader.clearCategoriesCache()
+      GameDataLoader.clearMemoryCache()
     } catch (error) {
       prodError('❌ Error saving categories to Firebase:', error)
     }
@@ -697,6 +701,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
       ? 'تم تفعيل وضع اللعبة المصغرة بالكود لهذه الفئة'
       : 'تم إلغاء وضع اللعبة المصغرة بالكود لهذه الفئة'
     )
+  }
+
+  const handleVisibilityToggle = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId)
+    const newValue = !category.isHidden
+
+    const updatedCategories = categories.map(cat =>
+      cat.id === categoryId ? {
+        ...cat,
+        isHidden: newValue
+      } : cat
+    )
+    saveCategories(updatedCategories)
   }
 
   const handleMiniGameTypeChange = (categoryId, type) => {
@@ -1307,6 +1324,21 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                   </button>
                 </div>
               )}
+
+              {/* Visibility Toggle */}
+              <div className={`mt-3 p-2 rounded-lg border ${category.isHidden ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+                <label className="flex items-center justify-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!category.isHidden}
+                    onChange={() => handleVisibilityToggle(category.id)}
+                    className="w-5 h-5 rounded cursor-pointer"
+                  />
+                  <span className={`text-sm font-bold ${category.isHidden ? 'text-red-700' : 'text-green-700'}`}>
+                    {category.isHidden ? '🚫 مخفية عن المستخدمين' : '✅ ظاهرة للمستخدمين'}
+                  </span>
+                </label>
+              </div>
 
               {/* Merged Category Indicator */}
               {category.isMergedCategory && category.sourceCategoryIds && (
@@ -2423,7 +2455,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
             isMergedCategory: category.isMergedCategory || false, // Save merged flag
             sourceCategoryIds: category.sourceCategoryIds || [], // Save source references
             masterCategoryId: category.masterCategoryId || 'general', // Save master category
-            description: category.description || '' // Save description
+            description: category.description || '', // Save description
+            isHidden: category.isHidden || false // Save visibility state
           })
         } catch (updateError) {
           // If category doesn't exist in Firebase, create it with specific ID
@@ -2445,6 +2478,7 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                 sourceCategoryIds: category.sourceCategoryIds || [],
                 masterCategoryId: category.masterCategoryId || 'general',
                 description: category.description || '',
+                isHidden: category.isHidden || false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp()
               }
@@ -2462,8 +2496,10 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       }
       devLog('✅ Categories saved to Firebase')
 
-      // Clear game data cache to force reload with updated mystery category
+      // Clear game data cache to force reload with updated categories
       GameDataLoader.clearCache()
+      GameDataLoader.clearCategoriesCache()
+      GameDataLoader.clearMemoryCache()
     } catch (error) {
       prodError('❌ Error saving categories to Firebase:', error)
     }
