@@ -2295,22 +2295,24 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   const isCurrentTurn = gameState.currentTurn === 'team1'
                   const isPrisonPerk = perkId === 'prison'
                   const isLockedByOpponent = gameState.currentQuestionPerkLock && gameState.currentQuestionPerkLock !== 'team1'
-                  const canActivate = !isQuestionViewOnly && !isLockedByOpponent && (isPrisonPerk || isCurrentTurn)
+                  // Prison perk is NOT affected by opponent's lock - it can always be used (unless already used)
+                  const isDisabledByLock = !isPrisonPerk && isLockedByOpponent
+                  const canActivate = !isQuestionViewOnly && !isDisabledByLock && (isPrisonPerk || isCurrentTurn)
 
                   return (
                     <div
                       key={`team1-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 ${
-                        isQuestionViewOnly || isUsed || isLockedByOpponent
+                        isQuestionViewOnly || isUsed || isDisabledByLock
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
                           : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
-                      onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team1')}
+                      onClick={() => !isQuestionViewOnly && !isDisabledByLock && handlePerkClick(perkId, 'team1')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
                     >
-                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isLockedByOpponent, canActivate)}
+                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isDisabledByLock, canActivate)}
                     </div>
                   )
                 })}
@@ -2325,22 +2327,24 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   const isCurrentTurn = gameState.currentTurn === 'team2'
                   const isPrisonPerk = perkId === 'prison'
                   const isLockedByOpponent = gameState.currentQuestionPerkLock && gameState.currentQuestionPerkLock !== 'team2'
-                  const canActivate = !isQuestionViewOnly && !isLockedByOpponent && (isPrisonPerk || isCurrentTurn)
+                  // Prison perk is NOT affected by opponent's lock - it can always be used (unless already used)
+                  const isDisabledByLock = !isPrisonPerk && isLockedByOpponent
+                  const canActivate = !isQuestionViewOnly && !isDisabledByLock && (isPrisonPerk || isCurrentTurn)
 
                   return (
                     <div
                       key={`team2-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-[22px] h-[22px] sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 ${
-                        isQuestionViewOnly || isUsed || isLockedByOpponent
+                        isQuestionViewOnly || isUsed || isDisabledByLock
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
                           : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
-                      onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team2')}
+                      onClick={() => !isQuestionViewOnly && !isDisabledByLock && handlePerkClick(perkId, 'team2')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
                     >
-                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isLockedByOpponent, canActivate)}
+                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isDisabledByLock, canActivate)}
                     </div>
                   )
                 })}
@@ -2487,22 +2491,24 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   const isCurrentTurn = gameState.currentTurn === 'team1'
                   const isPrisonPerk = perkId === 'prison'
                   const isLockedByOpponent = gameState.currentQuestionPerkLock && gameState.currentQuestionPerkLock !== 'team1'
-                  const canActivate = !isQuestionViewOnly && !isLockedByOpponent && (isPrisonPerk || isCurrentTurn)
+                  // Prison perk is NOT affected by opponent's lock - it can always be used (unless already used)
+                  const isDisabledByLock = !isPrisonPerk && isLockedByOpponent
+                  const canActivate = !isQuestionViewOnly && !isDisabledByLock && (isPrisonPerk || isCurrentTurn)
 
                   return (
                     <div
                       key={`team1-pc-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 ${
-                        isQuestionViewOnly || isUsed || isLockedByOpponent
+                        isQuestionViewOnly || isUsed || isDisabledByLock
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
                           : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
-                      onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team1')}
+                      onClick={() => !isQuestionViewOnly && !isDisabledByLock && handlePerkClick(perkId, 'team1')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
                     >
-                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isLockedByOpponent, canActivate)}
+                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isDisabledByLock, canActivate)}
                     </div>
                   )
                 })}
@@ -2519,22 +2525,24 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
                   const isCurrentTurn = gameState.currentTurn === 'team2'
                   const isPrisonPerk = perkId === 'prison'
                   const isLockedByOpponent = gameState.currentQuestionPerkLock && gameState.currentQuestionPerkLock !== 'team2'
-                  const canActivate = !isQuestionViewOnly && !isLockedByOpponent && (isPrisonPerk || isCurrentTurn)
+                  // Prison perk is NOT affected by opponent's lock - it can always be used (unless already used)
+                  const isDisabledByLock = !isPrisonPerk && isLockedByOpponent
+                  const canActivate = !isQuestionViewOnly && !isDisabledByLock && (isPrisonPerk || isCurrentTurn)
 
                   return (
                     <div
                       key={`team2-pc-${perkId}`}
                       className={`border-2 rounded-full flex items-center justify-center transition-colors w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 lg:w-10 lg:h-10 xl:w-11 xl:h-11 ${
-                        isQuestionViewOnly || isUsed || isLockedByOpponent
+                        isQuestionViewOnly || isUsed || isDisabledByLock
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-200 dark:bg-slate-700 opacity-50 cursor-not-allowed'
                           : !canActivate
                           ? 'border-gray-600 dark:border-slate-500 bg-gray-100 dark:bg-slate-700 opacity-60 cursor-not-allowed'
                           : 'border-red-600 dark:border-red-500 bg-white dark:bg-slate-800 cursor-pointer hover:bg-red-50 dark:hover:bg-slate-700'
                       }`}
-                      onClick={() => !isQuestionViewOnly && !isLockedByOpponent && handlePerkClick(perkId, 'team2')}
+                      onClick={() => !isQuestionViewOnly && !isDisabledByLock && handlePerkClick(perkId, 'team2')}
                       title={isQuestionViewOnly ? 'متاح فقط أثناء السؤال' : undefined}
                     >
-                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isLockedByOpponent, canActivate)}
+                      {getPerkIcon(perkId, isUsed || isQuestionViewOnly || isDisabledByLock, canActivate)}
                     </div>
                   )
                 })}
