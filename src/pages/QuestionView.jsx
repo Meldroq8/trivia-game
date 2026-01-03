@@ -2306,8 +2306,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
               {/* Perk Timer Circle - Bottom Right (phone/search) */}
               {activeTimer.active && (
-                <div className="absolute bottom-16 right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28">
+                <div className="absolute bottom-14 right-2 sm:bottom-16 sm:right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
+                  <div className="relative w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24">
                     {/* Circular Progress SVG */}
                     <svg className="transform -rotate-90 w-full h-full drop-shadow-lg" viewBox="0 0 100 100">
                       {/* Background circle */}
@@ -2336,16 +2336,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     </svg>
                     {/* Timer text */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-red-600">
+                      <div className="text-sm sm:text-xl md:text-2xl lg:text-3xl font-bold text-red-600">
                         {activeTimer.timeLeft}
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-0.5 sm:mt-1">
                         {activeTimer.type === 'phone' ? (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6">
                             <path d="M6.62 10.79C8.06 13.62 10.38 15.94 13.21 17.38L15.41 15.18C15.69 14.9 16.08 14.82 16.43 14.93C17.55 15.3 18.75 15.5 20 15.5C20.55 15.5 21 15.95 21 16.5V20C21 20.55 20.55 21 20 21C10.61 21 3 13.39 3 4C3 3.45 3.45 3 4 3H7.5C8.05 3 8.5 3.45 8.5 4C8.5 5.25 8.7 6.45 9.07 7.57C9.18 7.92 9.1 8.31 8.82 8.59L6.62 10.79Z" fill="#dc2626" stroke="none"/>
                           </svg>
                         ) : (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6">
                             <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3S3 5.91 3 9.5S5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5S14 7.01 14 9.5S11.99 14 9.5 14Z" fill="#dc2626" stroke="none"/>
                           </svg>
                         )}
@@ -2355,11 +2355,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               )}
 
-              {/* Two Answers Perk Visual - Bottom Right */}
-              {gameState.activatedPerks?.twoAnswers?.active && !activeTimer.active && (
-                <div className="absolute bottom-16 right-3 md:bottom-20 md:right-6 lg:bottom-24 lg:right-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
-                    <svg viewBox="0 0 72 72" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+              {/* Two Answers Perk Visual - Bottom Right (stacks above timer when both active) */}
+              {gameState.activatedPerks?.twoAnswers?.active && (
+                <div className={`absolute right-2 sm:right-3 md:right-6 lg:right-8 z-50 pointer-events-none ${
+                  activeTimer.active
+                    ? 'bottom-28 sm:bottom-36 md:bottom-44 lg:bottom-52'
+                    : 'bottom-14 sm:bottom-16 md:bottom-20 lg:bottom-24'
+                }`}>
+                  <div className="relative w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-white dark:bg-slate-800 rounded-full border-3 sm:border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 72 72" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14">
                       <path fill="none" stroke="#dc2626" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m52.62 31.13 1.8-22.18c-0.3427-4.964-6.779-5.02-7.227-0.026l-2.42 17.36c-0.3 2.179-1.278 3.962-2.166 3.962s-1.845-1.785-2.126-3.967l-2.231-17.34c-0.8196-5.278-7.439-4.322-7.037 0.0011l2.527 21.03"/>
                       <path fill="none" stroke="#dc2626" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m53.63 50.08c0 9.872-8.02 16.88-17.89 16.88"/>
                       <path fill="none" stroke="#dc2626" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m43.74 47.29v-2.333c0-1.1-1.789-2.2-3.976-2.441l-1.049-0.117c-2.187-0.242-3.976-1.851-3.976-3.774s1.8-3.334 4-3.334h10c2.201-0.0448 4.057 1.632 4.235 3.826l0.657 11.21"/>
@@ -2372,22 +2376,26 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               )}
 
-              {/* Prison Perk Visual - Bottom Left */}
+              {/* Prison Perk Visual - Bottom Left (stays at base position) */}
               {gameState.activatedPerks?.prison?.active && (
-                <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+                <div className="absolute bottom-14 left-2 sm:bottom-16 sm:left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
+                  <div className="relative w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-white dark:bg-slate-800 rounded-full border-3 sm:border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14">
                       <path d="M6 2V22H8V2H6M10 2V22H12V2H10M14 2V22H16V2H14M18 2V22H20V2H18M2 2V4H22V2H2M2 20V22H22V20H2Z" fill="#dc2626" stroke="none"/>
                     </svg>
                   </div>
                 </div>
               )}
 
-              {/* Double Points Perk Visual - Same location as prison */}
+              {/* Double Points Perk Visual - Stacked above prison when both active */}
               {gameState.activatedPerks?.doublePoints?.active && (
-                <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+                <div className={`absolute left-2 sm:left-3 md:left-6 lg:left-8 z-50 pointer-events-none ${
+                  gameState.activatedPerks?.prison?.active
+                    ? 'bottom-28 sm:bottom-36 md:bottom-44 lg:bottom-52'
+                    : 'bottom-14 sm:bottom-16 md:bottom-20 lg:bottom-24'
+                }`}>
+                  <div className="relative w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-white dark:bg-slate-800 rounded-full border-3 sm:border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14">
                       <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#dc2626" stroke="none"/>
                       <text x="12" y="15" textAnchor="middle" fontSize="8" fill="white" fontWeight="bold">2</text>
                     </svg>
@@ -2395,11 +2403,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               )}
 
-              {/* Risk Points Perk Visual - Same location as prison */}
+              {/* Risk Points Perk Visual - Stacked above prison when both active */}
               {gameState.activatedPerks?.riskPoints?.active && (
-                <div className="absolute bottom-16 left-3 md:bottom-20 md:left-6 lg:bottom-24 lg:left-8 z-50 pointer-events-none">
-                  <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white dark:bg-slate-800 rounded-full border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
-                    <svg viewBox="0 0 24 24" fill="none" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16">
+                <div className={`absolute left-2 sm:left-3 md:left-6 lg:left-8 z-50 pointer-events-none ${
+                  gameState.activatedPerks?.prison?.active
+                    ? 'bottom-28 sm:bottom-36 md:bottom-44 lg:bottom-52'
+                    : 'bottom-14 sm:bottom-16 md:bottom-20 lg:bottom-24'
+                }`}>
+                  <div className="relative w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-white dark:bg-slate-800 rounded-full border-3 sm:border-4 border-red-600 flex items-center justify-center drop-shadow-lg">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 lg:w-14 lg:h-14">
                       <rect x="3" y="3" width="18" height="18" rx="3" fill="#dc2626" stroke="none"/>
                       <circle cx="7" cy="7" r="1.5" fill="white"/>
                       <circle cx="17" cy="7" r="1.5" fill="white"/>
