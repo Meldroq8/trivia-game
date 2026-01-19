@@ -9,8 +9,8 @@ import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 import Header from '../components/Header'
 import settingsService from '../firebase/settingsService'
 
-// Auto-fit text component that scales to fill available width
-function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24 }) {
+// Auto-fit text component that scales to fill available width and wraps to 2 lines if needed
+function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24, maxLines = 2 }) {
   const containerRef = useRef(null)
   const textRef = useRef(null)
   const [fontSize, setFontSize] = useState(maxFontSize)
@@ -18,22 +18,29 @@ function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24 }
   const calculateFontSize = useCallback(() => {
     if (!containerRef.current || !textRef.current) return
 
-    const containerWidth = containerRef.current.clientWidth - 8 // Account for padding
+    const containerWidth = containerRef.current.clientWidth - 4
     const containerHeight = containerRef.current.clientHeight
 
-    // Binary search for optimal font size
+    // Test function to check if text fits at a given size
+    const fitsAtSize = (size) => {
+      textRef.current.style.fontSize = `${size}px`
+      textRef.current.style.whiteSpace = 'normal'
+      textRef.current.style.wordBreak = 'break-word'
+
+      const lineHeight = size * 1.2
+      const maxAllowedHeight = Math.min(lineHeight * maxLines, containerHeight)
+
+      return textRef.current.scrollHeight <= maxAllowedHeight + 2
+    }
+
+    // Binary search for largest fitting font size
     let min = minFontSize
     let max = maxFontSize
     let optimalSize = minFontSize
 
     while (min <= max) {
       const mid = Math.floor((min + max) / 2)
-      textRef.current.style.fontSize = `${mid}px`
-
-      const textWidth = textRef.current.scrollWidth
-      const textHeight = textRef.current.scrollHeight
-
-      if (textWidth <= containerWidth && textHeight <= containerHeight) {
+      if (fitsAtSize(mid)) {
         optimalSize = mid
         min = mid + 1
       } else {
@@ -42,10 +49,13 @@ function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24 }
     }
 
     setFontSize(optimalSize)
-  }, [minFontSize, maxFontSize])
+  }, [minFontSize, maxFontSize, maxLines])
 
   useEffect(() => {
-    calculateFontSize()
+    // Small delay to ensure container is rendered
+    const timer = setTimeout(() => {
+      calculateFontSize()
+    }, 10)
 
     // Recalculate on resize
     const resizeObserver = new ResizeObserver(() => {
@@ -56,15 +66,21 @@ function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24 }
       resizeObserver.observe(containerRef.current)
     }
 
-    return () => resizeObserver.disconnect()
+    return () => {
+      clearTimeout(timer)
+      resizeObserver.disconnect()
+    }
   }, [text, calculateFontSize])
 
   return (
     <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
       <span
         ref={textRef}
-        className={`whitespace-nowrap text-center leading-tight ${className}`}
-        style={{ fontSize: `${fontSize}px` }}
+        className={`text-center leading-tight ${className}`}
+        style={{
+          fontSize: `${fontSize}px`,
+          wordBreak: 'break-word'
+        }}
       >
         {text}
       </span>
@@ -1126,27 +1142,22 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                       </button>
                       <div
                         onClick={() => scrollToCategory(categoryId)}
-                        className="bg-gradient-to-b from-gray-50 to-white rounded-lg lg:rounded-xl border-2 border-red-300 overflow-hidden cursor-pointer hover:border-red-400 transition-all">
-                        <div className="aspect-[3/4] max-lg:landscape:aspect-[6/5] portrait:aspect-[3/4] lg:aspect-[5/4] relative">
-                          <BackgroundImage
-                            src={category.imageUrl}
-                            alt={category.name}
-                            className="absolute inset-0 w-full h-full object-cover"
+                        className="rounded-lg lg:rounded-xl border-2 border-red-500 overflow-hidden cursor-pointer hover:border-red-400 transition-all aspect-[3/4] max-lg:landscape:aspect-[4/5] portrait:aspect-[3/4] relative"
+                      >
+                        <BackgroundImage
+                          src={category.imageUrl}
+                          alt={category.name}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-0.5 md:p-1 z-10 h-[16px] md:h-[20px] lg:h-[24px]">
+                          <AutoFitText
+                            text={category.name}
+                            className="text-white font-bold drop-shadow-lg"
+                            minFontSize={6}
+                            maxFontSize={10}
+                            maxLines={2}
                           />
-                          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20"></div>
-                        </div>
-                        <div className="bg-gradient-to-r from-red-600 to-red-700 px-0.5 portrait:px-1 md:px-1.5 lg:px-2 py-0.5 max-lg:landscape:py-px portrait:py-0.5 lg:py-1 overflow-hidden">
-                          <div className="text-white font-bold text-center leading-tight whitespace-nowrap overflow-hidden w-full">
-                            <div
-                              className="inline-block max-w-full text-[8px] portrait:text-[7px] md:text-[10px] lg:text-xs"
-                              style={{
-                                transform: `scale(${Math.min(1, 1 / Math.max(1, category.name.length / 10))})`,
-                                transformOrigin: 'center'
-                              }}
-                            >
-                              {category.name}
-                            </div>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -1343,22 +1354,40 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                             disabled={!canSelect && !needsReset}
                             onTouchEnd={(e) => e.currentTarget.blur()}
                             className={`
-                              relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
-                              text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
+                              relative p-0 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 transform overflow-hidden border-2 aspect-[3/4] max-lg:landscape:aspect-[4/5]
                               ${needsReset
-                                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
+                                ? 'cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
                                 : selected
-                                ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
+                                ? 'shadow-lg border-red-600 dark:border-red-500'
                                 : canSelect
-                                ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
-                                : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
+                                ? 'border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
+                                : 'cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                               }
                             `}
                           >
+                            {/* Background Image */}
+                            <BackgroundImage
+                              src={category.imageUrl}
+                              size="medium"
+                              context="category"
+                              categoryId={category.id}
+                              className="absolute inset-0 w-full h-full"
+                              fallbackGradient={
+                                needsReset
+                                  ? 'from-gray-400 to-gray-500'
+                                  : selected
+                                  ? 'from-red-600 to-red-700'
+                                  : 'from-amber-400 to-amber-600'
+                              }
+                            />
+
+                            {/* Gradient overlay */}
+                            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent ${needsReset ? 'opacity-70' : ''}`} />
+
                             {/* Reset overlay for exhausted categories */}
                             {needsReset && (
                               <div
-                                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-lg cursor-pointer"
+                                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-xl sm:rounded-2xl cursor-pointer"
                                 onClick={(e) => handleCategoryReset(e, category.id)}
                               >
                                 <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 md:p-4 transition-colors shadow-lg">
@@ -1372,7 +1401,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                             {/* Hidden overlay for admin view - shows eye-slash icon */}
                             {isAdmin && category.isHidden && (
-                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-xl sm:rounded-2xl pointer-events-none">
                                 <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                 </svg>
@@ -1380,107 +1409,57 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               </div>
                             )}
 
-                            {/* Main content area with background image */}
-                            <div className="flex-1 relative">
-                              <BackgroundImage
-                                src={category.imageUrl}
-                                size="medium"
-                                context="category"
-                                categoryId={category.id}
-                                className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
-                                  needsReset
-                                    ? 'bg-gray-400 dark:bg-slate-600'
-                                    : selected
-                                    ? 'bg-red-600 dark:bg-red-700'
-                                    : canSelect
-                                    ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                    : 'bg-gray-300 dark:bg-slate-700'
-                                }`}
-                                fallbackGradient={
-                                  needsReset
-                                    ? 'from-gray-400 to-gray-500'
-                                    : selected
-                                    ? 'from-red-600 to-red-700'
-                                    : canSelect
-                                    ? 'from-white to-gray-50'
-                                    : 'from-gray-300 to-gray-400'
-                                }
-                              >
-                                {/* Full-size positioning container */}
-                                <div className="absolute inset-0">
-                                  {/* Overlay for better text readability when image is present */}
-                                  {category.imageUrl && (
-                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                  )}
-                                  {/* Question count badge - top left corner */}
-                                  <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                  }`}>
-                                    {getRemainingQuestions(category.id)}
-                                  </div>
-                                  {/* Alert badge - top right corner (clickable for info) */}
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(e) => handleShowCategoryInfo(e, category)}
-                                    onTouchEnd={(e) => e.stopPropagation()}
-                                    className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
-                                    title="معلومات الفئة"
-                                  >
-                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
-                                      <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
-                                      <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                      <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                      <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                                      <circle cx="12" cy="17.5" r="1.5" fill="white"/>
-                                    </svg>
-                                  </div>
-                                </div>
-                                {/* Show emoji/icon only when no background image */}
-                                {!category.imageUrl && (
-                                  <div className="relative z-10 text-center p-3 md:p-6">
-                                    <div className="text-lg md:text-2xl">
-                                      {category.image}
-                                    </div>
-                                  </div>
-                                )}
-                              </BackgroundImage>
-                              {/* Favorite heart - bottom right of image area */}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => toggleFavorite(category.id, e)}
-                                onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 lg:bottom-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 ${
-                                  favoriteCategories.includes(category.id)
-                                    ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                    : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                                } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                                title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                              >
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                </svg>
-                              </div>
+                            {/* Favorite heart badge - top left */}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => toggleFavorite(category.id, e)}
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 z-20 cursor-pointer transition-transform duration-200 ${
+                                favoriteCategories.includes(category.id)
+                                  ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                  : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                              } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                              title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                              </svg>
                             </div>
 
-                            {/* Bottom bar with category name */}
-                            <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
-                              needsReset
-                                ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                                : selected
-                                ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
-                                : canSelect
-                                ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
-                                : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                            }`}>
+                            {/* Info badge - top right */}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => handleShowCategoryInfo(e, category)}
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                              title="معلومات الفئة"
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                              </svg>
+                            </div>
+
+                            {/* Category name overlaid at bottom */}
+                            <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
                               <AutoFitText
                                 text={category.name}
-                                className="font-bold"
+                                className="text-white font-bold drop-shadow-lg"
                                 minFontSize={8}
-                                maxFontSize={16}
+                                maxFontSize={14}
+                                maxLines={2}
                               />
                             </div>
+
+                            {/* Selection indicator border glow */}
+                            {selected && (
+                              <div className="absolute inset-0 rounded-xl sm:rounded-2xl ring-2 ring-red-400 ring-offset-1 pointer-events-none" />
+                            )}
                           </button>
                         )
                       })}
@@ -1516,22 +1495,40 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                             disabled={!canSelect && !needsReset}
                             onTouchEnd={(e) => e.currentTarget.blur()}
                             className={`
-                              relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
-                              text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
+                              relative p-0 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 transform overflow-hidden border-2 aspect-[3/4] max-lg:landscape:aspect-[4/5]
                               ${needsReset
-                                ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
+                                ? 'cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
                                 : selected
-                                ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
+                                ? 'shadow-lg border-red-600 dark:border-red-500'
                                 : canSelect
-                                ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
-                                : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
+                                ? 'border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
+                                : 'cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                               }
                             `}
                           >
+                            {/* Background Image */}
+                            <BackgroundImage
+                              src={category.imageUrl}
+                              size="medium"
+                              context="category"
+                              categoryId={category.id}
+                              className="absolute inset-0 w-full h-full"
+                              fallbackGradient={
+                                needsReset
+                                  ? 'from-gray-400 to-gray-500'
+                                  : selected
+                                  ? 'from-red-600 to-red-700'
+                                  : 'from-amber-400 to-amber-600'
+                              }
+                            />
+
+                            {/* Gradient overlay */}
+                            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent ${needsReset ? 'opacity-70' : ''}`} />
+
                             {/* Reset overlay for exhausted categories */}
                             {needsReset && (
                               <div
-                                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-lg cursor-pointer"
+                                className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-xl sm:rounded-2xl cursor-pointer"
                                 onClick={(e) => handleCategoryReset(e, category.id)}
                               >
                                 <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 md:p-4 transition-colors shadow-lg">
@@ -1545,7 +1542,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                             {/* Hidden overlay for admin view - shows eye-slash icon */}
                             {isAdmin && category.isHidden && (
-                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                              <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-xl sm:rounded-2xl pointer-events-none">
                                 <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                 </svg>
@@ -1553,107 +1550,57 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               </div>
                             )}
 
-                            {/* Main content area with background image */}
-                            <div className="flex-1 relative">
-                              <BackgroundImage
-                                src={category.imageUrl}
-                                size="medium"
-                                context="category"
-                                categoryId={category.id}
-                                className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
-                                  needsReset
-                                    ? 'bg-gray-400 dark:bg-slate-600'
-                                    : selected
-                                    ? 'bg-red-600 dark:bg-red-700'
-                                    : canSelect
-                                    ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                    : 'bg-gray-300 dark:bg-slate-700'
-                                }`}
-                                fallbackGradient={
-                                  needsReset
-                                    ? 'from-gray-400 to-gray-500'
-                                    : selected
-                                    ? 'from-red-600 to-red-700'
-                                    : canSelect
-                                    ? 'from-white to-gray-50'
-                                    : 'from-gray-300 to-gray-400'
-                                }
-                              >
-                                {/* Full-size positioning container */}
-                                <div className="absolute inset-0">
-                                  {/* Overlay for better text readability when image is present */}
-                                  {category.imageUrl && (
-                                    <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                  )}
-                                  {/* Question count badge - top left corner */}
-                                  <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                    needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                  }`}>
-                                    {getRemainingQuestions(category.id)}
-                                  </div>
-                                  {/* Alert badge - top right corner (clickable for info) */}
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(e) => handleShowCategoryInfo(e, category)}
-                                    onTouchEnd={(e) => e.stopPropagation()}
-                                    className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
-                                    title="معلومات الفئة"
-                                  >
-                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
-                                      <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
-                                      <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                      <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                      <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                                      <circle cx="12" cy="17.5" r="1.5" fill="white"/>
-                                    </svg>
-                                  </div>
-                                </div>
-                                {/* Show emoji/icon only when no background image */}
-                                {!category.imageUrl && (
-                                  <div className="relative z-10 text-center p-3 md:p-6">
-                                    <div className="text-lg md:text-2xl">
-                                      {category.image}
-                                    </div>
-                                  </div>
-                                )}
-                              </BackgroundImage>
-                              {/* Favorite heart - bottom right of image area */}
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => toggleFavorite(category.id, e)}
-                                onTouchEnd={(e) => e.stopPropagation()}
-                                className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 lg:bottom-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 ${
-                                  favoriteCategories.includes(category.id)
-                                    ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                    : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                                } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                                title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                              >
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                </svg>
-                              </div>
+                            {/* Favorite heart badge - top left */}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => toggleFavorite(category.id, e)}
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 z-20 cursor-pointer transition-transform duration-200 ${
+                                favoriteCategories.includes(category.id)
+                                  ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                  : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                              } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                              title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                              </svg>
                             </div>
 
-                            {/* Bottom bar with category name */}
-                            <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
-                              needsReset
-                                ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                                : selected
-                                ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
-                                : canSelect
-                                ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
-                                : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                            }`}>
+                            {/* Info badge - top right */}
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => handleShowCategoryInfo(e, category)}
+                              onTouchEnd={(e) => e.stopPropagation()}
+                              className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                              title="معلومات الفئة"
+                            >
+                              <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                              </svg>
+                            </div>
+
+                            {/* Category name overlaid at bottom */}
+                            <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
                               <AutoFitText
                                 text={category.name}
-                                className="font-bold"
+                                className="text-white font-bold drop-shadow-lg"
                                 minFontSize={8}
-                                maxFontSize={16}
+                                maxFontSize={14}
+                                maxLines={2}
                               />
                             </div>
+
+                            {/* Selection indicator border glow */}
+                            {selected && (
+                              <div className="absolute inset-0 rounded-xl sm:rounded-2xl ring-2 ring-red-400 ring-offset-1 pointer-events-none" />
+                            )}
                           </button>
                         )
                       })}
@@ -1783,22 +1730,40 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                 disabled={!canSelect && !needsReset}
                                 onTouchEnd={(e) => e.currentTarget.blur()}
                                 className={`
-                                  relative p-0 rounded-lg font-bold transition-all duration-200 transform overflow-hidden border-2 flex flex-col aspect-[3/4] max-lg:landscape:aspect-[4/5]
-                                  text-sm max-lg:landscape:!text-xs md:!text-lg lg:!text-xl xl:!text-2xl
+                                  relative p-0 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 transform overflow-hidden border-2 aspect-[3/4] max-lg:landscape:aspect-[4/5]
                                   ${needsReset
-                                    ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
+                                    ? 'cursor-not-allowed border-gray-400 dark:border-slate-600 grayscale'
                                     : selected
-                                    ? 'text-white shadow-lg scale-105 border-red-600 dark:border-red-500'
+                                    ? 'shadow-lg border-red-600 dark:border-red-500'
                                     : canSelect
-                                    ? 'text-red-600 dark:text-red-400 border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
-                                    : 'text-gray-500 dark:text-gray-600 cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
+                                    ? 'border-gray-300 dark:border-slate-600 active:border-red-300 active:shadow-lg active:scale-105 [@media(hover:hover)]:hover:border-red-300 [@media(hover:hover)]:hover:shadow-lg [@media(hover:hover)]:hover:scale-105'
+                                    : 'cursor-not-allowed border-gray-400 dark:border-slate-700 opacity-50'
                                   }
                                 `}
                               >
+                                {/* Background Image */}
+                                <BackgroundImage
+                                  src={category.imageUrl}
+                                  size="medium"
+                                  context="category"
+                                  categoryId={category.id}
+                                  className="absolute inset-0 w-full h-full"
+                                  fallbackGradient={
+                                    needsReset
+                                      ? 'from-gray-400 to-gray-500'
+                                      : selected
+                                      ? 'from-red-600 to-red-700'
+                                      : 'from-amber-400 to-amber-600'
+                                  }
+                                />
+
+                                {/* Gradient overlay */}
+                                <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent ${needsReset ? 'opacity-70' : ''}`} />
+
                                 {/* Reset overlay for exhausted categories */}
                                 {needsReset && (
                                   <div
-                                    className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-lg cursor-pointer"
+                                    className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/60 rounded-xl sm:rounded-2xl cursor-pointer"
                                     onClick={(e) => handleCategoryReset(e, category.id)}
                                   >
                                     <div className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 md:p-4 transition-colors shadow-lg">
@@ -1812,7 +1777,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                                 {/* Hidden overlay for admin view - shows eye-slash icon */}
                                 {isAdmin && category.isHidden && (
-                                  <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-lg pointer-events-none">
+                                  <div className="absolute inset-0 z-25 flex flex-col items-center justify-center bg-black/50 rounded-xl sm:rounded-2xl pointer-events-none">
                                     <svg className="w-8 h-8 md:w-10 md:h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                     </svg>
@@ -1820,104 +1785,57 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   </div>
                                 )}
 
-                                {/* Main content area with background image */}
-                                <div className="flex-1 relative">
-                                  <BackgroundImage
-                                    src={category.imageUrl}
-                                    size="medium"
-                                    context="category"
-                                    categoryId={category.id}
-                                    className={`absolute inset-0 flex items-center justify-center rounded-t-lg ${
-                                      needsReset
-                                        ? 'bg-gray-400 dark:bg-slate-600'
-                                        : selected
-                                        ? 'bg-red-600 dark:bg-red-700'
-                                        : canSelect
-                                        ? 'bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700'
-                                        : 'bg-gray-300 dark:bg-slate-700'
-                                    }`}
-                                    fallbackGradient={
-                                      needsReset
-                                        ? 'from-gray-400 to-gray-500'
-                                        : selected
-                                        ? 'from-red-600 to-red-700'
-                                        : canSelect
-                                        ? 'from-white to-gray-50'
-                                        : 'from-gray-300 to-gray-400'
-                                    }
-                                  >
-                                    {/* Overlay for better text readability when image is present */}
-                                    {category.imageUrl && (
-                                      <div className={`absolute inset-0 rounded-t-lg ${needsReset ? 'bg-black/50' : 'bg-black/30'}`}></div>
-                                    )}
-                                    {/* Question count badge - top left corner */}
-                                    <div className={`absolute top-0 left-0 sm:top-0.5 sm:left-0.5 md:top-1 md:left-1 lg:top-1.5 lg:left-1.5 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center text-[8px] sm:text-[10px] md:text-xs lg:text-sm font-bold z-20 ${
-                                      needsReset ? 'bg-red-600' : 'bg-blue-600'
-                                    }`}>
-                                      {getRemainingQuestions(category.id)}
-                                    </div>
-                                    {/* Alert badge - top right corner (clickable for info) */}
-                                    <div
-                                      role="button"
-                                      tabIndex={0}
-                                      onClick={(e) => handleShowCategoryInfo(e, category)}
-                                      onTouchEnd={(e) => e.stopPropagation()}
-                                      className="absolute top-0 right-0 sm:top-0.5 sm:right-0.5 md:top-1 md:right-1 lg:top-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
-                                      title="معلومات الفئة"
-                                    >
-                                      <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
-                                        <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
-                                        <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                        <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                                        <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                                        <circle cx="12" cy="17.5" r="1.5" fill="white"/>
-                                      </svg>
-                                    </div>
-                                    {/* Show emoji/icon only when no background image */}
-                                    {!category.imageUrl && (
-                                      <div className="relative z-10 text-center p-3 md:p-6">
-                                        <div className="text-lg md:text-2xl">
-                                          {category.image}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </BackgroundImage>
-                                  {/* Favorite heart - bottom right of image area */}
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={(e) => toggleFavorite(category.id, e)}
-                                    onTouchEnd={(e) => e.stopPropagation()}
-                                    className={`absolute bottom-0 right-0 sm:bottom-0.5 sm:right-0.5 md:bottom-1 md:right-1 lg:bottom-1.5 lg:right-1.5 z-20 cursor-pointer transition-transform duration-200 ${
-                                      favoriteCategories.includes(category.id)
-                                        ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
-                                        : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
-                                    } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
-                                    title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-                                  >
-                                    <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                                    </svg>
-                                  </div>
+                                {/* Favorite heart badge - top left */}
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => toggleFavorite(category.id, e)}
+                                  onTouchEnd={(e) => e.stopPropagation()}
+                                  className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 md:top-2 md:left-2 z-20 cursor-pointer transition-transform duration-200 ${
+                                    favoriteCategories.includes(category.id)
+                                      ? 'text-red-500 [@media(hover:hover)]:hover:text-red-600'
+                                      : 'text-white/70 [@media(hover:hover)]:hover:text-red-400'
+                                  } [@media(hover:hover)]:hover:scale-110 active:scale-95`}
+                                  title={favoriteCategories.includes(category.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+                                >
+                                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill={favoriteCategories.includes(category.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                                  </svg>
                                 </div>
 
-                                {/* Bottom bar with category name */}
-                                <div className={`h-7 sm:h-8 md:h-10 lg:h-11 flex items-center justify-center px-1 border-t-2 relative z-10 ${
-                                  needsReset
-                                    ? 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                                    : selected
-                                    ? 'bg-red-700 dark:bg-red-800 border-red-800 dark:border-red-900'
-                                    : canSelect
-                                    ? 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'
-                                    : 'bg-gray-400 dark:bg-slate-600 border-gray-500 dark:border-slate-700'
-                                }`}>
+                                {/* Info badge - top right */}
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={(e) => handleShowCategoryInfo(e, category)}
+                                  onTouchEnd={(e) => e.stopPropagation()}
+                                  className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 md:top-2 md:right-2 z-20 cursor-pointer transition-transform duration-200 [@media(hover:hover)]:hover:scale-110 active:scale-95"
+                                  title="معلومات الفئة"
+                                >
+                                  <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 drop-shadow-lg" viewBox="0 0 24 24" fill="none">
+                                    <rect x="2" y="2" width="20" height="20" rx="6" fill="#f59e0b" stroke="#b45309" strokeWidth="1"/>
+                                    <path d="M5 7 Q7 5, 9 7" stroke="#fcd34d" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                    <path d="M15 17 Q17 19, 19 17" stroke="#d97706" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                    <path d="M12 6v8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                                    <circle cx="12" cy="17.5" r="1.5" fill="white"/>
+                                  </svg>
+                                </div>
+
+                                {/* Category name overlaid at bottom */}
+                                <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
                                   <AutoFitText
                                     text={category.name}
-                                    className="font-bold"
+                                    className="text-white font-bold drop-shadow-lg"
                                     minFontSize={8}
-                                    maxFontSize={16}
+                                    maxFontSize={14}
+                                    maxLines={2}
                                   />
                                 </div>
+
+                                {/* Selection indicator border glow */}
+                                {selected && (
+                                  <div className="absolute inset-0 rounded-xl sm:rounded-2xl ring-2 ring-red-400 ring-offset-1 pointer-events-none" />
+                                )}
                               </button>
                             )
                           })}
