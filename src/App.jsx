@@ -19,6 +19,7 @@ import AuthAction from './pages/AuthAction'
 import DrawingGame from './pages/DrawingGame'
 import HeadbandGame from './pages/HeadbandGame'
 import GuessWordGame from './pages/GuessWordGame'
+import CategoryPreview from './pages/CategoryPreview'
 
 // Less frequently used components - lazy loaded with background preloading
 const Statistics = lazy(() => import('./pages/Statistics'))
@@ -824,6 +825,10 @@ function App() {
             <Route
               path="/"
               element={<Index setGameState={setGameState} />}
+            />
+            <Route
+              path="/category-preview"
+              element={<CategoryPreview />}
             />
             <Route
               path="/categories"
