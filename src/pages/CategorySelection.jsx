@@ -9,8 +9,8 @@ import { getCategoryImageUrl } from '../utils/mediaUrlConverter'
 import Header from '../components/Header'
 import settingsService from '../firebase/settingsService'
 
-// Auto-fit text component that scales to fill available width and wraps to 2 lines if needed
-function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24, maxLines = 2 }) {
+// Auto-fit text component - starts at max size and only shrinks if needed to fit
+function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 12, maxLines = 1 }) {
   const containerRef = useRef(null)
   const textRef = useRef(null)
   const [fontSize, setFontSize] = useState(maxFontSize)
@@ -18,46 +18,29 @@ function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24, 
   const calculateFontSize = useCallback(() => {
     if (!containerRef.current || !textRef.current) return
 
-    const containerWidth = containerRef.current.clientWidth - 4
     const containerHeight = containerRef.current.clientHeight
 
-    // Test function to check if text fits at a given size
-    const fitsAtSize = (size) => {
-      textRef.current.style.fontSize = `${size}px`
-      textRef.current.style.whiteSpace = 'normal'
-      textRef.current.style.wordBreak = 'break-word'
+    // Start at max size and shrink only if needed
+    let currentSize = maxFontSize
+    textRef.current.style.fontSize = `${currentSize}px`
 
-      const lineHeight = size * 1.2
-      const maxAllowedHeight = Math.min(lineHeight * maxLines, containerHeight)
+    const lineHeight = currentSize * 1.3
+    const maxAllowedHeight = lineHeight * maxLines
 
-      return textRef.current.scrollHeight <= maxAllowedHeight + 2
+    // Shrink until it fits or we hit minimum
+    while (textRef.current.scrollHeight > Math.min(maxAllowedHeight, containerHeight) + 2 && currentSize > minFontSize) {
+      currentSize -= 0.5
+      textRef.current.style.fontSize = `${currentSize}px`
     }
 
-    // Binary search for largest fitting font size
-    let min = minFontSize
-    let max = maxFontSize
-    let optimalSize = minFontSize
-
-    while (min <= max) {
-      const mid = Math.floor((min + max) / 2)
-      if (fitsAtSize(mid)) {
-        optimalSize = mid
-        min = mid + 1
-      } else {
-        max = mid - 1
-      }
-    }
-
-    setFontSize(optimalSize)
+    setFontSize(currentSize)
   }, [minFontSize, maxFontSize, maxLines])
 
   useEffect(() => {
-    // Small delay to ensure container is rendered
     const timer = setTimeout(() => {
       calculateFontSize()
     }, 10)
 
-    // Recalculate on resize
     const resizeObserver = new ResizeObserver(() => {
       calculateFontSize()
     })
@@ -73,13 +56,16 @@ function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 24, 
   }, [text, calculateFontSize])
 
   return (
-    <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-hidden">
+    <div ref={containerRef} className="w-full h-full flex items-end justify-center overflow-hidden">
       <span
         ref={textRef}
         className={`text-center leading-tight ${className}`}
         style={{
           fontSize: `${fontSize}px`,
-          wordBreak: 'break-word'
+          display: '-webkit-box',
+          WebkitLineClamp: maxLines,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden'
         }}
       >
         {text}
@@ -1312,7 +1298,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             <div className="w-full max-w-[1800px] mx-auto flex-1">
               {isLoading ? (
                 // Show skeleton loading cards without blocking UI
-                <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 max-lg:landscape:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
                   {Array.from({ length: 21 }).map((_, index) => (
                     <div
                       key={`skeleton-${index}`}
@@ -1338,7 +1324,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     <p className="text-gray-400 dark:text-slate-500 text-center">اضغط على القلب في أي فئة لإضافتها للمفضلة</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 max-lg:landscape:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
                     {availableCategories
                       .filter(cat => favoriteCategories.includes(cat.id))
                       .map((category) => {
@@ -1445,15 +1431,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               </svg>
                             </div>
 
-                            {/* Category name overlaid at bottom */}
-                            <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
-                              <AutoFitText
-                                text={category.name}
-                                className="text-white font-bold drop-shadow-lg"
-                                minFontSize={8}
-                                maxFontSize={14}
-                                maxLines={2}
-                              />
+                            {/* Category name and round count overlaid at bottom */}
+                            <div className="absolute bottom-0 left-0 right-0 px-0.5 py-1 sm:px-1 sm:py-1.5 md:px-1.5 md:py-2 lg:px-2 lg:py-2.5 xl:px-3 xl:py-3 z-10">
+                              <h3 className="text-white font-bold text-[9px] sm:text-[10px] md:text-xs lg:text-xs xl:text-sm 2xl:text-base text-center leading-tight drop-shadow-lg whitespace-nowrap overflow-hidden">
+                                {category.name}
+                              </h3>
+                              {questionCounts[category.id] > 0 && (
+                                <p className="text-white/70 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs xl:text-sm 2xl:text-base text-center mt-0.5">
+                                  {questionCounts[category.id]} جولة
+                                </p>
+                              )}
                             </div>
 
                             {/* Selection indicator border glow */}
@@ -1481,7 +1468,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                   })
 
                   return (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 max-lg:landscape:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
                       {allCategories.map((category) => {
                         const selected = isSelected(category.id)
                         const needsReset = categoryNeedsReset(category.id)
@@ -1586,15 +1573,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                               </svg>
                             </div>
 
-                            {/* Category name overlaid at bottom */}
-                            <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
-                              <AutoFitText
-                                text={category.name}
-                                className="text-white font-bold drop-shadow-lg"
-                                minFontSize={8}
-                                maxFontSize={14}
-                                maxLines={2}
-                              />
+                            {/* Category name and round count overlaid at bottom */}
+                            <div className="absolute bottom-0 left-0 right-0 px-0.5 py-1 sm:px-1 sm:py-1.5 md:px-1.5 md:py-2 lg:px-2 lg:py-2.5 xl:px-3 xl:py-3 z-10">
+                              <h3 className="text-white font-bold text-[9px] sm:text-[10px] md:text-xs lg:text-xs xl:text-sm 2xl:text-base text-center leading-tight drop-shadow-lg whitespace-nowrap overflow-hidden">
+                                {category.name}
+                              </h3>
+                              {questionCounts[category.id] > 0 && (
+                                <p className="text-white/70 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs xl:text-sm 2xl:text-base text-center mt-0.5">
+                                  {questionCounts[category.id]} جولة
+                                </p>
+                              )}
                             </div>
 
                             {/* Selection indicator border glow */}
@@ -1716,7 +1704,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
 
                         {/* Categories Grid (only if expanded) */}
                         {expandedMasters[master.id] && (
-                          <div className="grid grid-cols-3 sm:grid-cols-4 landscape:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-2 sm:gap-3 lg:gap-4">
+                          <div className="grid grid-cols-3 sm:grid-cols-4 max-lg:landscape:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
                           {master.categories.map((category) => {
                             const selected = isSelected(category.id)
                             const needsReset = categoryNeedsReset(category.id)
@@ -1821,15 +1809,16 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                                   </svg>
                                 </div>
 
-                                {/* Category name overlaid at bottom */}
-                                <div className="absolute bottom-0 left-0 right-0 p-1 sm:p-1.5 md:p-2 z-10 h-[28px] sm:h-[32px] md:h-[38px] lg:h-[44px]">
-                                  <AutoFitText
-                                    text={category.name}
-                                    className="text-white font-bold drop-shadow-lg"
-                                    minFontSize={8}
-                                    maxFontSize={14}
-                                    maxLines={2}
-                                  />
+                                {/* Category name and round count overlaid at bottom */}
+                                <div className="absolute bottom-0 left-0 right-0 px-0.5 py-1 sm:px-1 sm:py-1.5 md:px-1.5 md:py-2 lg:px-2 lg:py-2.5 xl:px-3 xl:py-3 z-10">
+                                  <h3 className="text-white font-bold text-[9px] sm:text-[10px] md:text-xs lg:text-xs xl:text-sm 2xl:text-base text-center leading-tight drop-shadow-lg whitespace-nowrap overflow-hidden">
+                                    {category.name}
+                                  </h3>
+                                  {questionCounts[category.id] > 0 && (
+                                    <p className="text-white/70 text-[8px] sm:text-[9px] md:text-[10px] lg:text-xs xl:text-sm 2xl:text-base text-center mt-0.5">
+                                      {questionCounts[category.id]} جولة
+                                    </p>
+                                  )}
                                 </div>
 
                                 {/* Selection indicator border glow */}
