@@ -119,8 +119,8 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-slate-700">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gradient-to-b dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-slate-700">
         {/* Header */}
         <div className="bg-gradient-to-r from-red-600 to-red-700 p-4 md:p-5 rounded-t-2xl">
           <div className="flex justify-between items-center">
@@ -161,7 +161,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
 
         <div className="p-4 md:p-6">
           {localError && (
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl mb-4 flex items-center gap-2 text-sm md:text-base">
+            <div className="bg-red-100 dark:bg-red-500/20 border border-red-300 dark:border-red-500/50 text-red-700 dark:text-red-200 px-4 py-3 rounded-xl mb-4 flex items-center gap-2 text-sm md:text-base">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -170,7 +170,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
           )}
 
           {successMessage && (
-            <div className="bg-green-500/20 border border-green-500/50 text-green-200 px-4 py-3 rounded-xl mb-4 flex items-center gap-2 text-sm md:text-base">
+            <div className="bg-green-100 dark:bg-green-500/20 border border-green-300 dark:border-green-500/50 text-green-700 dark:text-green-200 px-4 py-3 rounded-xl mb-4 flex items-center gap-2 text-sm md:text-base">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -181,12 +181,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2" dir="rtl">
+                <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2" dir="rtl">
                   الاسم
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
@@ -194,7 +194,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full px-4 py-3 pr-10 bg-slate-700/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-500 transition-all"
+                    className="w-full px-4 py-3 pr-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
                     placeholder="أدخل اسمك"
                     dir="rtl"
                     disabled={loading}
@@ -204,12 +204,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
             )}
 
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2" dir="rtl">
+              <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2" dir="rtl">
                 البريد الإلكتروني
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -217,7 +217,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 pr-10 bg-slate-700/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-500 transition-all"
+                  className="w-full px-4 py-3 pr-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
                   placeholder="example@email.com"
                   dir="ltr"
                   disabled={loading}
@@ -227,12 +227,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
 
             {mode !== 'reset' && (
               <div>
-                <label className="block text-gray-300 text-sm font-medium mb-2" dir="rtl">
+                <label className="block text-gray-700 dark:text-gray-300 text-sm font-medium mb-2" dir="rtl">
                   كلمة المرور
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -240,7 +240,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 pr-10 pl-10 bg-slate-700/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-white placeholder-gray-500 transition-all"
+                    className="w-full px-4 py-3 pr-10 pl-10 bg-gray-50 dark:bg-slate-700/50 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
                     placeholder="أدخل كلمة المرور"
                     dir="ltr"
                     disabled={loading}
@@ -248,7 +248,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   >
                     {showPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,7 +274,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                     setLocalError('')
                     setSuccessMessage('')
                   }}
-                  className="text-red-400 hover:text-red-300 text-sm transition-colors"
+                  className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-sm transition-colors"
                 >
                   نسيت كلمة المرور؟
                 </button>
@@ -321,14 +321,14 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
 
           {/* Sign-up disabled notice */}
           {!signUpEnabled && mode === 'signin' && (
-            <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-center">
-              <div className="flex items-center justify-center gap-2 text-amber-400 font-medium">
+            <div className="mt-4 p-4 bg-amber-100 dark:bg-amber-500/10 border border-amber-300 dark:border-amber-500/30 rounded-xl text-center">
+              <div className="flex items-center justify-center gap-2 text-amber-700 dark:text-amber-400 font-medium">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
                 التسجيل مغلق حالياً
               </div>
-              <p className="text-xs text-amber-300/80 mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-300/80 mt-1">
                 يمكن للمستخدمين الحاليين تسجيل الدخول فقط
               </p>
             </div>
@@ -343,7 +343,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                   setSuccessMessage('')
                 }}
                 disabled={loading}
-                className="text-gray-400 hover:text-white transition-colors flex items-center justify-center gap-1 mx-auto"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors flex items-center justify-center gap-1 mx-auto"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -360,12 +360,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'signin' }) {
                     setSuccessMessage('')
                   }}
                   disabled={loading}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   {mode === 'signup' ? (
-                    <span>لديك حساب بالفعل؟ <span className="text-red-400 hover:text-red-300">تسجيل الدخول</span></span>
+                    <span>لديك حساب بالفعل؟ <span className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">تسجيل الدخول</span></span>
                   ) : (
-                    <span>ليس لديك حساب؟ <span className="text-red-400 hover:text-red-300">إنشاء حساب جديد</span></span>
+                    <span>ليس لديك حساب؟ <span className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300">إنشاء حساب جديد</span></span>
                   )}
                 </button>
               )
