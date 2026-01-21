@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
@@ -26,6 +26,62 @@ import CharadeService from '../services/charadeService'
 import GuessWordService from '../services/guessWordService'
 import GuessWordDisplay from '../components/GuessWordDisplay'
 import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/responsiveStyles'
+
+// Auto-fit text component - starts at max size and only shrinks if needed to fit
+function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 16, style = {} }) {
+  const containerRef = useRef(null)
+  const textRef = useRef(null)
+  const [fontSize, setFontSize] = useState(maxFontSize)
+
+  const calculateFontSize = useCallback(() => {
+    if (!containerRef.current || !textRef.current) return
+
+    const containerWidth = containerRef.current.clientWidth
+
+    // Start at max size and shrink only if needed
+    let currentSize = maxFontSize
+    textRef.current.style.fontSize = `${currentSize}px`
+
+    // Shrink until text fits container width or we hit minimum
+    while (textRef.current.scrollWidth > containerWidth && currentSize > minFontSize) {
+      currentSize -= 0.5
+      textRef.current.style.fontSize = `${currentSize}px`
+    }
+
+    setFontSize(currentSize)
+  }, [minFontSize, maxFontSize])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      calculateFontSize()
+    }, 10)
+
+    const resizeObserver = new ResizeObserver(() => {
+      calculateFontSize()
+    })
+
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    return () => {
+      clearTimeout(timer)
+      resizeObserver.disconnect()
+    }
+  }, [text, calculateFontSize])
+
+  return (
+    <div ref={containerRef} className={`w-full overflow-hidden ${className}`} style={style}>
+      <span
+        ref={textRef}
+        className="block text-center whitespace-nowrap"
+        style={{ fontSize: `${fontSize}px` }}
+      >
+        {text}
+      </span>
+    </div>
+  )
+}
 
 function QuestionView({ gameState, setGameState, stateLoaded }) {
   const navigate = useNavigate()
@@ -1930,25 +1986,28 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <LogoDisplay />
-              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full max-w-[50%]"
                    style={{
                      gap: `${styles.headerFontSize * 0.3}px`,
                      padding: `${styles.headerFontSize * 0.2}px ${styles.headerFontSize * 0.5}px`
                    }}>
-                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>دور:</span>
-                <span className="font-bold text-white leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }} dir="auto">
-                  {gameState.currentTurn === 'team1'
+                <span className="text-white/90 leading-none flex-shrink-0" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>دور:</span>
+                <AutoFitText
+                  text={gameState.currentTurn === 'team1'
                     ? gameState.team1?.name || 'الفريق 1'
                     : gameState.currentTurn === 'team2'
                     ? gameState.team2?.name || 'الفريق 2'
                     : 'غير محدد'}
-                </span>
+                  className="font-bold text-white leading-none flex-1 min-w-0"
+                  minFontSize={8}
+                  maxFontSize={styles.headerFontSize * 0.85}
+                />
                 <button
                   onClick={() => setGameState(prev => ({
                     ...prev,
                     currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
                   }))}
-                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none flex-shrink-0"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
                     <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
@@ -1984,30 +2043,30 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           <div className={`flex justify-between items-center h-full ${styles.isPhoneLandscape ? 'px-2' : 'md:px-12 lg:px-16 xl:px-20 2xl:px-28'}`}>
             <div className="flex items-center" style={{ gap: `${styles.headerFontSize * 0.5}px` }}>
               <LogoDisplay />
-              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full"
+              <div className="flex items-center bg-white/20 dark:bg-black/20 rounded-full max-w-[200px]"
                    style={{
                      gap: `${styles.headerFontSize * 0.3}px`,
                      padding: `${styles.headerFontSize * 0.25}px ${styles.headerFontSize * 0.6}px`
                    }}>
-                <span className="text-white/90 leading-none" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
+                <span className="text-white/90 leading-none flex-shrink-0" style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}>
                   دور:
                 </span>
-                <span
-                  className="font-bold text-white leading-none"
-                  style={{ fontSize: `${styles.headerFontSize * 0.85}px` }}
-                >
-                  {gameState.currentTurn === 'team1'
+                <AutoFitText
+                  text={gameState.currentTurn === 'team1'
                     ? gameState.team1?.name || 'الفريق 1'
                     : gameState.currentTurn === 'team2'
                     ? gameState.team2?.name || 'الفريق 2'
                     : 'غير محدد'}
-                </span>
+                  className="font-bold text-white leading-none flex-1 min-w-0"
+                  minFontSize={8}
+                  maxFontSize={styles.headerFontSize * 0.85}
+                />
                 <button
                   onClick={() => setGameState(prev => ({
                     ...prev,
                     currentTurn: prev.currentTurn === 'team1' ? 'team2' : 'team1'
                   }))}
-                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none"
+                  className="hover:bg-white/10 text-white rounded-full transition-colors flex items-center justify-center p-0.5 leading-none flex-shrink-0"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="block" style={{ width: `${styles.headerFontSize * 0.85}px`, height: `${styles.headerFontSize * 0.85}px` }}>
                     <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" fill="white"/>
@@ -2139,18 +2198,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             {/* Team 1 Section */}
             <section className="about_score_footer_secMain">
               <div className="text-center about_score_footer max-2xl:gap-x-2">
-                <div className={`text-white min-w-max w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-4xl:max-w-64 4xl:max-w-96 max-xl:max-w-64 xl:w-full max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative ${
+                <div className={`text-white w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative overflow-hidden ${
                   gameState.currentTurn === 'team1' ? 'ring-4 ring-red-400 ring-opacity-60 shadow-lg shadow-red-400/30' : ''
                 }`}
                      style={{
                        background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
-                       fontSize: `${styles.buttonFontSize * 0.8}px`,
                        minHeight: `${styles.teamButtonHeight}px`,
                        padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
                      }}>
-                  <span className="whitespace-nowrap inline-block">
-                    {gameState.team1?.name || 'الفريق 1'}
-                  </span>
+                  <AutoFitText
+                    text={gameState.team1?.name || 'الفريق 1'}
+                    className="font-bold"
+                    minFontSize={10}
+                    maxFontSize={styles.buttonFontSize * 0.8}
+                  />
                 </div>
                 <div className={`text-60 game-text font-bold text-black dark:text-gray-100 ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
                   {gameState.team1?.score || 0}
@@ -2194,18 +2255,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
             {/* Team 2 Section */}
             <section className="about_score_footer_secMain">
               <div className="text-center about_score_footer max-2xl:gap-x-2">
-                <div className={`text-white min-w-max w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-4xl:max-w-64 4xl:max-w-96 max-xl:max-w-64 xl:w-full max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative ${
+                <div className={`text-white w-full p-1 sm:p-2 md:p-3 lg:p-3.5 max-w-full text-center rounded-[30px] font-bold place-self-center flex justify-center items-center mx-auto team-name_wrapper relative overflow-hidden ${
                   gameState.currentTurn === 'team2' ? 'ring-4 ring-red-400 ring-opacity-60 shadow-lg shadow-red-400/30' : ''
                 }`}
                      style={{
                        background: 'linear-gradient(45deg, #7c2d12, #991b1b, #b91c1c, #dc2626)',
-                       fontSize: `${styles.buttonFontSize * 0.8}px`,
                        minHeight: `${styles.teamButtonHeight}px`,
                        padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
                      }}>
-                  <span className="whitespace-nowrap inline-block">
-                    {gameState.team2?.name || 'الفريق 2'}
-                  </span>
+                  <AutoFitText
+                    text={gameState.team2?.name || 'الفريق 2'}
+                    className="font-bold"
+                    minFontSize={10}
+                    maxFontSize={styles.buttonFontSize * 0.8}
+                  />
                 </div>
                 <div className={`text-60 game-text font-bold text-black dark:text-gray-100 ${styles.teamElementSpacing}`} style={{ fontSize: `${styles.teamScoreFontSize}px` }}>
                   {gameState.team2?.score || 0}

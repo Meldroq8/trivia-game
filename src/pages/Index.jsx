@@ -275,7 +275,7 @@ function Index({ setGameState }) {
         )}
 
         {/* Hero Section */}
-        <section className="py-8 md:py-12 px-4">
+        <section className="relative py-8 pb-16 md:py-12 md:pb-20 px-4">
           <div className="max-w-4xl mx-auto">
             {/* Side-by-side only on landscape phones (sm to md), stacked on portrait and larger screens */}
             <div className="flex flex-col sm:flex-row-reverse sm:items-center sm:justify-between sm:gap-6 lg:flex-col lg:gap-0 text-center">
@@ -319,10 +319,24 @@ function Index({ setGameState }) {
               </div>
             </div>
           </div>
+
+          {/* Curved bottom edge */}
+          <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-none">
+            <svg
+              viewBox="0 0 1440 120"
+              preserveAspectRatio="none"
+              className="w-full h-12 md:h-16 lg:h-20"
+            >
+              <path
+                className="fill-white dark:fill-slate-800"
+                d="M0,40 C480,100 960,0 1440,40 L1440,120 L0,120 Z"
+              />
+            </svg>
+          </div>
         </section>
 
         {/* Categories Section */}
-        <section className="py-8 md:py-12 px-4 bg-white dark:bg-slate-800 border-y border-gray-200 dark:border-slate-700 shadow-sm">
+        <section className="relative py-8 pb-16 md:py-12 md:pb-20 px-4 bg-white dark:bg-slate-800">
           <div className="max-w-6xl mx-auto">
             <div className="mb-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">
@@ -388,10 +402,24 @@ function Index({ setGameState }) {
               </button>
             </div>
           </div>
+
+          {/* Curved bottom edge */}
+          <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-none">
+            <svg
+              viewBox="0 0 1440 120"
+              preserveAspectRatio="none"
+              className="w-full h-12 md:h-16 lg:h-20"
+            >
+              <path
+                className="fill-[#f7f2e6] dark:fill-slate-900"
+                d="M0,40 C480,100 960,0 1440,40 L1440,120 L0,120 Z"
+              />
+            </svg>
+          </div>
         </section>
 
         {/* Leaderboard Section */}
-        <section className="py-8 md:py-12 px-4">
+        <section className="relative py-8 pb-16 md:py-12 md:pb-20 px-4">
           <div className="max-w-2xl mx-auto">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100 text-center mb-6">
               🏆 لوحة المتصدرين
@@ -453,10 +481,24 @@ function Index({ setGameState }) {
               </div>
             </div>
           </div>
+
+          {/* Curved bottom edge */}
+          <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-none">
+            <svg
+              viewBox="0 0 1440 120"
+              preserveAspectRatio="none"
+              className="w-full h-12 md:h-16 lg:h-20"
+            >
+              <path
+                className="fill-white dark:fill-slate-800"
+                d="M0,40 C480,100 960,0 1440,40 L1440,120 L0,120 Z"
+              />
+            </svg>
+          </div>
         </section>
 
         {/* Perks Section */}
-        <section className="py-8 md:py-12 px-4 bg-white dark:bg-slate-800 border-y border-gray-200 dark:border-slate-700 shadow-sm">
+        <section className="relative py-8 pb-16 md:py-12 md:pb-20 px-4 bg-white dark:bg-slate-800">
           <div className="max-w-5xl mx-auto">
             <div className="flex flex-col md:flex-row gap-8 md:gap-16 lg:gap-24 items-center">
               {/* Right side - Title and description */}
@@ -496,10 +538,24 @@ function Index({ setGameState }) {
               </div>
             </div>
           </div>
+
+          {/* Curved bottom edge */}
+          <div className="absolute bottom-0 left-0 right-0 overflow-hidden leading-none">
+            <svg
+              viewBox="0 0 1440 120"
+              preserveAspectRatio="none"
+              className="w-full h-12 md:h-16 lg:h-20"
+            >
+              <path
+                className="fill-slate-800 dark:fill-slate-900"
+                d="M0,40 C480,100 960,0 1440,40 L1440,120 L0,120 Z"
+              />
+            </svg>
+          </div>
         </section>
 
         {/* Footer Section */}
-        <footer className="bg-slate-800 dark:bg-slate-900 py-8 px-4 mt-auto">
+        <footer className="bg-slate-800 dark:bg-slate-900 py-8 px-4">
           <div className="max-w-4xl mx-auto text-center">
             {/* Social Media Icons */}
             <div className="flex items-center justify-center gap-4 mb-6">
