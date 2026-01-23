@@ -1,12 +1,11 @@
 # robots.txt for rasbras.com
 
 User-agent: *
-Allow: /$
+Allow: /
 Allow: /category-preview
 
-# Block user-specific and game pages
+# Block user-specific and game session pages
 Disallow: /categories
-Disallow: /lander
 Disallow: /my-games
 Disallow: /profile
 Disallow: /admin
@@ -18,6 +17,8 @@ Disallow: /draw/
 Disallow: /headband/
 Disallow: /guessword/
 Disallow: /loader/
+Disallow: /reset-password
+Disallow: /answer-view/
 
 # Sitemap location
 Sitemap: https://www.rasbras.com/sitemap.xml
