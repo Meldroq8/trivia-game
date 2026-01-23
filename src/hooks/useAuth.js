@@ -41,10 +41,17 @@ export const useAuth = () => {
       questionUsageTracker.setUserId(user.uid)
 
       try {
+        // Check if sync is needed BEFORE loading games (saves Firebase reads)
+        const needsSync = await questionUsageTracker.shouldSync()
+        if (!needsSync) {
+          return // Skip - already synced or in progress
+        }
+
         devLog('🔄 Starting usage sync from game history...')
+        devLog('📖 Loading ALL games for usage sync, user:', user.uid)
         // Fetch ALL user games (not limited to 4)
         const allGames = await AuthService.getAllUserGamesForSync(user.uid)
-        // Sync usage data from game history (has its own session check)
+        // Sync usage data from game history
         await questionUsageTracker.syncUsageFromGameHistory(allGames)
       } catch (error) {
         prodError('❌ Error syncing usage from history:', error)

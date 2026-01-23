@@ -525,8 +525,6 @@ export class AuthService {
   // Get ALL user games for syncing usage history (no limit)
   static async getAllUserGamesForSync(uid) {
     try {
-      devLog('📖 Loading ALL games for usage sync, user:', uid)
-
       const gamesQuery = query(
         collection(db, 'games'),
         where('userId', '==', uid),

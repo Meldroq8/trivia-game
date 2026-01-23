@@ -118,9 +118,18 @@ function Index({ setGameState }) {
   const [showPasswordResetSuccess, setShowPasswordResetSuccess] = useState(false)
   const categoriesScrollRef = useRef(null)
 
-  // Set page title
+  // Set page title and canonical URL for SEO
   useEffect(() => {
-    document.title = 'راس براس'
+    document.title = 'راس براس - لعبة تحدي المعلومات العامة للفرق'
+
+    // Set canonical URL
+    let canonical = document.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = 'https://www.rasbras.com/'
   }, [])
 
   // Check for password reset success

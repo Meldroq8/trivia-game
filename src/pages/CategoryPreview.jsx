@@ -17,9 +17,23 @@ function CategoryPreview() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const filterScrollRef = useRef(null)
 
-  // Set page title
+  // Set page title and canonical URL for SEO
   useEffect(() => {
     document.title = 'راس براس - فئات اللعبة'
+
+    // Set canonical URL
+    let canonical = document.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = 'https://www.rasbras.com/category-preview'
+
+    return () => {
+      // Reset to homepage canonical when leaving
+      if (canonical) canonical.href = 'https://www.rasbras.com/'
+    }
   }, [])
 
   // Load categories and master categories

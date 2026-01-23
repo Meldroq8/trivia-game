@@ -920,6 +920,44 @@ class QuestionUsageTracker {
   }
 
   /**
+   * Check if sync is needed before loading games
+   * Call this BEFORE loading games to avoid unnecessary Firebase reads
+   * @returns {Promise<boolean>} True if sync should run, false if can skip
+   */
+  async shouldSync() {
+    if (!this.currentUserId) {
+      return false
+    }
+
+    // If sync already complete this instance, skip
+    if (this.syncComplete) {
+      return false
+    }
+
+    // If sync in progress, skip (caller should wait on syncPromise)
+    if (this.syncInProgress) {
+      return false
+    }
+
+    // Check session flag
+    const syncKey = `usage_synced_${this.currentUserId}`
+    if (sessionStorage.getItem(syncKey) === 'true') {
+      // Verify data exists
+      const existingData = await this.getUsageData()
+      const usedCount = Object.values(existingData).filter(v => v > 0).length
+      if (usedCount > 0) {
+        devLog(`⏭️ Sync not needed - already synced this session (${usedCount} used)`)
+        this.syncComplete = true
+        return false
+      }
+      // Data empty despite flag - need to sync
+      devLog('⚠️ Session flag set but no data - sync needed')
+    }
+
+    return true
+  }
+
+  /**
    * Sync usage data from game history
    * This rebuilds the usage counters based on all user's played games
    * Called once per session on app load to ensure counters reflect actual game history

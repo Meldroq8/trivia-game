@@ -266,3 +266,13 @@ body{
 .dark .hive-pattern::before {
   background: linear-gradient(to top, transparent 0%, transparent 40%, rgb(15 23 42) 80%);
 }
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
