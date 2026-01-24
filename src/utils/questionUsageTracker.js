@@ -713,6 +713,17 @@ class QuestionUsageTracker {
       // Update local cache
       this.localCache = currentUsageData
 
+      // Also update localStorage fallback to prevent stale data
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(currentUsageData))
+
+      // Invalidate sync cache to ensure fresh data on next load
+      if (this.currentUserId) {
+        const syncKey = `usage_synced_${this.currentUserId}`
+        sessionStorage.removeItem(syncKey)
+        this.syncComplete = false
+        devLog('🔄 Invalidated sync cache after category reset')
+      }
+
       devLog(`✅ Atomic reset complete for category ${categoryId}: ${resetCount} used questions reset, timestamp saved`)
       return trackingIds.length
     } catch (error) {

@@ -357,6 +357,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     const loadCountsAfterSync = async () => {
       if (!gameData || !user?.uid) return
 
+      // Clear cache to ensure fresh data from Firestore
+      questionUsageTracker.clearCache()
+
       // Wait for sync to complete before loading counts
       devLog('⏳ Waiting for usage sync before loading counts...')
       await questionUsageTracker.waitForSync(5000) // Wait up to 5 seconds
