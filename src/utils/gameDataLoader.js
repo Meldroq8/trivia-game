@@ -177,12 +177,18 @@ export class GameDataLoader {
     devLog('⚡ Loading categories only (lazy mode)...')
 
     try {
-      // Check categories cache first
+      // Check categories cache first WITH VERSION VALIDATION
       if (!forceRefresh) {
         const cachedCategories = this.getCategoriesFromCache()
         if (cachedCategories) {
-          devLog('📦 Using cached categories for instant loading')
-          return cachedCategories
+          // Quick version check - compare with Firebase version
+          const cacheStillValid = await this.verifyCacheVersion()
+          if (cacheStillValid) {
+            devLog('📦 Using cached categories for instant loading')
+            return cachedCategories
+          } else {
+            devLog('🔄 Categories cache invalidated - data version changed')
+          }
         }
       }
 
