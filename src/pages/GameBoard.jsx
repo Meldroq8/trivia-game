@@ -12,7 +12,7 @@ import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet, 
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import QRCodeWithLogo, { preloadQRLogo } from '../components/QRCodeWithLogo'
-import { preloadMiniGameSettings } from './QuestionView'
+import { preloadMiniGameSettings } from '../utils/miniGameSettingsCache'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import gamePreloader from '../utils/preloader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
