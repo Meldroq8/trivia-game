@@ -440,6 +440,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [showScoring, setShowScoring] = useState(false)
   const [timerActive, setTimerActive] = useState(true)
   const [imageZoomed, setImageZoomed] = useState(false)
+  const [qrZoomed, setQrZoomed] = useState(false)
   const [gameData, setGameData] = useState(null)
   const [preloadedImages, setPreloadedImages] = useState(new Set())
   const [imageLoading, setImageLoading] = useState(false)
@@ -1318,6 +1319,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     setShowScoring(false)
     setTimerActive(true)
     setImageZoomed(false)
+    setQrZoomed(false)
     // Reset QR mini-game timer
     setQrTimerStarted(false)
     setQrTimeRemaining(getQrTimerDuration(currentQuestion?.question?.points || currentQuestion?.points))
@@ -1688,6 +1690,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       return
     }
     setImageZoomed(false)
+    setQrZoomed(false)
   }
 
   // Helper function to get perk icon SVG (matching GameBoard style)
@@ -2006,6 +2009,40 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           />
         </div>
       )}
+      {/* Fullscreen QR Code Overlay */}
+      {qrZoomed && (() => {
+        const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+        const category = gameData?.categories?.find(c => c.id === categoryId)
+        const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+        const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+        const questionId = currentQuestion?.question?.id || currentQuestion?.id
+        const sessionId = questionId && user?.uid ? `${questionId}_${user.uid}` : questionId
+
+        if (!sessionId) return null
+
+        return (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-90 z-[10000] flex items-center justify-center p-4"
+            onClick={handleBackdropClick}
+          >
+            <div
+              className="bg-white rounded-2xl p-6 cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setQrZoomed(false) }}
+            >
+              <QRCodeWithLogo
+                questionId={sessionId}
+                size={Math.min(window.innerWidth, window.innerHeight) * 0.75}
+                mode={
+                  (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing') ? 'drawing' :
+                  (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband') ? 'headband' :
+                  (category?.miniGameType === 'guessword' || originalCategory?.miniGameType === 'guessword') ? 'guessword' :
+                  'answer'
+                }
+              />
+            </div>
+          </div>
+        )
+      })()}
       {/* Header - Copy from GameBoard */}
       <div
         ref={headerRef}
@@ -2988,10 +3025,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         <div className="flex portrait:flex-col landscape:flex-row-reverse items-center justify-center h-full w-full portrait:gap-2 landscape:gap-4 xl:scale-125 2xl:scale-150">
                           {/* QR Code */}
                           <div
-                            className="bg-white dark:bg-slate-800 rounded-lg shadow-xl flex-shrink-0 portrait:scale-90"
+                            className="bg-white dark:bg-slate-800 rounded-lg shadow-xl flex-shrink-0 portrait:scale-90 cursor-pointer"
                             style={{
                               padding: `${Math.max(4, styles.imageAreaHeight * 0.015)}px`
                             }}
+                            onClick={(e) => { e.stopPropagation(); setQrZoomed(true) }}
                           >
                             <QRCodeWithLogo
                               questionId={sessionId}
