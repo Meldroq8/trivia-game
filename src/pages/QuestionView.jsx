@@ -470,6 +470,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       'اسأل أسئلة لتخمين صورة الخصم'
     ]
   })
+  const [customMiniGames, setCustomMiniGames] = useState([])
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({
@@ -508,6 +509,9 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         const settings = await getAppSettings()
         if (settings?.miniGameRules) {
           setMiniGameRules(settings.miniGameRules)
+        }
+        if (settings?.customMiniGames) {
+          setCustomMiniGames(settings.customMiniGames)
         }
         if (settings?.sponsorLogo) {
           setSponsorLogo(settings.sponsorLogo)
@@ -984,7 +988,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
     const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
-    const isCharadesMode = isQrMiniGame && miniGameType === 'charades'
+    const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword'].includes(miniGameType)
 
     if (!isCharadesMode) {
       // Cleanup any existing charade session if switching away from charades mode
@@ -2500,7 +2504,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   // Show QR if current category OR original category has QR enabled
                   const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
                   const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
-                  const isCharadesMode = isQrMiniGame && miniGameType === 'charades'
+                  const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword'].includes(miniGameType)
 
                   // Show circular timer ONLY for charades mode (not drawing mode - canvas has its own timer)
                   if (isCharadesMode && qrTimerStarted) {
@@ -2976,13 +2980,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                           {/* Instructions */}
                           <div className="flex flex-col portrait:gap-1.5 landscape:gap-2.5 portrait:scale-90">
-                            {(
-                              (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing')
-                                ? miniGameRules.drawing
-                                : (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband')
-                                  ? (miniGameRules.headband || miniGameRules.other)
-                                  : miniGameRules.other
-                            ).map((rule, index) => (
+                            {(() => {
+                              const type = category?.miniGameType || originalCategory?.miniGameType
+                              if (type === 'drawing') return miniGameRules.drawing
+                              if (type === 'headband') return miniGameRules.headband || miniGameRules.other
+                              const customGame = customMiniGames.find(g => g.id === type)
+                              if (customGame?.rules?.length) return customGame.rules
+                              return miniGameRules.other
+                            })().map((rule, index) => (
                               <div
                                 key={index}
                                 className="bg-red-600 rounded-full flex items-center shadow-lg whitespace-nowrap"

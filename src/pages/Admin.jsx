@@ -347,6 +347,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
   const [categoryDescriptions, setCategoryDescriptions] = useState({}) // { categoryId: description }
   const [savingDescriptions, setSavingDescriptions] = useState(false)
   const [descriptionsChanged, setDescriptionsChanged] = useState(false)
+  const [customMiniGames, setCustomMiniGames] = useState([])
+  const { getAppSettings } = useAuth()
 
   useEffect(() => {
     // Don't load until admin/moderator status is confirmed
@@ -354,6 +356,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
 
     // Load directly from Firebase - no localStorage dependency
     loadDataFromFirebase()
+
+    // Load custom mini-games from settings
+    const loadCustomGames = async () => {
+      try {
+        const settings = await getAppSettings()
+        if (settings?.customMiniGames) {
+          setCustomMiniGames(settings.customMiniGames)
+        }
+      } catch (error) {
+        devLog('Error loading custom mini games in CategoriesManager')
+      }
+    }
+    loadCustomGames()
   }, [isAdmin, isModerator])
 
   const loadDataFromFirebase = async () => {
@@ -1521,15 +1536,19 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                         <option value="drawing">🎨 رسم (Drawing)</option>
                         <option value="headband">🎯 تخمين الصورة (Headband)</option>
                         <option value="guessword">🤔 خمن الكلمة (Guess Word)</option>
+                        {customMiniGames.map(game => (
+                          <option key={game.id} value={game.id}>{game.icon} {game.name}</option>
+                        ))}
                       </select>
                       <div className="text-xs text-blue-600 mt-1">
-                        {category.miniGameType === 'drawing'
-                          ? '🎨 سيرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية'
-                          : category.miniGameType === 'headband'
-                            ? '🎯 لاعبان يتواجهان - كل واحد يحمل صورة للآخر ليخمنها'
-                            : category.miniGameType === 'guessword'
-                              ? '🤔 لاعب واحد يرى الكلمة والفريق يسأل أسئلة نعم/لا (15 سؤال)'
-                              : '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'}
+                        {(() => {
+                          const customGame = customMiniGames.find(g => g.id === category.miniGameType)
+                          if (customGame) return `${customGame.icon} ${customGame.instructions || customGame.name}`
+                          if (category.miniGameType === 'drawing') return '🎨 سيرسم اللاعب الإجابة على هاتفه وتظهر على الشاشة الرئيسية'
+                          if (category.miniGameType === 'headband') return '🎯 لاعبان يتواجهان - كل واحد يحمل صورة للآخر ليخمنها'
+                          if (category.miniGameType === 'guessword') return '🤔 لاعب واحد يرى الكلمة والفريق يسأل أسئلة نعم/لا (15 سؤال)'
+                          return '🎭 سيمثل اللاعب الإجابة للفريق (النمط الافتراضي)'
+                        })()}
                       </div>
                     </div>
                   )}
@@ -6047,6 +6066,11 @@ function SettingsManager() {
     charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
   })
 
+  // Custom mini-games state
+  const [customMiniGames, setCustomMiniGames] = useState([])
+  const [editingCustomGameId, setEditingCustomGameId] = useState(null)
+  const [newCustomGame, setNewCustomGame] = useState(null)
+
   const [savingRules, setSavingRules] = useState(false)
   const [migratingLeaderboard, setMigratingLeaderboard] = useState(false)
   const [migrationResult, setMigrationResult] = useState(null)
@@ -6104,6 +6128,9 @@ function SettingsManager() {
             ...prev,
             ...settings.miniGameInstructions
           }))
+        }
+        if (settings?.customMiniGames) {
+          setCustomMiniGames(settings.customMiniGames)
         }
       } catch (error) {
         prodError('Error loading settings:', error)
@@ -6457,7 +6484,7 @@ function SettingsManager() {
   const handleSaveMiniGameRules = async () => {
     setSavingRules(true)
     try {
-      const success = await saveAppSettings({ miniGameRules, miniGameInstructions })
+      const success = await saveAppSettings({ miniGameRules, miniGameInstructions, customMiniGames })
       if (success) {
         alert('تم حفظ قواعد الألعاب المصغرة بنجاح!')
       } else {
@@ -6475,6 +6502,67 @@ function SettingsManager() {
     setMiniGameInstructions(prev => ({
       ...prev,
       [gameType]: value
+    }))
+  }
+
+  // Custom mini-game handlers
+  const handleAddCustomGame = () => {
+    if (!newCustomGame?.name?.trim()) {
+      alert('يرجى إدخال اسم اللعبة')
+      return
+    }
+    const id = newCustomGame.name.trim().toLowerCase().replace(/\s+/g, '_') + '_' + Date.now()
+    const game = {
+      id,
+      name: newCustomGame.name.trim(),
+      icon: newCustomGame.icon?.trim() || '🎮',
+      rules: (newCustomGame.rules || ['']).filter(r => r.trim() !== ''),
+      instructions: newCustomGame.instructions?.trim() || ''
+    }
+    if (game.rules.length === 0) game.rules = ['']
+    setCustomMiniGames(prev => [...prev, game])
+    setNewCustomGame(null)
+  }
+
+  const handleEditCustomGame = (id, field, value) => {
+    setCustomMiniGames(prev => prev.map(g =>
+      g.id === id ? { ...g, [field]: value } : g
+    ))
+  }
+
+  const handleDeleteCustomGame = (id) => {
+    const game = customMiniGames.find(g => g.id === id)
+    const referencedBy = categories.filter(c => c.miniGameType === id)
+    let msg = `هل تريد حذف اللعبة "${game?.name}"؟`
+    if (referencedBy.length > 0) {
+      msg += `\n\nتحذير: هذه اللعبة مستخدمة في ${referencedBy.length} فئة. ستعود هذه الفئات للنمط الافتراضي (تمثيل).`
+    }
+    if (confirm(msg)) {
+      setCustomMiniGames(prev => prev.filter(g => g.id !== id))
+    }
+  }
+
+  const handleCustomGameRuleChange = (gameId, index, value) => {
+    setCustomMiniGames(prev => prev.map(g => {
+      if (g.id !== gameId) return g
+      const newRules = [...g.rules]
+      newRules[index] = value
+      return { ...g, rules: newRules }
+    }))
+  }
+
+  const handleAddCustomGameRule = (gameId) => {
+    setCustomMiniGames(prev => prev.map(g => {
+      if (g.id !== gameId) return g
+      return { ...g, rules: [...g.rules, ''] }
+    }))
+  }
+
+  const handleRemoveCustomGameRule = (gameId, index) => {
+    setCustomMiniGames(prev => prev.map(g => {
+      if (g.id !== gameId) return g
+      if (g.rules.length <= 1) return g
+      return { ...g, rules: g.rules.filter((_, i) => i !== index) }
     }))
   }
 
@@ -7057,6 +7145,201 @@ function SettingsManager() {
             <span>+</span>
             إضافة قاعدة جديدة
           </button>
+        </div>
+
+        {/* Custom Mini-Games Section */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span>🎮</span>
+            الألعاب المصغرة المخصصة
+          </h4>
+          <p className="text-gray-600 text-sm mb-4">
+            أنشئ ألعاب مصغرة مخصصة تظهر في قائمة أنواع الألعاب عند إدارة الفئات. تستخدم جميعها آلية التمثيل (مسح QR ← رؤية الإجابة ← مؤقت).
+          </p>
+
+          {/* Existing custom games */}
+          {customMiniGames.map((game) => (
+            <div key={game.id} className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={game.icon}
+                    onChange={(e) => handleEditCustomGame(game.id, 'icon', e.target.value)}
+                    className="w-12 text-center p-1 border border-green-300 rounded-lg text-lg"
+                    maxLength={4}
+                  />
+                  <input
+                    type="text"
+                    value={game.name}
+                    onChange={(e) => handleEditCustomGame(game.id, 'name', e.target.value)}
+                    className="p-1 border border-green-300 rounded-lg font-bold text-green-800 text-right"
+                    dir="rtl"
+                  />
+                </div>
+                <button
+                  onClick={() => handleDeleteCustomGame(game.id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors"
+                >
+                  حذف
+                </button>
+              </div>
+
+              {/* Rules editor */}
+              <div className="space-y-2 mb-3">
+                <label className="block text-sm font-medium text-green-800">القواعد:</label>
+                {game.rules.map((rule, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {index + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={rule}
+                      onChange={(e) => handleCustomGameRuleChange(game.id, index, e.target.value)}
+                      className="flex-1 p-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-right text-gray-900"
+                      dir="rtl"
+                      placeholder={`القاعدة ${index + 1}`}
+                    />
+                    {game.rules.length > 1 && (
+                      <button
+                        onClick={() => handleRemoveCustomGameRule(game.id, index)}
+                        className="text-red-500 hover:text-red-700 text-lg font-bold px-2"
+                        title="حذف القاعدة"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  onClick={() => handleAddCustomGameRule(game.id)}
+                  className="mt-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                >
+                  <span>+</span>
+                  إضافة قاعدة
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <label className="block text-sm font-medium text-green-800 mb-1">التعليمات:</label>
+                <input
+                  type="text"
+                  value={game.instructions || ''}
+                  onChange={(e) => handleEditCustomGame(game.id, 'instructions', e.target.value)}
+                  className="w-full p-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-right text-gray-900"
+                  dir="rtl"
+                  placeholder="تعليمات تظهر في صفحة اختيار الفئات"
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Add new game form */}
+          {newCustomGame ? (
+            <div className="p-4 bg-green-50 border-2 border-dashed border-green-400 rounded-xl">
+              <h5 className="font-bold text-green-800 mb-3">إضافة لعبة مصغرة جديدة</h5>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newCustomGame.icon || ''}
+                    onChange={(e) => setNewCustomGame(prev => ({ ...prev, icon: e.target.value }))}
+                    className="w-12 text-center p-2 border border-green-300 rounded-lg text-lg"
+                    placeholder="🎮"
+                    maxLength={4}
+                  />
+                  <input
+                    type="text"
+                    value={newCustomGame.name || ''}
+                    onChange={(e) => setNewCustomGame(prev => ({ ...prev, name: e.target.value }))}
+                    className="flex-1 p-2 border border-green-300 rounded-lg font-bold text-right text-gray-900"
+                    dir="rtl"
+                    placeholder="اسم اللعبة (مطلوب)"
+                  />
+                </div>
+
+                {/* Rules */}
+                <div>
+                  <label className="block text-sm font-medium text-green-800 mb-1">القواعد:</label>
+                  {(newCustomGame.rules || ['']).map((rule, index) => (
+                    <div key={index} className="flex items-center gap-2 mb-2">
+                      <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        {index + 1}
+                      </span>
+                      <input
+                        type="text"
+                        value={rule}
+                        onChange={(e) => {
+                          const newRules = [...(newCustomGame.rules || [''])]
+                          newRules[index] = e.target.value
+                          setNewCustomGame(prev => ({ ...prev, rules: newRules }))
+                        }}
+                        className="flex-1 p-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-right text-gray-900"
+                        dir="rtl"
+                        placeholder={`القاعدة ${index + 1}`}
+                      />
+                      {(newCustomGame.rules || ['']).length > 1 && (
+                        <button
+                          onClick={() => {
+                            const newRules = (newCustomGame.rules || ['']).filter((_, i) => i !== index)
+                            setNewCustomGame(prev => ({ ...prev, rules: newRules }))
+                          }}
+                          className="text-red-500 hover:text-red-700 text-lg font-bold px-2"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setNewCustomGame(prev => ({ ...prev, rules: [...(prev.rules || ['']), ''] }))}
+                    className="mt-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                  >
+                    <span>+</span>
+                    إضافة قاعدة
+                  </button>
+                </div>
+
+                {/* Instructions */}
+                <div>
+                  <label className="block text-sm font-medium text-green-800 mb-1">التعليمات:</label>
+                  <input
+                    type="text"
+                    value={newCustomGame.instructions || ''}
+                    onChange={(e) => setNewCustomGame(prev => ({ ...prev, instructions: e.target.value }))}
+                    className="w-full p-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-right text-gray-900"
+                    dir="rtl"
+                    placeholder="تعليمات تظهر في صفحة اختيار الفئات"
+                  />
+                </div>
+
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={handleAddCustomGame}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    إضافة
+                  </button>
+                  <button
+                    onClick={() => setNewCustomGame(null)}
+                    className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setNewCustomGame({ name: '', icon: '🎮', rules: [''], instructions: '' })}
+              className="w-full py-3 border-2 border-dashed border-green-400 rounded-xl text-green-700 hover:bg-green-50 font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">+</span>
+              إضافة لعبة مصغرة جديدة
+            </button>
+          )}
         </div>
 
         {/* Mini Game Instructions Section */}

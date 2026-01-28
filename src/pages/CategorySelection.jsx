@@ -125,6 +125,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     guessword: 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!',
     charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
   })
+  const [customMiniGames, setCustomMiniGames] = useState([])
 
   // Responsive dimensions tracking
   useEffect(() => {
@@ -153,6 +154,9 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
             ...prev,
             ...settings.miniGameInstructions
           }))
+        }
+        if (settings?.customMiniGames) {
+          setCustomMiniGames(settings.customMiniGames)
         }
       } catch (error) {
         prodError('Error loading newest categories setting:', error)
@@ -2184,7 +2188,13 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     طريقة اللعب
                   </h3>
                   <p className="text-amber-800 dark:text-amber-200 text-sm">
-                    {miniGameInstructions[showCategoryInfo.miniGameType] || miniGameInstructions.charades}
+                    {(() => {
+                      const type = showCategoryInfo.miniGameType
+                      if (miniGameInstructions[type]) return miniGameInstructions[type]
+                      const customGame = customMiniGames.find(g => g.id === type)
+                      if (customGame?.instructions) return customGame.instructions
+                      return miniGameInstructions.charades
+                    })()}
                   </p>
                 </div>
               )}
