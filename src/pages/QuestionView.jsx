@@ -27,6 +27,32 @@ import GuessWordService from '../services/guessWordService'
 import GuessWordDisplay from '../components/GuessWordDisplay'
 import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/responsiveStyles'
 
+// Module-level cache for mini-game settings (populated by preload from GameBoard)
+let _cachedMiniGameRules = null
+let _cachedCustomMiniGames = null
+let _cachedSponsorLogo = null
+let _settingsPreloaded = false
+let _settingsPreloadPromise = null
+
+export const preloadMiniGameSettings = async (getAppSettings) => {
+  if (_settingsPreloaded) return
+  if (_settingsPreloadPromise) return _settingsPreloadPromise
+
+  _settingsPreloadPromise = (async () => {
+    try {
+      const settings = await getAppSettings()
+      if (settings?.miniGameRules) _cachedMiniGameRules = settings.miniGameRules
+      if (settings?.customMiniGames) _cachedCustomMiniGames = settings.customMiniGames
+      if (settings?.sponsorLogo) _cachedSponsorLogo = settings.sponsorLogo
+      _settingsPreloaded = true
+    } catch (e) {
+      // ignore - component will load as fallback
+    }
+  })()
+
+  return _settingsPreloadPromise
+}
+
 // Auto-fit text component - starts at max size and only shrinks if needed to fit
 function AutoFitText({ text, className = '', minFontSize = 8, maxFontSize = 16, style = {} }) {
   const containerRef = useRef(null)
@@ -448,12 +474,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
   const [activeTimer, setActiveTimer] = useState({ active: false, type: null, team: null, timeLeft: 0, paused: false })
   const [burgerMenuOpen, setBurgerMenuOpen] = useState(false)
-  const [sponsorLogo, setSponsorLogo] = useState(null)
+  const [sponsorLogo, setSponsorLogo] = useState(_cachedSponsorLogo)
   const [sponsorLogoLoaded, setSponsorLogoLoaded] = useState(false)
   const { isAuthenticated, loading, user, saveGameState, getAppSettings } = useAuth()
 
-  // Mini game rules state
-  const [miniGameRules, setMiniGameRules] = useState({
+  // Mini game rules state - initialized from preload cache if available
+  const defaultRules = {
     drawing: [
       'اختر شخص للرسم من فريقك',
       'شخص واحد مسموح له يصور الباركود',
@@ -469,9 +495,10 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       'اختر فريقك ثم اضغط جاهز',
       'اسأل أسئلة لتخمين صورة الخصم'
     ]
-  })
-  const [customMiniGames, setCustomMiniGames] = useState([])
-  const [miniGameSettingsLoaded, setMiniGameSettingsLoaded] = useState(false)
+  }
+  const [miniGameRules, setMiniGameRules] = useState(_cachedMiniGameRules || defaultRules)
+  const [customMiniGames, setCustomMiniGames] = useState(_cachedCustomMiniGames || [])
+  const [miniGameSettingsLoaded, setMiniGameSettingsLoaded] = useState(_settingsPreloaded)
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({

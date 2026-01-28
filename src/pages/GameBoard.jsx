@@ -12,6 +12,7 @@ import { convertToLocalMediaUrl, getCategoryImageUrl, generateResponsiveSrcSet, 
 import questionUsageTracker from '../utils/questionUsageTracker'
 import LogoDisplay from '../components/LogoDisplay'
 import QRCodeWithLogo, { preloadQRLogo } from '../components/QRCodeWithLogo'
+import { preloadMiniGameSettings } from './QuestionView'
 import { hasGameStarted, shouldStayOnCurrentPage } from '../utils/gameStateUtils'
 import gamePreloader from '../utils/preloader'
 import { devLog, devWarn, prodError } from '../utils/devLog'
@@ -57,11 +58,12 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
     document.title = 'راس براس - لعبة جارية'
   }, [])
 
-  // Preload QR code logo for faster display when questions are shown
+  // Preload QR code logo and mini-game settings for faster display when questions are shown
   useEffect(() => {
     if (getAppSettings) {
       preloadQRLogo(getAppSettings)
-      devLog('🔄 Preloading QR code logo...')
+      preloadMiniGameSettings(getAppSettings)
+      devLog('🔄 Preloading QR code logo and mini-game settings...')
     }
   }, [getAppSettings])
 
