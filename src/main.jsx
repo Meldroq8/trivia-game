@@ -4,6 +4,20 @@ import './index.css'
 import App from './App.jsx'
 import { devLog, devWarn, prodError } from './utils/devLog'
 
+// Pages where reloading is NOT safe (active gameplay)
+const isActiveGameplay = () => {
+  const path = window.location.pathname
+  return path.startsWith('/question') || path.startsWith('/gameboard')
+}
+
+// Check for pending update from a previous deferred reload
+if (sessionStorage.getItem('pending_update') === 'true') {
+  if (!isActiveGameplay()) {
+    sessionStorage.removeItem('pending_update')
+    window.location.reload()
+  }
+}
+
 // Register Service Worker for image caching and auto-updates
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -14,7 +28,7 @@ if ('serviceWorker' in navigator) {
         // Check for updates periodically
         registration.update()
 
-        // When a new service worker is waiting, activate it
+        // When a new service worker is waiting, activate it immediately
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' })
         }
@@ -25,8 +39,8 @@ if ('serviceWorker' in navigator) {
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New service worker available, it will take over on next navigation
-                devLog('🔄 New service worker installed, will activate on next navigation')
+                devLog('🔄 New service worker installed, activating immediately')
+                newWorker.postMessage({ type: 'SKIP_WAITING' })
               }
             })
           }
@@ -41,32 +55,38 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'VERSION_UPDATED') {
       devLog('🆕 New version available:', event.data.version)
-      // Silently reload on next navigation - or reload now if idle
-      // Store flag to reload on next user interaction
-      sessionStorage.setItem('pending_update', 'true')
+      if (!isActiveGameplay()) {
+        window.location.reload()
+      } else {
+        sessionStorage.setItem('pending_update', 'true')
+      }
     }
   })
 
-  // When service worker takes control, reload only if on index page
-  // Never reload during gameplay (category selection, gameboard, question, results)
+  // When service worker takes control, reload unless in active gameplay
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    const path = window.location.pathname
-    const safeToReload = path === '/' || path === '/index.html'
-
-    if (safeToReload) {
+    if (!isActiveGameplay()) {
       devLog('🔄 New service worker took control, reloading for fresh content')
       window.location.reload()
     } else {
-      devLog('🔄 New version ready, will apply on next visit to home page')
-      // Store flag so we know to use fresh content
+      devLog('🔄 New version ready, will apply after gameplay ends')
       sessionStorage.setItem('pending_update', 'true')
     }
   })
 
   // Check for updates when user returns to the tab
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage('CHECK_VERSION')
+    if (document.visibilityState === 'visible') {
+      // Check for pending update when tab becomes visible
+      if (sessionStorage.getItem('pending_update') === 'true' && !isActiveGameplay()) {
+        sessionStorage.removeItem('pending_update')
+        window.location.reload()
+        return
+      }
+      // Ask service worker to check for new version
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage('CHECK_VERSION')
+      }
     }
   })
 }

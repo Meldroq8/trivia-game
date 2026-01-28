@@ -471,6 +471,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     ]
   })
   const [customMiniGames, setCustomMiniGames] = useState([])
+  const [miniGameSettingsLoaded, setMiniGameSettingsLoaded] = useState(false)
   const containerRef = useRef(null)
   const headerRef = useRef(null)
   const [dimensions, setDimensions] = useState({
@@ -519,6 +520,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       } catch (error) {
         // Use default rules if loading fails
         devLog('Using default mini game rules')
+      } finally {
+        setMiniGameSettingsLoaded(true)
       }
     }
     loadSettings()
@@ -2984,8 +2987,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               const type = category?.miniGameType || originalCategory?.miniGameType
                               if (type === 'drawing') return miniGameRules.drawing
                               if (type === 'headband') return miniGameRules.headband || miniGameRules.other
-                              const customGame = customMiniGames.find(g => g.id === type)
-                              if (customGame?.rules?.length) return customGame.rules
+                              // Wait for settings to load before checking custom games
+                              if (miniGameSettingsLoaded) {
+                                const customGame = customMiniGames.find(g => g.id === type)
+                                if (customGame?.rules?.length) return customGame.rules
+                              } else if (type && !['charades', 'drawing', 'headband', 'guessword'].includes(type)) {
+                                // Custom type but settings not loaded yet - show nothing until loaded
+                                return []
+                              }
                               return miniGameRules.other
                             })().map((rule, index) => (
                               <div
