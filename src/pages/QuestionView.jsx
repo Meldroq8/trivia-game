@@ -431,19 +431,23 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const [drawerConnected, setDrawerConnected] = useState(false)
   const drawingUnsubscribeRef = useRef(null)
   const drawingTimerInitializedRef = useRef(false)
+  const drawingSessionIdRef = useRef(null)
 
   // Headband mini-game state
   const [headbandSession, setHeadbandSession] = useState(null)
   const headbandUnsubscribeRef = useRef(null)
+  const headbandSessionIdRef = useRef(null)
 
   // Charade mini-game state
   const [charadeSession, setCharadeSession] = useState(null)
   const charadeUnsubscribeRef = useRef(null)
   const charadeTimerInitializedRef = useRef(false)
+  const charadeSessionIdRef = useRef(null)
 
   // GuessWord mini-game state
   const [guesswordSession, setGuesswordSession] = useState(null)
   const guesswordUnsubscribeRef = useRef(null)
+  const guesswordSessionIdRef = useRef(null)
 
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
@@ -832,6 +836,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       setDrawingStrokes([])
       setDrawerConnected(false)
       drawingTimerInitializedRef.current = false // Reset timer flag
+      drawingSessionIdRef.current = null // Clear session ID ref
       return
     }
 
@@ -839,6 +844,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
+    drawingSessionIdRef.current = sessionId // Store session ID for cleanup
 
     const initDrawingSession = async () => {
       try {
@@ -899,6 +905,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         drawingUnsubscribeRef.current = null
       }
       drawingTimerInitializedRef.current = false // Reset timer flag on cleanup
+      // Delete session from Firestore to prevent orphaned documents
+      if (drawingSessionIdRef.current) {
+        DrawingService.deleteSession(drawingSessionIdRef.current).catch(() => {})
+        drawingSessionIdRef.current = null
+      }
     }
   }, [currentQuestion?.id, gameData, gameState.currentTurn, user?.uid])
 
@@ -922,6 +933,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         headbandUnsubscribeRef.current = null
       }
       setHeadbandSession(null)
+      headbandSessionIdRef.current = null // Clear session ID ref
       return
     }
 
@@ -929,6 +941,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
+    headbandSessionIdRef.current = sessionId // Store session ID for cleanup
 
     const initHeadbandSession = async () => {
       try {
@@ -980,6 +993,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         headbandUnsubscribeRef.current()
         headbandUnsubscribeRef.current = null
       }
+      // Delete session from Firestore to prevent orphaned documents
+      if (headbandSessionIdRef.current) {
+        HeadbandService.deleteSession(headbandSessionIdRef.current).catch(() => {})
+        headbandSessionIdRef.current = null
+      }
     }
   }, [currentQuestion?.id, gameData, user?.uid])
 
@@ -1003,6 +1021,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         charadeUnsubscribeRef.current = null
       }
       setCharadeSession(null)
+      charadeSessionIdRef.current = null // Clear session ID ref
       return
     }
 
@@ -1010,6 +1029,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
+    charadeSessionIdRef.current = sessionId // Store session ID for cleanup
 
     const initCharadeSession = async () => {
       try {
@@ -1068,6 +1088,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         charadeUnsubscribeRef.current = null
       }
       charadeTimerInitializedRef.current = false // Reset timer flag on cleanup
+      // Delete session from Firestore to prevent orphaned documents
+      if (charadeSessionIdRef.current) {
+        CharadeService.deleteSession(charadeSessionIdRef.current).catch(() => {})
+        charadeSessionIdRef.current = null
+      }
     }
   }, [currentQuestion?.id, gameData, user?.uid])
 
@@ -1091,6 +1116,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         guesswordUnsubscribeRef.current = null
       }
       setGuesswordSession(null)
+      guesswordSessionIdRef.current = null // Clear session ID ref
       return
     }
 
@@ -1098,6 +1124,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
+    guesswordSessionIdRef.current = sessionId // Store session ID for cleanup
 
     const initGuesswordSession = async () => {
       try {
@@ -1139,6 +1166,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       if (guesswordUnsubscribeRef.current) {
         guesswordUnsubscribeRef.current()
         guesswordUnsubscribeRef.current = null
+      }
+      // Delete session from Firestore to prevent orphaned documents
+      if (guesswordSessionIdRef.current) {
+        GuessWordService.deleteSession(guesswordSessionIdRef.current).catch(() => {})
+        guesswordSessionIdRef.current = null
       }
     }
   }, [currentQuestion?.id, gameData, user?.uid])
