@@ -257,10 +257,10 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
             )
           }`}
           style={availableVideoHeight ? {
-            height: `${availableVideoHeight}px`,
-            width: '100%',
+            flex: '1 1 auto',
             minHeight: '100px',
-            flexShrink: 0
+            maxHeight: `${availableVideoHeight}px`,
+            width: '100%'
           } : {}}
         >
           <video
@@ -469,8 +469,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
       </div>
 
       {/* Slider Styles */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style>{`
           input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 12px;
@@ -534,8 +533,7 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
             border: none !important;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
           }
-        `
-      }} />
+      `}</style>
     </div>
   )
 }

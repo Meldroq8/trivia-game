@@ -131,6 +131,13 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
       return
     }
 
+    // Never redirect away from QR mini-game phone pages
+    const qrPhoneRoutes = ['/answer-view/', '/draw/', '/headband/', '/guessword/']
+    if (qrPhoneRoutes.some(prefix => location.pathname.startsWith(prefix))) {
+      devLog('📱 On QR phone page - skipping route restoration')
+      return
+    }
+
     // Restore route ONLY if we have an active game and valid saved route
     const hasActiveGame = gameState.selectedCategories?.length > 0 ||
                          gameState.gameHistory?.length > 0 ||

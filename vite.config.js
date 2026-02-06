@@ -59,6 +59,7 @@ export default defineConfig({
     include: ['react', 'react-dom', 'firebase/app', 'firebase/auth', 'firebase/firestore']
   },
   build: {
+    sourcemap: false,
     // Remove console logs and debugger statements in production
     minify: 'terser',
     terserOptions: {

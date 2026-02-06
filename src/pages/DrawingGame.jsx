@@ -11,6 +11,7 @@ function DrawingGame() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [sessionEnded, setSessionEnded] = useState(false)
   const [isReady, setIsReady] = useState(false)
   const [currentTool, setCurrentTool] = useState('pen')
   const [currentColor, setCurrentColor] = useState('#000000')
@@ -71,13 +72,13 @@ function DrawingGame() {
     const unsubscribe = DrawingService.subscribeToSession(sessionId, async (sessionData) => {
       if (!sessionData) {
         console.error('🎨 DrawingGame: Session not found in Firestore')
-        setError('الجلسة غير موجودة - تأكد من أن السؤال معروض على الشاشة الرئيسية')
+        setSessionEnded(true)
         setLoading(false)
         return
       }
 
       if (sessionData.status === 'finished') {
-        setError('انتهت هذه الجلسة')
+        setSessionEnded(true)
         setLoading(false)
         return
       }
@@ -346,6 +347,25 @@ function DrawingGame() {
         <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
           <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
+        </div>
+      </div>
+    )
+  }
+
+  // Session ended state
+  if (sessionEnded) {
+    return (
+      <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center max-w-md">
+          <div className="text-5xl mb-4">👋</div>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">انتهت الجلسة</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">تم إنهاء هذه الجلسة من الشاشة الرئيسية</p>
+          <button
+            onClick={() => navigate('/')}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg"
+          >
+            العودة للصفحة الرئيسية
+          </button>
         </div>
       </div>
     )

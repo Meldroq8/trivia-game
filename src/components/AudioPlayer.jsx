@@ -272,8 +272,7 @@ function AudioPlayer({ src, className = '' }) {
               outline: 'none'
             }}
           />
-          <style dangerouslySetInnerHTML={{
-            __html: `
+          <style>{`
               input[type="range"]::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 width: 12px;
@@ -305,8 +304,7 @@ function AudioPlayer({ src, className = '' }) {
                 border-radius: 2px;
                 background: #fecaca;
               }
-            `
-          }} />
+          `}</style>
         </div>
       </div>
     </div>

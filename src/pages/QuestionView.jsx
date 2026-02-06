@@ -1,7 +1,6 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import { useDarkMode } from '../hooks/useDarkMode'
 import AudioPlayer from '../components/AudioPlayer'
@@ -161,7 +160,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
       // Apply proper scaling with dynamic limits
       const minQuestionHeight = isShortScreen ? 150 : 200 // Minimum height for short screens
-      const maxQuestionHeight = isPC ? 600 : (isTallScreen ? 500 : 400)
+      const maxQuestionHeight = isPC ? 700 : (isTallScreen ? 600 : 500)
 
       const finalQuestionAreaHeight = Math.min(
         Math.max(questionAreaHeight, minQuestionHeight),
@@ -253,25 +252,22 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       // Responsive media sizing based on screen size and available space
       let imageAreaHeight
       if (isPC) {
-        imageAreaHeight = Math.max(400, finalQuestionAreaHeight * 0.8) // PC: 80% instead of 60%
+        imageAreaHeight = Math.max(400, finalQuestionAreaHeight * 0.85) // PC: 85% of question area
       } else if (actualVH <= 344) {
-        imageAreaHeight = Math.max(120, finalQuestionAreaHeight * 0.4) // Smaller for tiny screens
+        imageAreaHeight = Math.max(120, finalQuestionAreaHeight * 0.6) // Tiny screens
       } else if (actualVH <= 390) {
-        imageAreaHeight = Math.max(140, finalQuestionAreaHeight * 0.45) // iPhone SE and similar
+        imageAreaHeight = Math.max(150, finalQuestionAreaHeight * 0.65) // iPhone SE and similar
       } else if (actualVH <= 430) {
-        imageAreaHeight = Math.max(160, finalQuestionAreaHeight * 0.5) // Standard small phones
+        imageAreaHeight = Math.max(170, finalQuestionAreaHeight * 0.7) // Standard small phones
       } else if (actualVH <= 600) {
-        imageAreaHeight = Math.max(180, finalQuestionAreaHeight * 0.55) // Medium phones
+        imageAreaHeight = Math.max(200, finalQuestionAreaHeight * 0.75) // Medium phones
       } else {
-        imageAreaHeight = Math.max(200, finalQuestionAreaHeight * 0.6) // Large screens
+        imageAreaHeight = Math.max(250, finalQuestionAreaHeight * 0.8) // Large screens
       }
 
-      // Option F: Reduce media height on phone landscape when tolerance badge present
-      // This prevents overlap with timer while maintaining text readability
-      // isPhoneLandscape is already available from getDeviceFlags()
+      // Slight reduction on phone landscape for tolerance badge breathing room
       if (isPhoneLandscape) {
-        // Apply 85% scaling to give more breathing room for tolerance badge
-        imageAreaHeight = Math.floor(imageAreaHeight * 0.85)
+        imageAreaHeight = Math.floor(imageAreaHeight * 0.92)
       }
 
       const answerFontSize = baseFontSize * 1.1 * globalScaleFactor
@@ -832,11 +828,18 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         drawingUnsubscribeRef.current()
         drawingUnsubscribeRef.current = null
       }
+      // Clean up old session in Firestore when switching away
+      if (drawingSessionIdRef.current) {
+        const oldId = drawingSessionIdRef.current
+        DrawingService.finishSession(oldId)
+          .then(() => DrawingService.deleteSession(oldId))
+          .catch(() => {})
+      }
       setDrawingSession(null)
       setDrawingStrokes([])
       setDrawerConnected(false)
-      drawingTimerInitializedRef.current = false // Reset timer flag
-      drawingSessionIdRef.current = null // Clear session ID ref
+      drawingTimerInitializedRef.current = false
+      drawingSessionIdRef.current = null
       return
     }
 
@@ -844,7 +847,26 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
-    drawingSessionIdRef.current = sessionId // Store session ID for cleanup
+
+    // Clean up previous session if session ID changed (different question)
+    if (drawingSessionIdRef.current && drawingSessionIdRef.current !== sessionId) {
+      if (drawingUnsubscribeRef.current) {
+        drawingUnsubscribeRef.current()
+        drawingUnsubscribeRef.current = null
+      }
+      drawingTimerInitializedRef.current = false
+      const oldId = drawingSessionIdRef.current
+      DrawingService.finishSession(oldId)
+        .then(() => DrawingService.deleteSession(oldId))
+        .catch(() => {})
+    }
+
+    // Skip if already managing this exact session (prevents StrictMode double-creation race)
+    if (drawingSessionIdRef.current === sessionId && drawingUnsubscribeRef.current) {
+      return
+    }
+
+    drawingSessionIdRef.current = sessionId
 
     const initDrawingSession = async () => {
       try {
@@ -898,20 +920,30 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     initDrawingSession()
 
-    // Cleanup on unmount or question change
+    // Cleanup: only unsubscribe, don't delete from Firestore
+    // (Firestore cleanup happens in the effect body when session ID changes, or on unmount)
     return () => {
       if (drawingUnsubscribeRef.current) {
         drawingUnsubscribeRef.current()
         drawingUnsubscribeRef.current = null
       }
-      drawingTimerInitializedRef.current = false // Reset timer flag on cleanup
-      // Delete session from Firestore to prevent orphaned documents
+      drawingTimerInitializedRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, !!gameData, gameState.currentTurn, user?.uid])
+
+  // Clean up drawing session on unmount only
+  useEffect(() => {
+    return () => {
       if (drawingSessionIdRef.current) {
-        DrawingService.deleteSession(drawingSessionIdRef.current).catch(() => {})
+        const sessionId = drawingSessionIdRef.current
+        DrawingService.finishSession(sessionId)
+          .then(() => DrawingService.deleteSession(sessionId))
+          .catch(() => {})
         drawingSessionIdRef.current = null
       }
     }
-  }, [currentQuestion?.id, gameData, gameState.currentTurn, user?.uid])
+  }, [])
 
   // Initialize and subscribe to headband session for headband mini-games
   useEffect(() => {
@@ -932,8 +964,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         headbandUnsubscribeRef.current()
         headbandUnsubscribeRef.current = null
       }
+      // Clean up old session in Firestore when switching away
+      if (headbandSessionIdRef.current) {
+        const oldId = headbandSessionIdRef.current
+        HeadbandService.finishSession(oldId)
+          .then(() => HeadbandService.deleteSession(oldId))
+          .catch(() => {})
+      }
       setHeadbandSession(null)
-      headbandSessionIdRef.current = null // Clear session ID ref
+      headbandSessionIdRef.current = null
       return
     }
 
@@ -941,7 +980,25 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
-    headbandSessionIdRef.current = sessionId // Store session ID for cleanup
+
+    // Clean up previous session if session ID changed (different question)
+    if (headbandSessionIdRef.current && headbandSessionIdRef.current !== sessionId) {
+      if (headbandUnsubscribeRef.current) {
+        headbandUnsubscribeRef.current()
+        headbandUnsubscribeRef.current = null
+      }
+      const oldId = headbandSessionIdRef.current
+      HeadbandService.finishSession(oldId)
+        .then(() => HeadbandService.deleteSession(oldId))
+        .catch(() => {})
+    }
+
+    // Skip if already managing this exact session (prevents StrictMode double-creation race)
+    if (headbandSessionIdRef.current === sessionId && headbandUnsubscribeRef.current) {
+      return
+    }
+
+    headbandSessionIdRef.current = sessionId
 
     const initHeadbandSession = async () => {
       try {
@@ -987,19 +1044,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     initHeadbandSession()
 
-    // Cleanup on unmount or question change
+    // Cleanup: only unsubscribe, don't delete from Firestore
+    // (Firestore cleanup happens in the effect body when session ID changes, or on unmount)
     return () => {
       if (headbandUnsubscribeRef.current) {
         headbandUnsubscribeRef.current()
         headbandUnsubscribeRef.current = null
       }
-      // Delete session from Firestore to prevent orphaned documents
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, !!gameData, user?.uid])
+
+  // Clean up headband session on unmount only
+  useEffect(() => {
+    return () => {
       if (headbandSessionIdRef.current) {
-        HeadbandService.deleteSession(headbandSessionIdRef.current).catch(() => {})
+        const sessionId = headbandSessionIdRef.current
+        HeadbandService.finishSession(sessionId)
+          .then(() => HeadbandService.deleteSession(sessionId))
+          .catch(() => {})
         headbandSessionIdRef.current = null
       }
     }
-  }, [currentQuestion?.id, gameData, user?.uid])
+  }, [])
 
   // Initialize and subscribe to charade session for charades mini-games
   useEffect(() => {
@@ -1020,8 +1087,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         charadeUnsubscribeRef.current()
         charadeUnsubscribeRef.current = null
       }
+      // Clean up old session in Firestore when switching away
+      if (charadeSessionIdRef.current) {
+        const oldId = charadeSessionIdRef.current
+        CharadeService.finishSession(oldId)
+          .then(() => CharadeService.deleteSession(oldId))
+          .catch(() => {})
+      }
       setCharadeSession(null)
-      charadeSessionIdRef.current = null // Clear session ID ref
+      charadeTimerInitializedRef.current = false
+      charadeSessionIdRef.current = null
       return
     }
 
@@ -1029,7 +1104,26 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
-    charadeSessionIdRef.current = sessionId // Store session ID for cleanup
+
+    // Clean up previous session if session ID changed (different question)
+    if (charadeSessionIdRef.current && charadeSessionIdRef.current !== sessionId) {
+      if (charadeUnsubscribeRef.current) {
+        charadeUnsubscribeRef.current()
+        charadeUnsubscribeRef.current = null
+      }
+      charadeTimerInitializedRef.current = false
+      const oldId = charadeSessionIdRef.current
+      CharadeService.finishSession(oldId)
+        .then(() => CharadeService.deleteSession(oldId))
+        .catch(() => {})
+    }
+
+    // Skip if already managing this exact session (prevents StrictMode double-creation race)
+    if (charadeSessionIdRef.current === sessionId && charadeUnsubscribeRef.current) {
+      return
+    }
+
+    charadeSessionIdRef.current = sessionId
 
     const initCharadeSession = async () => {
       try {
@@ -1081,20 +1175,30 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     initCharadeSession()
 
-    // Cleanup on unmount or question change
+    // Cleanup: only unsubscribe, don't delete from Firestore
+    // (Firestore cleanup happens in the effect body when session ID changes, or on unmount)
     return () => {
       if (charadeUnsubscribeRef.current) {
         charadeUnsubscribeRef.current()
         charadeUnsubscribeRef.current = null
       }
-      charadeTimerInitializedRef.current = false // Reset timer flag on cleanup
-      // Delete session from Firestore to prevent orphaned documents
+      charadeTimerInitializedRef.current = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, !!gameData, user?.uid])
+
+  // Clean up charade session on unmount only
+  useEffect(() => {
+    return () => {
       if (charadeSessionIdRef.current) {
-        CharadeService.deleteSession(charadeSessionIdRef.current).catch(() => {})
+        const sessionId = charadeSessionIdRef.current
+        CharadeService.finishSession(sessionId)
+          .then(() => CharadeService.deleteSession(sessionId))
+          .catch(() => {})
         charadeSessionIdRef.current = null
       }
     }
-  }, [currentQuestion?.id, gameData, user?.uid])
+  }, [])
 
   // Initialize and subscribe to guessword session for guessword mini-games
   useEffect(() => {
@@ -1115,8 +1219,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         guesswordUnsubscribeRef.current()
         guesswordUnsubscribeRef.current = null
       }
+      // Clean up old session in Firestore when switching away
+      if (guesswordSessionIdRef.current) {
+        const oldId = guesswordSessionIdRef.current
+        GuessWordService.finishSession(oldId)
+          .then(() => GuessWordService.deleteSession(oldId))
+          .catch(() => {})
+      }
       setGuesswordSession(null)
-      guesswordSessionIdRef.current = null // Clear session ID ref
+      guesswordSessionIdRef.current = null
       return
     }
 
@@ -1124,7 +1235,25 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     const questionId = currentQuestion?.question?.id || currentQuestion?.id
     if (!questionId || !user?.uid) return
     const sessionId = `${questionId}_${user.uid}`
-    guesswordSessionIdRef.current = sessionId // Store session ID for cleanup
+
+    // Clean up previous session if session ID changed (different question)
+    if (guesswordSessionIdRef.current && guesswordSessionIdRef.current !== sessionId) {
+      if (guesswordUnsubscribeRef.current) {
+        guesswordUnsubscribeRef.current()
+        guesswordUnsubscribeRef.current = null
+      }
+      const oldId = guesswordSessionIdRef.current
+      GuessWordService.finishSession(oldId)
+        .then(() => GuessWordService.deleteSession(oldId))
+        .catch(() => {})
+    }
+
+    // Skip if already managing this exact session (prevents StrictMode double-creation race)
+    if (guesswordSessionIdRef.current === sessionId && guesswordUnsubscribeRef.current) {
+      return
+    }
+
+    guesswordSessionIdRef.current = sessionId
 
     const initGuesswordSession = async () => {
       try {
@@ -1143,7 +1272,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         })
 
         devLog('🎯 GuessWord session created successfully:', sessionId)
-        devLog('🎯 QR Code URL should be:', `${window.location.origin}/guessword/${sessionId}`)
 
         // Subscribe to session updates
         const unsubscribe = GuessWordService.subscribeToSession(sessionId, (sessionData) => {
@@ -1161,19 +1289,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     initGuesswordSession()
 
-    // Cleanup on unmount or question change
+    // Cleanup: only unsubscribe, don't delete from Firestore
+    // (Firestore cleanup happens in the effect body when session ID changes, or on unmount)
     return () => {
       if (guesswordUnsubscribeRef.current) {
         guesswordUnsubscribeRef.current()
         guesswordUnsubscribeRef.current = null
       }
-      // Delete session from Firestore to prevent orphaned documents
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, !!gameData, user?.uid])
+
+  // Clean up guessword session on unmount only
+  useEffect(() => {
+    return () => {
       if (guesswordSessionIdRef.current) {
-        GuessWordService.deleteSession(guesswordSessionIdRef.current).catch(() => {})
+        const sessionId = guesswordSessionIdRef.current
+        GuessWordService.finishSession(sessionId)
+          .then(() => GuessWordService.deleteSession(sessionId))
+          .catch(() => {})
         guesswordSessionIdRef.current = null
       }
     }
-  }, [currentQuestion?.id, gameData, user?.uid])
+  }, [])
 
   const getCategoryById = (categoryId) => {
     if (gameData && gameData.categories) {
@@ -2174,7 +2312,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
               >
                 {isDarkMode ? '☀️' : '🌙'}
               </button>
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
               <button
                 onClick={() => navigate('/game')}
                 className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
@@ -2210,9 +2347,6 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
              }}
              onClick={(e) => e.stopPropagation()}>
           <div className="flex flex-col p-2 gap-2">
-            <div className="border-b border-red-600 pb-2">
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
-            </div>
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -2870,8 +3004,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show normal question content
                   return (
-                    <div className="flex justify-center items-center w-full flex-col h-auto md:h-full pt-2">
-                    <label className="flex justify-center items-center w-full question-content text-center pb-2 sm:pb-3 font-extrabold text-black dark:text-gray-100"
+                    <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10">
+                    <label className="flex justify-center items-center w-full flex-shrink-0 question-content text-center pb-2 sm:pb-3 font-extrabold text-black dark:text-gray-100"
                            style={{
                              fontSize: `${styles.questionFontSize}px`,
                              lineHeight: styles.questionLineHeight,
@@ -2882,7 +3016,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                     {/* Tolerance Hint - Modern Design with Arrows */}
                     {currentQuestion?.question?.toleranceHint?.enabled || currentQuestion?.toleranceHint?.enabled ? (
-                      <div className="flex justify-center items-center w-full pb-4 landscape:pb-2">
+                      <div className="flex justify-center items-center w-full flex-shrink-0 pb-4 landscape:pb-2">
                         <div className="relative inline-flex items-center gap-1.5 sm:gap-2 md:gap-3
                                         bg-gradient-to-br from-amber-50 to-amber-100/80
                                         dark:from-amber-900/30 dark:to-amber-800/40
@@ -2957,13 +3091,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     const hasQuestionVideo = currentQuestion?.question?.videoUrl || currentQuestion?.videoUrl
                     return currentQuestion && (hasQuestionAudio || hasQuestionVideo)
                   })() && (
-                    <div className="relative overflow-hidden media-wrapper"
+                    <div className="relative overflow-hidden media-wrapper px-3 sm:px-4 md:px-6"
                          style={{
-                           display: 'block',
-                           height: styles.imageAreaHeight + 'px',
+                           flex: '1 1 auto',
+                           minHeight: 0,
                            maxHeight: styles.imageAreaHeight + 'px',
-                           width: styles.isPC ? '100%' : '90%',
-                           maxWidth: styles.isPC ? '100%' : '90%'
+                           width: '100%'
                          }}>
                       <QuestionMediaPlayer
                         currentQuestion={currentQuestion}
@@ -2981,13 +3114,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     // Don't show question images for اغاني اجنبية category (images moved to answers)
                     return imageUrl && categoryId !== 'اغاني_اجنبية'
                   })() && (
-                    <div className="relative overflow-hidden image-text-below-block media-wrapper"
+                    <div className="relative overflow-hidden image-text-below-block media-wrapper px-3 sm:px-4 md:px-6"
                          style={{
-                           display: 'block',
-                           height: styles.imageAreaHeight + 'px',
+                           flex: '1 1 auto',
+                           minHeight: 0,
                            maxHeight: styles.imageAreaHeight + 'px',
-                           width: styles.isPC ? '100%' : '90%',
-                           maxWidth: styles.isPC ? '100%' : '90%'
+                           width: '100%'
                          }}>
                       <SmartImage
                         src={currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl}
@@ -3023,7 +3155,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         className="relative w-full h-full flex items-center justify-center mx-auto cursor-pointer"
                         style={{
                           display: 'block',
-                          height: styles.imageAreaHeight + 'px',
+                          flex: '1 1 auto',
+                          minHeight: 0,
                           maxHeight: styles.imageAreaHeight + 'px',
                           width: styles.isPC ? '100%' : '90%',
                           maxWidth: styles.isPC ? '100%' : '90%'
@@ -3164,8 +3297,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                  padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
                                  maxWidth: `${styles.timerSize}px`
                                }}>
-                            <span className="inline-flex items-center text-white justify-center font-cairo font-bold"
-                                  style={{ fontSize: `${styles.timerFontSize}px` }}>
+                            <span className="inline-flex items-center text-white justify-center font-cairo font-bold tabular-nums"
+                                  style={{ fontSize: `${styles.timerFontSize}px`, minWidth: '3.5em' }}>
                               {qrTimeRemaining} ث
                             </span>
 
@@ -3230,15 +3363,14 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Normal Timer Controls
                   return (
-                    <div className="grid grid-flow-col justify-between gap-3 bg-[#2A2634] rounded-full btn-wrapper mx-auto flex items-center"
+                    <div className="flex items-center justify-center gap-2 bg-[#2A2634] rounded-full btn-wrapper mx-auto"
                          style={{
-                           padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`,
-                           maxWidth: `${styles.timerSize}px`
+                           padding: `${styles.buttonPadding * 0.4}px ${styles.buttonPadding * 0.8}px`
                          }}>
-                      <button type="button" className="flex items-center justify-center p-1" onClick={handleResetTimer}>
+                      <button type="button" className="flex items-center justify-center p-1 rounded-full hover:bg-white/10 transition-colors" onClick={handleResetTimer}>
                         <svg
                           viewBox="0 0 44 44"
-                          style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                          style={{ width: `${styles.timerFontSize}px`, height: `${styles.timerFontSize}px` }}
                           className="active:scale-110 duration-100"
                         >
                           <path
@@ -3252,16 +3384,16 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         </svg>
                       </button>
 
-                      <span className="inline-flex items-center text-white justify-center font-cairo"
-                            style={{ fontSize: `${styles.timerFontSize}px` }}>
+                      <span className="inline-flex items-center text-white justify-center font-cairo tabular-nums font-bold text-center"
+                            style={{ fontSize: `${styles.timerFontSize}px`, width: '5ch' }}>
                         {String(Math.floor(timeElapsed / 60)).padStart(2, '0')}:{String(timeElapsed % 60).padStart(2, '0')}
                       </span>
 
-                      <button type="button" className="flex items-center justify-center p-1" onClick={() => setTimerActive(!timerActive)}>
+                      <button type="button" className="flex items-center justify-center p-1 rounded-full hover:bg-white/10 transition-colors" onClick={() => setTimerActive(!timerActive)}>
                         {timerActive ? (
                           <svg
                             viewBox="0 0 24 24"
-                            style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                            style={{ width: `${styles.timerFontSize}px`, height: `${styles.timerFontSize}px` }}
                             className="active:scale-110 duration-100"
                           >
                             <path d="M6 4H10V20H6V4Z" fill="#fff"/>
@@ -3270,7 +3402,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         ) : (
                           <svg
                             viewBox="0 0 24 24"
-                            style={{ width: `${styles.timerEmojiSize}px`, height: `${styles.timerEmojiSize}px` }}
+                            style={{ width: `${styles.timerFontSize}px`, height: `${styles.timerFontSize}px` }}
                             className="active:scale-110 duration-100"
                           >
                             <path d="M7 4V20L19 12L7 4Z" fill="#fff"/>
@@ -3322,6 +3454,36 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               )}
 
+              {/* Report Button - Top Center (shown in answer mode, positioned on card like timer) */}
+              {showAnswer && !showScoring && (
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 flex justify-between items-center w-full max-w-[90%] z-10">
+                  <div></div>
+                  <div></div>
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(true)}
+                      disabled={!user || hasReported || checkingReport}
+                      className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
+                        !user || hasReported
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
+                      }`}
+                      style={{
+                        fontSize: `${styles.pointsFontSize}px`,
+                        padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
+                      }}
+                      title={!user ? 'يجب تسجيل الدخول للإبلاغ' : (hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال')}
+                    >
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
+                      </svg>
+                      <span>إبلاغ</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Answer Section - Show answer text and question image */}
               {showAnswer && !showScoring && (
                 <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0 bg-[#f7f2e6] dark:bg-slate-800"
@@ -3333,36 +3495,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                        borderRadius: 'inherit'
                      }}>
 
-                  {/* Report Button - Top Center */}
-                  <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 flex justify-between items-center w-full max-w-[90%]">
-                    <div></div>
-                    <div></div>
-                    <div className="text-center">
-                      <button
-                        type="button"
-                        onClick={() => setShowReportModal(true)}
-                        disabled={!user || hasReported || checkingReport}
-                        className={`font-bold rounded-xl w-fit flex items-center justify-center gap-1 transition-all ${
-                          !user || hasReported
-                            ? 'bg-gray-400 text-white cursor-not-allowed'
-                            : 'bg-red-600 text-white hover:bg-red-700 active:scale-95'
-                        }`}
-                        style={{
-                          fontSize: `${styles.pointsFontSize}px`,
-                          padding: `${styles.pointsPadding}px ${styles.pointsPadding * 1.2}px`
-                        }}
-                        title={!user ? 'يجب تسجيل الدخول للإبلاغ' : (hasReported ? 'تم الإبلاغ عن هذا السؤال' : 'إبلاغ عن السؤال')}
-                      >
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z"/>
-                        </svg>
-                        <span>إبلاغ</span>
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Answer Content - Same as question content */}
-                  <div className="flex justify-center items-center w-full flex-col h-auto md:h-full">
+                  <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10">
                     {/* Answer Text - Hide for headband mode since it shows answers on the cards */}
                     {(() => {
                       const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
@@ -3378,7 +3512,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       }
 
                       return (
-                        <label className="flex justify-center items-center w-full leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
+                        <label className="flex justify-center items-center w-full flex-shrink-0 leading-[1.3_!important] question-content text-center pb-4 sm:py-4 font-extrabold text-black dark:text-gray-100 font-arabic"
                                style={{
                                  fontSize: `${styles.questionFontSize}px`,
                                  unicodeBidi: 'plaintext'
@@ -3394,13 +3528,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       const hasAnswerVideo = currentQuestion?.question?.answerVideoUrl || currentQuestion?.answerVideoUrl
                       return currentQuestion && (hasAnswerAudio || hasAnswerVideo)
                     })() && (
-                      <div className="relative overflow-hidden media-wrapper"
+                      <div className="relative overflow-hidden media-wrapper px-3 sm:px-4 md:px-6"
                            style={{
-                             display: 'block',
-                             height: styles.imageAreaHeight + 'px',
+                             flex: '1 1 auto',
+                             minHeight: 0,
                              maxHeight: styles.imageAreaHeight + 'px',
-                             width: styles.isPC ? '100%' : '90%',
-                             maxWidth: styles.isPC ? '100%' : '90%'
+                             width: '100%'
                            }}>
                         <QuestionMediaPlayer
                           currentQuestion={currentQuestion}
@@ -3424,7 +3557,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                         return (
                           <div className="relative overflow-hidden"
                                style={{
-                                 height: (styles.imageAreaHeight * 1.4) + 'px',
+                                 flex: '1 1 auto',
+                                 minHeight: 0,
                                  maxHeight: (styles.imageAreaHeight * 1.4) + 'px',
                                  width: styles.isPC ? '95%' : '92%',
                                  maxWidth: styles.isPC ? '95%' : '92%'
@@ -3482,13 +3616,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                       const questionImageUrl = currentQuestion?.question?.imageUrl || currentQuestion?.imageUrl
                       return answerImageUrl || questionImageUrl
                     })() && (
-                      <div className="relative overflow-hidden image-text-below-block media-wrapper"
+                      <div className="relative overflow-hidden image-text-below-block media-wrapper px-3 sm:px-4 md:px-6"
                            style={{
-                             display: 'block',
-                             height: styles.imageAreaHeight + 'px',
+                             flex: '1 1 auto',
+                             minHeight: 0,
                              maxHeight: styles.imageAreaHeight + 'px',
-                             width: styles.isPC ? '100%' : '90%',
-                             maxWidth: styles.isPC ? '100%' : '90%'
+                             width: '100%'
                            }}>
                         <SmartImage
                           src={(() => {

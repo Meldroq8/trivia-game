@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { GameDataLoader } from '../utils/gameDataLoader'
-import PresentationModeToggle from '../components/PresentationModeToggle'
 import { useAuth } from '../hooks/useAuth'
 import { useDarkMode } from '../hooks/useDarkMode'
 import AudioPlayer from '../components/AudioPlayer'
@@ -2003,7 +2002,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
               >
                 {isDarkMode ? '☀️' : '🌙'}
               </button>
-              <PresentationModeToggle style={{ fontSize: `${styles.headerFontSize * 0.75}px` }} />
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 className="bg-red-700 hover:bg-red-800 text-white rounded-lg transition-colors"
@@ -2644,10 +2642,6 @@ function GameBoard({ gameState, setGameState, stateLoaded }) {
             >
               الرجوع للوحة
             </button>
-
-            <div className="px-4 py-2 hover:bg-red-800 transition-colors text-right">
-              <PresentationModeToggle style={{ fontSize: '14px' }} />
-            </div>
 
             <button
               onClick={() => {
