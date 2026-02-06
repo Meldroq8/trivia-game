@@ -932,15 +932,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, !!gameData, gameState.currentTurn, user?.uid])
 
-  // Clean up drawing session on unmount only
+  // Clean up drawing session on unmount only (delayed to avoid race with remount)
   useEffect(() => {
     return () => {
       if (drawingSessionIdRef.current) {
         const sessionId = drawingSessionIdRef.current
-        DrawingService.finishSession(sessionId)
-          .then(() => DrawingService.deleteSession(sessionId))
-          .catch(() => {})
         drawingSessionIdRef.current = null
+        // Delay cleanup so remount can reclaim the session
+        setTimeout(() => {
+          // Only cleanup if no remount reclaimed this session
+          if (drawingSessionIdRef.current !== sessionId) {
+            DrawingService.finishSession(sessionId)
+              .then(() => DrawingService.deleteSession(sessionId))
+              .catch(() => {})
+          }
+        }, 1500)
       }
     }
   }, [])
@@ -1055,15 +1061,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, !!gameData, user?.uid])
 
-  // Clean up headband session on unmount only
+  // Clean up headband session on unmount only (delayed to avoid race with remount)
   useEffect(() => {
     return () => {
       if (headbandSessionIdRef.current) {
         const sessionId = headbandSessionIdRef.current
-        HeadbandService.finishSession(sessionId)
-          .then(() => HeadbandService.deleteSession(sessionId))
-          .catch(() => {})
         headbandSessionIdRef.current = null
+        // Delay cleanup so remount can reclaim the session
+        setTimeout(() => {
+          // Only cleanup if no remount reclaimed this session
+          if (headbandSessionIdRef.current !== sessionId) {
+            HeadbandService.finishSession(sessionId)
+              .then(() => HeadbandService.deleteSession(sessionId))
+              .catch(() => {})
+          }
+        }, 1500)
       }
     }
   }, [])
@@ -1187,15 +1199,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, !!gameData, user?.uid])
 
-  // Clean up charade session on unmount only
+  // Clean up charade session on unmount only (delayed to avoid race with remount)
   useEffect(() => {
     return () => {
       if (charadeSessionIdRef.current) {
         const sessionId = charadeSessionIdRef.current
-        CharadeService.finishSession(sessionId)
-          .then(() => CharadeService.deleteSession(sessionId))
-          .catch(() => {})
         charadeSessionIdRef.current = null
+        // Delay cleanup so remount can reclaim the session
+        setTimeout(() => {
+          // Only cleanup if no remount reclaimed this session
+          if (charadeSessionIdRef.current !== sessionId) {
+            CharadeService.finishSession(sessionId)
+              .then(() => CharadeService.deleteSession(sessionId))
+              .catch(() => {})
+          }
+        }, 1500)
       }
     }
   }, [])
@@ -1300,15 +1318,21 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, !!gameData, user?.uid])
 
-  // Clean up guessword session on unmount only
+  // Clean up guessword session on unmount only (delayed to avoid race with remount)
   useEffect(() => {
     return () => {
       if (guesswordSessionIdRef.current) {
         const sessionId = guesswordSessionIdRef.current
-        GuessWordService.finishSession(sessionId)
-          .then(() => GuessWordService.deleteSession(sessionId))
-          .catch(() => {})
         guesswordSessionIdRef.current = null
+        // Delay cleanup so remount can reclaim the session
+        setTimeout(() => {
+          // Only cleanup if no remount reclaimed this session
+          if (guesswordSessionIdRef.current !== sessionId) {
+            GuessWordService.finishSession(sessionId)
+              .then(() => GuessWordService.deleteSession(sessionId))
+              .catch(() => {})
+          }
+        }, 1500)
       }
     }
   }, [])

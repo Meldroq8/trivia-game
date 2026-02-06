@@ -39,6 +39,8 @@ function AnswerViewPage() {
         return
       }
 
+      // Valid active session - reset sessionEnded in case it was set by a race condition
+      setSessionEnded(false)
       setAnswer({
         text: sessionData.answer,
         imageUrl: sessionData.answerImageUrl,

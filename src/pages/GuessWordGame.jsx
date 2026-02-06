@@ -40,6 +40,8 @@ function GuessWordGame() {
         return
       }
 
+      // Valid active session - reset sessionEnded in case it was set by a race condition
+      setSessionEnded(false)
       setSession(sessionData)
       setIsReady(sessionData.playerReady || false)
       setLoading(false)
