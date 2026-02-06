@@ -153,7 +153,7 @@ export class AuthService {
   static async updateGameStats(uid, gameData) {
     try {
       devLog('💾 Saving game data to Firebase:', { uid, gameData })
-      console.log('🔥 [SAVE DEBUG] Starting updateGameStats for user:', uid)
+      devLog('🔥 [SAVE DEBUG] Starting updateGameStats for user:', uid)
 
       // Completely rebuild the game data structure to ensure no undefined values
       const rebuildGameData = (originalData) => {
@@ -326,7 +326,7 @@ export class AuthService {
       }
 
       const gameDataForFirebase = rebuildGameData(gameData.gameData)
-      console.log('🔥 [SAVE DEBUG] rebuildGameData completed, result:', gameDataForFirebase ? 'has data' : 'NULL')
+      devLog('🔥 [SAVE DEBUG] rebuildGameData completed, result:', gameDataForFirebase ? 'has data' : 'NULL')
 
       devLog('🔄 Rebuilt game data for Firebase:')
       devLog(JSON.stringify(gameDataForFirebase, null, 2))
@@ -384,33 +384,33 @@ export class AuthService {
           }
         } catch (readError) {
           // Document doesn't exist or can't be read - that's OK, we'll create it
-          console.log('🔥 [SAVE DEBUG] Could not read existing game (will create):', readError.code)
+          devLog('🔥 [SAVE DEBUG] Could not read existing game (will create):', readError.code)
         }
 
         // Use setDoc with merge: true - creates if not exists, updates if exists
         // Also set createdAt only if it doesn't exist (using merge)
         devLog('💾 Saving game with ID:', gameId)
-        console.log('🔥 [SAVE DEBUG] About to write to Firestore with gameId:', gameId)
+        devLog('🔥 [SAVE DEBUG] About to write to Firestore with gameId:', gameId)
         try {
           await setDoc(gameRef, {
             ...documentToSave,
             createdAt: documentToSave.createdAt || new Date()
           }, { merge: true })
-          console.log('🔥 [SAVE DEBUG] ✅ Firestore write SUCCESS for gameId:', gameId)
+          devLog('🔥 [SAVE DEBUG] ✅ Firestore write SUCCESS for gameId:', gameId)
         } catch (writeError) {
-          console.error('🔥 [SAVE DEBUG] ❌ Firestore write FAILED:', writeError.code, writeError.message)
+          prodError('🔥 [SAVE DEBUG] ❌ Firestore write FAILED:', writeError.code, writeError.message)
           throw writeError
         }
       } else {
         // Fallback: no gameId - create with auto-generated ID
         devLog('🆕 Creating new game (no gameId)')
-        console.log('🔥 [SAVE DEBUG] About to create new game (no gameId)')
+        devLog('🔥 [SAVE DEBUG] About to create new game (no gameId)')
         documentToSave.createdAt = new Date()
         try {
           const newDocRef = await addDoc(collection(db, 'games'), documentToSave)
-          console.log('🔥 [SAVE DEBUG] ✅ New game created with ID:', newDocRef.id)
+          devLog('🔥 [SAVE DEBUG] ✅ New game created with ID:', newDocRef.id)
         } catch (writeError) {
-          console.error('🔥 [SAVE DEBUG] ❌ New game create FAILED:', writeError.code, writeError.message)
+          prodError('🔥 [SAVE DEBUG] ❌ New game create FAILED:', writeError.code, writeError.message)
           throw writeError
         }
       }
@@ -485,7 +485,7 @@ export class AuthService {
         }
       }
     } catch (error) {
-      console.error('🔥 [SAVE DEBUG] ❌ MAIN ERROR in updateGameStats:', error.code, error.message, error)
+      prodError('🔥 [SAVE DEBUG] ❌ MAIN ERROR in updateGameStats:', error.code, error.message, error)
       prodError('❌ Error updating game stats:', error)
       throw error
     }

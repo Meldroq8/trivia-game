@@ -66,12 +66,12 @@ function DrawingGame() {
 
   // Subscribe to session data for real-time updates
   useEffect(() => {
-    console.log('🎨 DrawingGame: Subscribing to session:', sessionId)
+    devLog('🎨 DrawingGame: Subscribing to session:', sessionId)
 
     // Subscribe to real-time session updates
     const unsubscribe = DrawingService.subscribeToSession(sessionId, async (sessionData) => {
       if (!sessionData) {
-        console.error('🎨 DrawingGame: Session not found in Firestore')
+        devLog('🎨 DrawingGame: Session not found in Firestore')
         setSessionEnded(true)
         setLoading(false)
         return

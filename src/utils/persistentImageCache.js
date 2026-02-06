@@ -7,9 +7,10 @@ class PersistentImageCache {
     this.storeName = 'images'
     this.db = null
     this.initPromise = this.init()
-    // Memory cache for loaded images
+    // Memory cache for loaded images (LRU with max size)
     this.imageElements = new Map()
     this.loadingPromises = new Map()
+    this.maxMemoryCacheSize = 50 // Max images kept in memory
     // localStorage keys
     this.localStoragePrefix = 'trivia_img_'
     this.localStorageMetaPrefix = 'trivia_img_meta_'
@@ -387,11 +388,31 @@ class PersistentImageCache {
     }
   }
 
+  // Evict oldest entries when memory cache exceeds max size
+  evictMemoryCache() {
+    if (this.imageElements.size <= this.maxMemoryCacheSize) return
+
+    // Map preserves insertion order - delete oldest entries first
+    const toEvict = this.imageElements.size - this.maxMemoryCacheSize
+    let evicted = 0
+    for (const key of this.imageElements.keys()) {
+      if (evicted >= toEvict) break
+      this.imageElements.delete(key)
+      evicted++
+    }
+    if (evicted > 0) {
+      devLog(`🧹 Evicted ${evicted} images from memory cache (kept ${this.imageElements.size})`)
+    }
+  }
+
   // Simple image preloader (CORS-free)
   async preloadImageElement(url) {
-    // Check if already in memory cache
+    // Check if already in memory cache - move to end for LRU
     if (this.imageElements.has(url)) {
-      return this.imageElements.get(url)
+      const img = this.imageElements.get(url)
+      this.imageElements.delete(url)
+      this.imageElements.set(url, img)
+      return img
     }
 
     // Check if already loading
@@ -404,8 +425,9 @@ class PersistentImageCache {
       const img = new Image()
 
       img.onload = () => {
-        // Store in memory cache
+        // Store in memory cache with LRU eviction
         this.imageElements.set(url, img)
+        this.evictMemoryCache()
         // Clean up loading promise
         this.loadingPromises.delete(url)
         resolve(img)

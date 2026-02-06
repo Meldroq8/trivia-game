@@ -690,25 +690,25 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
       }
 
       // Mark questions as used in background (don't block game start)
-      console.log('🔥 [START GAME DEBUG] user?.uid:', user?.uid)
-      console.log('🔥 [START GAME DEBUG] preAssignedQuestions count:', Object.keys(preAssignedQuestions).length)
-      console.log('🔥 [START GAME DEBUG] preAssignedQuestions:', preAssignedQuestions)
+      devLog('🔥 [START GAME DEBUG] user?.uid:', user?.uid)
+      devLog('🔥 [START GAME DEBUG] preAssignedQuestions count:', Object.keys(preAssignedQuestions).length)
+      devLog('🔥 [START GAME DEBUG] preAssignedQuestions:', preAssignedQuestions)
 
       if (user?.uid && Object.keys(preAssignedQuestions).length > 0) {
-        console.log('🔥 [START GAME DEBUG] Calling markGameQuestionsAsUsed...')
+        devLog('🔥 [START GAME DEBUG] Calling markGameQuestionsAsUsed...')
         questionUsageTracker.setUserId(user.uid)
         // Fire and forget - don't await
         questionUsageTracker.markGameQuestionsAsUsed(preAssignedQuestions)
           .then(markedCount => {
-            console.log('🔥 [START GAME DEBUG] markGameQuestionsAsUsed completed, marked:', markedCount)
+            devLog('🔥 [START GAME DEBUG] markGameQuestionsAsUsed completed, marked:', markedCount)
             devLog(`💰 Paid game created - ${markedCount} questions reserved`)
           })
           .catch(err => {
-            console.error('🔥 [START GAME DEBUG] markGameQuestionsAsUsed FAILED:', err)
+            prodError('🔥 [START GAME DEBUG] markGameQuestionsAsUsed FAILED:', err)
             prodError('❌ Failed to mark questions as used:', err)
           })
       } else {
-        console.log('🔥 [START GAME DEBUG] Skipping markGameQuestionsAsUsed - condition not met')
+        devLog('🔥 [START GAME DEBUG] Skipping markGameQuestionsAsUsed - condition not met')
       }
 
       setGameState(prev => ({
