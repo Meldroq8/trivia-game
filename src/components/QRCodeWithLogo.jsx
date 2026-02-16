@@ -87,6 +87,8 @@ function QRCodeWithLogo({ questionId, size = 250, mode = 'answer' }) {
         return `${window.location.origin}/headband/${questionId}`
       case 'guessword':
         return `${window.location.origin}/guessword/${questionId}`
+      case 'rasbras':
+        return `${window.location.origin}/rasbras/${questionId}`
       default: // 'answer' mode (charades)
         return `${window.location.origin}/answer-view/${questionId}`
     }

@@ -24,6 +24,8 @@ import HeadbandDisplay, { HeadbandAnswerDisplay } from '../components/HeadbandDi
 import CharadeService from '../services/charadeService'
 import GuessWordService from '../services/guessWordService'
 import GuessWordDisplay from '../components/GuessWordDisplay'
+import RasbrasService from '../services/rasbrasService'
+import RasbrasDisplay from '../components/RasbrasDisplay'
 import { getHeaderStyles, getDeviceFlags, getPCScaleFactor } from '../utils/responsiveStyles'
 import { getCachedMiniGameRules, getCachedCustomMiniGames, getCachedSponsorLogo, isMiniGameSettingsPreloaded } from '../utils/miniGameSettingsCache'
 
@@ -445,6 +447,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
   const guesswordUnsubscribeRef = useRef(null)
   const guesswordSessionIdRef = useRef(null)
 
+  // Rasbras mini-game state
+  const [rasbrasSession, setRasbrasSession] = useState(null)
+  const rasbrasUnsubscribeRef = useRef(null)
+  const rasbrasSessionIdRef = useRef(null)
+
   // Perk system state
   const [perkModalOpen, setPerkModalOpen] = useState(false)
   const [activePerk, setActivePerk] = useState({ type: null, team: null })
@@ -470,6 +477,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       'لاعب من كل فريق يصور الباركود',
       'اختر فريقك ثم اضغط جاهز',
       'اسأل أسئلة لتخمين صورة الخصم'
+    ],
+    rasbras: [
+      'لاعب من كل فريق يصور الباركود',
+      'اختر فريقك ثم اضغط جاهز',
+      'جاوب على 5 أسئلة بأسرع وقت!'
     ]
   }
   const [miniGameRules, setMiniGameRules] = useState(() => getCachedMiniGameRules() || defaultRules)
@@ -1091,7 +1103,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
     const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
     const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
-    const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword'].includes(miniGameType)
+    const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword', 'rasbras'].includes(miniGameType)
 
     if (!isCharadesMode) {
       // Cleanup any existing charade session if switching away from charades mode
@@ -1330,6 +1342,118 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
           if (guesswordSessionIdRef.current !== sessionId) {
             GuessWordService.finishSession(sessionId)
               .then(() => GuessWordService.deleteSession(sessionId))
+              .catch(() => {})
+          }
+        }, 1500)
+      }
+    }
+  }, [])
+
+  // Initialize and subscribe to rasbras session for rasbras mini-games
+  useEffect(() => {
+    if (!currentQuestion || !gameData) return
+
+    const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+    const category = gameData?.categories?.find(c => c.id === categoryId)
+    const questionOriginalCategory = currentQuestion?.question?.category || currentQuestion?.category
+    const originalCategory = questionOriginalCategory ? gameData?.categories?.find(c => c.id === questionOriginalCategory) : null
+
+    const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
+    const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
+    const isRasbrasMode = isQrMiniGame && miniGameType === 'rasbras'
+
+    if (!isRasbrasMode) {
+      // Cleanup any existing rasbras session if switching away
+      if (rasbrasUnsubscribeRef.current) {
+        rasbrasUnsubscribeRef.current()
+        rasbrasUnsubscribeRef.current = null
+      }
+      if (rasbrasSessionIdRef.current) {
+        const oldId = rasbrasSessionIdRef.current
+        RasbrasService.finishSession(oldId)
+          .then(() => RasbrasService.deleteSession(oldId))
+          .catch(() => {})
+      }
+      setRasbrasSession(null)
+      rasbrasSessionIdRef.current = null
+      return
+    }
+
+    const questionId = currentQuestion?.question?.id || currentQuestion?.id
+    if (!questionId || !user?.uid) return
+    const sessionId = `${questionId}_${user.uid}`
+
+    // Clean up previous session if session ID changed
+    if (rasbrasSessionIdRef.current && rasbrasSessionIdRef.current !== sessionId) {
+      if (rasbrasUnsubscribeRef.current) {
+        rasbrasUnsubscribeRef.current()
+        rasbrasUnsubscribeRef.current = null
+      }
+      const oldId = rasbrasSessionIdRef.current
+      RasbrasService.finishSession(oldId)
+        .then(() => RasbrasService.deleteSession(oldId))
+        .catch(() => {})
+    }
+
+    // Skip if already managing this exact session
+    if (rasbrasSessionIdRef.current === sessionId && rasbrasUnsubscribeRef.current) {
+      return
+    }
+
+    rasbrasSessionIdRef.current = sessionId
+
+    const initRasbrasSession = async () => {
+      try {
+        devLog('⚡ Initializing rasbras session with ID:', sessionId)
+
+        const question = currentQuestion?.question || currentQuestion
+
+        await RasbrasService.createSession(sessionId, {
+          questionId: sessionId,
+          questions: question?.miniGameQuestions || [],
+          teamAName: gameState?.team1?.name || 'الفريق 1',
+          teamBName: gameState?.team2?.name || 'الفريق 2',
+          questionText: question?.text || '',
+          difficulty: question?.difficulty || 'medium',
+          points: question?.points || 400
+        })
+
+        devLog('⚡ Rasbras session created successfully:', sessionId)
+
+        const unsubscribe = RasbrasService.subscribeToSession(sessionId, (sessionData) => {
+          if (sessionData) {
+            setRasbrasSession(sessionData)
+            devLog('⚡ Rasbras session updated:', sessionData.status, 'TeamA:', sessionData.teamACorrect, 'TeamB:', sessionData.teamBCorrect)
+          }
+        })
+
+        rasbrasUnsubscribeRef.current = unsubscribe
+      } catch (error) {
+        prodError('Error initializing rasbras session:', error)
+      }
+    }
+
+    initRasbrasSession()
+
+    return () => {
+      if (rasbrasUnsubscribeRef.current) {
+        rasbrasUnsubscribeRef.current()
+        rasbrasUnsubscribeRef.current = null
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id, !!gameData, user?.uid])
+
+  // Clean up rasbras session on unmount only (delayed to avoid race with remount)
+  useEffect(() => {
+    return () => {
+      if (rasbrasSessionIdRef.current) {
+        const sessionId = rasbrasSessionIdRef.current
+        rasbrasSessionIdRef.current = null
+        setTimeout(() => {
+          if (rasbrasSessionIdRef.current !== sessionId) {
+            RasbrasService.finishSession(sessionId)
+              .then(() => RasbrasService.deleteSession(sessionId))
               .catch(() => {})
           }
         }, 1500)
@@ -2205,6 +2329,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing') ? 'drawing' :
                   (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband') ? 'headband' :
                   (category?.miniGameType === 'guessword' || originalCategory?.miniGameType === 'guessword') ? 'guessword' :
+                  (category?.miniGameType === 'rasbras' || originalCategory?.miniGameType === 'rasbras') ? 'rasbras' :
                   'answer'
                 }
               />
@@ -2736,7 +2861,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   // Show QR if current category OR original category has QR enabled
                   const isQrMiniGame = category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true
                   const miniGameType = category?.miniGameType || originalCategory?.miniGameType || 'charades'
-                  const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword'].includes(miniGameType)
+                  const isCharadesMode = isQrMiniGame && !['drawing', 'headband', 'guessword', 'rasbras'].includes(miniGameType)
 
                   // Show circular timer ONLY for charades mode (not drawing mode - canvas has its own timer)
                   if (isCharadesMode && qrTimerStarted) {
@@ -3026,6 +3151,23 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     )
                   }
 
+                  // Check if this is rasbras mode and game is active (hide when scoring overlay is shown)
+                  const isRasbrasModeActive = (category?.enableQrMiniGame === true || originalCategory?.enableQrMiniGame === true) && miniGameType === 'rasbras'
+                  const isRasbrasActive = isRasbrasModeActive && rasbrasSession?.status === 'playing' && !showScoring
+
+                  // Show rasbras split display when game is active
+                  if (isRasbrasActive) {
+                    return (
+                      <div className="flex flex-col justify-center items-center w-full h-full p-2 md:p-4">
+                        <RasbrasDisplay
+                          session={rasbrasSession}
+                          teamAName={rasbrasSession?.teamAName || gameState?.team1?.name || 'فريق أ'}
+                          teamBName={rasbrasSession?.teamBName || gameState?.team2?.name || 'فريق ب'}
+                        />
+                      </div>
+                    )
+                  }
+
                   // Show normal question content
                   return (
                     <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10">
@@ -3205,6 +3347,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                                 (category?.miniGameType === 'drawing' || originalCategory?.miniGameType === 'drawing') ? 'drawing' :
                                 (category?.miniGameType === 'headband' || originalCategory?.miniGameType === 'headband') ? 'headband' :
                                 (category?.miniGameType === 'guessword' || originalCategory?.miniGameType === 'guessword') ? 'guessword' :
+                                (category?.miniGameType === 'rasbras' || originalCategory?.miniGameType === 'rasbras') ? 'rasbras' :
                                 'answer'
                               }
                             />
@@ -3216,11 +3359,12 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                               const type = category?.miniGameType || originalCategory?.miniGameType
                               if (type === 'drawing') return miniGameRules.drawing
                               if (type === 'headband') return miniGameRules.headband || miniGameRules.other
+                              if (type === 'rasbras') return miniGameRules.rasbras || miniGameRules.other
                               // Wait for settings to load before checking custom games
                               if (miniGameSettingsLoaded) {
                                 const customGame = customMiniGames.find(g => g.id === type)
                                 if (customGame?.rules?.length) return customGame.rules
-                              } else if (type && !['charades', 'drawing', 'headband', 'guessword'].includes(type)) {
+                              } else if (type && !['charades', 'drawing', 'headband', 'guessword', 'rasbras'].includes(type)) {
                                 // Custom type but settings not loaded yet - show nothing until loaded
                                 return []
                               }
@@ -3299,6 +3443,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                   const isDrawingModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'drawing'
                   const isHeadbandModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'headband'
                   const isGuesswordModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'guessword'
+                  const isRasbrasModeForTimer = isQrMiniGame && miniGameTypeForTimer === 'rasbras'
 
                   if (isQrMiniGame) {
                     // Headband Mode - No timer at all (counter-based game)
@@ -3308,6 +3453,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                     // GuessWord Mode - No timer at all (counter-based game, similar to headband)
                     if (isGuesswordModeForTimer) {
+                      return null
+                    }
+
+                    // Rasbras Mode - No timer (timer is managed by the game itself)
+                    if (isRasbrasModeForTimer) {
                       return null
                     }
 
@@ -3470,10 +3620,20 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                     <div className="md:text-xl sm:text-base text-xs text-white bg-gradient-to-r from-amber-500 to-amber-600 py-1.5 4xl:py-2.5 xl:px-5 lg:px-3 md:px-2.5 sm:px-2 px-2 rounded-2xl w-fit font-bold flex items-center justify-center ml-auto mr-[5%] shadow-md">
                       {currentQuestion?.category || 'فئة السؤال'}
                     </div>
-                    <div className="cursor-pointer sm:text-xl 2xl:text-3xl bg-gradient-to-r from-green-600 to-green-700 text-white md:px-6 px-5 py-1 md:py-3 inline-flex items-center justify-center text-center rounded-full go-to-answer font-bold shadow-md"
-                         onClick={handleShowAnswer}>
-                      الإجابة
-                    </div>
+                    {(() => {
+                      const cId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                      const cat = gameData?.categories?.find(c => c.id === cId)
+                      const qOC = currentQuestion?.question?.category || currentQuestion?.category
+                      const oCat = qOC ? gameData?.categories?.find(c => c.id === qOC) : null
+                      const isRasbras = (cat?.enableQrMiniGame === true || oCat?.enableQrMiniGame === true) &&
+                                        (cat?.miniGameType === 'rasbras' || oCat?.miniGameType === 'rasbras')
+                      return (
+                        <div className="cursor-pointer sm:text-xl 2xl:text-3xl bg-gradient-to-r from-green-600 to-green-700 text-white md:px-6 px-5 py-1 md:py-3 inline-flex items-center justify-center text-center rounded-full go-to-answer font-bold shadow-md"
+                             onClick={isRasbras ? handleShowScoring : handleShowAnswer}>
+                          {isRasbras ? 'منو جاوب' : 'الإجابة'}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}
@@ -3508,8 +3668,15 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                 </div>
               )}
 
-              {/* Answer Section - Show answer text and question image */}
-              {showAnswer && !showScoring && (
+              {/* Answer Section - Show answer text and question image (skip for rasbras - goes directly to scoring) */}
+              {showAnswer && !showScoring && !(() => {
+                const cId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                const cat = gameData?.categories?.find(c => c.id === cId)
+                const qOC = currentQuestion?.question?.category || currentQuestion?.category
+                const oCat = qOC ? gameData?.categories?.find(c => c.id === qOC) : null
+                return (cat?.enableQrMiniGame === true || oCat?.enableQrMiniGame === true) &&
+                       (cat?.miniGameType === 'rasbras' || oCat?.miniGameType === 'rasbras')
+              })() && (
                 <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper absolute inset-0 bg-[#f7f2e6] dark:bg-slate-800"
                      style={{
                        background: isDarkMode
@@ -3790,10 +3957,32 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                            }}>
                         <span className="shrink-0">ارجع للسؤال</span>
                       </div>
-                      <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-full next-step-btn font-arabic font-bold shadow-md"
-                           onClick={() => setShowScoring(false)}>
-                        <span className="shrink-0">ارجع للإجابة</span>
-                      </div>
+                      {(() => {
+                        const cId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
+                        const cat = gameData?.categories?.find(c => c.id === cId)
+                        const qOC = currentQuestion?.question?.category || currentQuestion?.category
+                        const oCat = qOC ? gameData?.categories?.find(c => c.id === qOC) : null
+                        const isRasbras = (cat?.enableQrMiniGame === true || oCat?.enableQrMiniGame === true) &&
+                                          (cat?.miniGameType === 'rasbras' || oCat?.miniGameType === 'rasbras')
+                        if (isRasbras) {
+                          // Rasbras has no answer step - go back to question
+                          return (
+                            <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-full next-step-btn font-arabic font-bold shadow-md"
+                                 onClick={() => {
+                                   setShowScoring(false)
+                                   setShowAnswer(false)
+                                 }}>
+                              <span className="shrink-0">ارجع للسؤال</span>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="cursor-pointer 2xl:text-3xl md:text-xl text-base text-white md:px-4 px-2 py-1 md:py-3 inline-flex shrink-0 items-center justify-center text-center bg-gradient-to-r from-blue-600 to-blue-700 rounded-full next-step-btn font-arabic font-bold shadow-md"
+                               onClick={() => setShowScoring(false)}>
+                            <span className="shrink-0">ارجع للإجابة</span>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>

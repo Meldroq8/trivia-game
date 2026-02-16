@@ -363,6 +363,32 @@ service cloud.firestore {
       allow delete: if resource.data.status == 'finished';
     }
 
+    // ===== RASBRAS SESSIONS =====
+    // Real-time rasbras game sessions (head-to-head quiz)
+    // Two players each answer 5 MCQ questions at their own pace
+    match /rasbrasSessions/{sessionId} {
+      // Allow public read for rasbras sessions
+      allow read: if true;
+
+      // Allow create with required fields
+      allow create: if request.resource.data.keys().hasAll(['status', 'createdAt']) &&
+                       request.resource.data.size() < 40; // Max 40 fields
+
+      // Allow update with field restrictions
+      allow update: if request.resource.data.size() < 40 &&
+                       (!request.resource.data.keys().hasAny(['teamACurrentQ']) ||
+                        (request.resource.data.teamACurrentQ >= 0 && request.resource.data.teamACurrentQ <= 5)) &&
+                       (!request.resource.data.keys().hasAny(['teamBCurrentQ']) ||
+                        (request.resource.data.teamBCurrentQ >= 0 && request.resource.data.teamBCurrentQ <= 5)) &&
+                       (!request.resource.data.keys().hasAny(['teamACorrect']) ||
+                        (request.resource.data.teamACorrect >= 0 && request.resource.data.teamACorrect <= 5)) &&
+                       (!request.resource.data.keys().hasAny(['teamBCorrect']) ||
+                        (request.resource.data.teamBCorrect >= 0 && request.resource.data.teamBCorrect <= 5));
+
+      // Only allow delete if session is finished
+      allow delete: if resource.data.status == 'finished';
+    }
+
     // ===== NOTIFICATIONS =====
     // User notifications for report resolutions, etc.
     match /notifications/{notificationId} {

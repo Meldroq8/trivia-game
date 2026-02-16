@@ -400,6 +400,25 @@ export const processBulkQuestions = async (excelData, mediaFiles = {}, onProgres
       }
     }
 
+    // Rasbras mini-game questions (Question1 through Question5)
+    const miniGameQuestions = []
+    for (let q = 1; q <= 5; q++) {
+      const raw = row[`Question${q}`] || row[`question${q}`] || row[`سؤال${q}`]
+      if (raw) {
+        const parts = raw.split(' - ')
+        if (parts.length >= 3) {
+          const qText = parts[0].trim()
+          const correctAnswer = parts[1].trim()
+          const wrongOptions = parts.slice(2).join(' - ').split(',').map(o => o.trim())
+          const allOptions = [correctAnswer, ...wrongOptions].sort(() => Math.random() - 0.5)
+          miniGameQuestions.push({ question: qText, answer: correctAnswer, options: allOptions })
+        }
+      }
+    }
+    if (miniGameQuestions.length > 0) {
+      question.miniGameQuestions = miniGameQuestions
+    }
+
     // Answer Audio
     const aAudioFilename = row.Answer_Audio || row.answer_audio || row.صوت_الإجابة
     if (aAudioFilename) {

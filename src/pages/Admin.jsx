@@ -597,6 +597,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
           return `كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته`
         case 'guessword':
           return `صف ${name} لفريقك بدون ذكر الكلمة`
+        case 'rasbras':
+          return `تحدي راس براس - كل فريق يجاوب على 5 أسئلة بأسرع وقت`
         default:
           return `فئة تفاعلية - ${name}`
       }
@@ -1251,7 +1253,8 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                           <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
                             {category.miniGameType === 'drawing' ? '🎨 رسم' :
                              category.miniGameType === 'headband' ? '🎯 عصابة' :
-                             category.miniGameType === 'guessword' ? '💬 تخمين' : '🎭 تمثيل'}
+                             category.miniGameType === 'guessword' ? '💬 تخمين' :
+                             category.miniGameType === 'rasbras' ? '⚡ راس براس' : '🎭 تمثيل'}
                           </span>
                         )}
                       </div>
@@ -1536,6 +1539,7 @@ function CategoriesManager({ isAdmin, isModerator, showAIModal, setShowAIModal, 
                         <option value="drawing">🎨 رسم (Drawing)</option>
                         <option value="headband">🎯 تخمين الصورة (Headband)</option>
                         <option value="guessword">🤔 خمن الكلمة (Guess Word)</option>
+                        <option value="rasbras">⚡ راس براس (Rasbras)</option>
                         {customMiniGames.map(game => (
                           <option key={game.id} value={game.id}>{game.icon} {game.name}</option>
                         ))}
@@ -6055,6 +6059,12 @@ function SettingsManager() {
       'لاعب من كل فريق يصور الباركود',
       'اختر فريقك ثم اضغط جاهز',
       'اسأل أسئلة لتخمين صورة الخصم'
+    ],
+    rasbras: [
+      'لاعب من كل فريق يصور الباركود',
+      'اختر فريقك ثم اضغط جاهز',
+      'كل لاعب يجاوب على 5 أسئلة',
+      'الفريق الأسرع والأصح يفوز'
     ]
   })
 
@@ -6063,7 +6073,8 @@ function SettingsManager() {
     drawing: 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!',
     headband: 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!',
     guessword: 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!',
-    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
+    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!',
+    rasbras: 'امسح كود QR، تحدي مباشر! كل فريق يجاوب على 5 أسئلة بأسرع وقت ممكن.'
   })
 
   // Custom mini-games state
@@ -7147,6 +7158,47 @@ function SettingsManager() {
           </button>
         </div>
 
+        {/* Rasbras Game Rules */}
+        <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+          <h4 className="font-bold text-red-800 mb-3 flex items-center gap-2">
+            <span>⚡</span>
+            قواعد لعبة راس براس (Rasbras)
+          </h4>
+          <div className="space-y-3">
+            {(miniGameRules.rasbras || []).map((rule, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <div className="bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {index + 1}
+                </div>
+                <input
+                  type="text"
+                  value={rule}
+                  onChange={(e) => handleRuleChange('rasbras', index, e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-right text-gray-900 font-medium"
+                  dir="rtl"
+                  placeholder={`القاعدة ${index + 1}`}
+                />
+                {(miniGameRules.rasbras || []).length > 1 && (
+                  <button
+                    onClick={() => handleRemoveRule('rasbras', index)}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-lg flex-shrink-0 transition-colors"
+                    title="حذف القاعدة"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => handleAddRule('rasbras')}
+            className="mt-3 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <span>+</span>
+            إضافة قاعدة جديدة
+          </button>
+        </div>
+
         {/* Custom Mini-Games Section */}
         <div className="mt-8 pt-6 border-t border-gray-200">
           <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -7408,6 +7460,21 @@ function SettingsManager() {
               value={miniGameInstructions.charades}
               onChange={(e) => handleInstructionChange('charades', e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-right text-gray-900"
+              dir="rtl"
+            />
+          </div>
+
+          {/* Rasbras Instructions */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-red-800 mb-1 flex items-center gap-2">
+              <span>⚡</span>
+              تعليمات راس براس
+            </label>
+            <input
+              type="text"
+              value={miniGameInstructions.rasbras || ''}
+              onChange={(e) => handleInstructionChange('rasbras', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-right text-gray-900"
               dir="rtl"
             />
           </div>

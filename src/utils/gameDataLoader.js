@@ -331,6 +331,7 @@ export class GameDataLoader {
           videoUrl: q.videoUrl || null,
           answerVideoUrl: q.answerVideoUrl || null,
           toleranceHint: q.toleranceHint || null,
+          miniGameQuestions: q.miniGameQuestions || null,
           category: q.categoryName || q.categoryId || 'عام',
           categoryId: categoryId
         }))
@@ -437,6 +438,7 @@ export class GameDataLoader {
         videoUrl: question.videoUrl || null,
         answerVideoUrl: question.answerVideoUrl || null,
         toleranceHint: question.toleranceHint || null,
+        miniGameQuestions: question.miniGameQuestions || null,
         category: question.categoryName || question.categoryId || 'عام',
         categoryId: categoryId // Keep the actual categoryId for export filtering
       })

@@ -123,7 +123,8 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
     drawing: 'امسح كود QR، ارسم الإجابة على هاتفك، ودع فريقك يخمن!',
     headband: 'امسح كود QR، كل لاعب يرى صورة اللاعب الآخر ويساعده على تخمين صورته!',
     guessword: 'امسح كود QR، صف الكلمة لفريقك بدون ذكرها!',
-    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!'
+    charades: 'امسح كود QR، مثّل الإجابة أو اشرحها لفريقك بدون كلام!',
+    rasbras: 'امسح كود QR، لاعب من كل فريق يجاوب على 5 أسئلة بأسرع وقت!'
   })
   const [customMiniGames, setCustomMiniGames] = useState([])
 
@@ -2138,7 +2139,7 @@ function CategorySelection({ gameState, setGameState, stateLoaded }) {
                     {showCategoryInfo.imageUrl ? '' : (showCategoryInfo.image || '📚')}
                   </div>
                   <h2 className="text-xl font-bold drop-shadow-lg">
-                    {getCategoryDescription(showCategoryInfo)?.title || showCategoryInfo.name}
+                    {showCategoryInfo.name}
                   </h2>
                 </div>
               </div>

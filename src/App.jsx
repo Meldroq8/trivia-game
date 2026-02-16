@@ -19,6 +19,7 @@ import AuthAction from './pages/AuthAction'
 import DrawingGame from './pages/DrawingGame'
 import HeadbandGame from './pages/HeadbandGame'
 import GuessWordGame from './pages/GuessWordGame'
+import RasbrasGame from './pages/RasbrasGame'
 import CategoryPreview from './pages/CategoryPreview'
 
 // Less frequently used components - lazy loaded with background preloading
@@ -132,7 +133,7 @@ function RouteTracker({ gameState, setGameState, stateLoaded }) {
     }
 
     // Never redirect away from QR mini-game phone pages
-    const qrPhoneRoutes = ['/answer-view/', '/draw/', '/headband/', '/guessword/']
+    const qrPhoneRoutes = ['/answer-view/', '/draw/', '/headband/', '/guessword/', '/rasbras/']
     if (qrPhoneRoutes.some(prefix => location.pathname.startsWith(prefix))) {
       devLog('📱 On QR phone page - skipping route restoration')
       return
@@ -892,6 +893,10 @@ function App() {
             <Route
               path="/guessword/:sessionId"
               element={<GuessWordGame />}
+            />
+            <Route
+              path="/rasbras/:sessionId"
+              element={<RasbrasGame />}
             />
             <Route
               path="/loader/:inviteCode"
