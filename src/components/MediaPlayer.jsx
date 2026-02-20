@@ -241,8 +241,6 @@ function MediaPlayer({ src, type = 'audio', className = '', autoPlay = false, de
       style={{
         display: 'flex',
         flexDirection: 'column',
-        width: '100%',
-        maxWidth: '100%',
         ...(maxHeight ? { maxHeight: `${maxHeight}px` } : {})
       }}
     >

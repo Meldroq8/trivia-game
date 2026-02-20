@@ -1,5 +1,5 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { importAllQuestions, addQuestionsToStorage, importBulkQuestionsToFirebase, importBulkQuestionsToFirebaseForced } from '../utils/importQuestions'
@@ -28,6 +28,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import VerificationDashboard from '../components/VerificationDashboard'
+import VirtualizedQuestionList from '../components/VirtualizedQuestionList'
 import { getCategoryStats, migrateExistingGames } from '../services/categoryStatsService'
 
 function Admin() {
@@ -1959,6 +1960,14 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     answerVideoUrl: null    // For answer video (MP4)
   })
   const [collapsedCategories, setCollapsedCategories] = useState(new Set())
+  // Lazy loading state
+  const [loadedCategories, setLoadedCategories] = useState(new Set())
+  const [loadingCategories, setLoadingCategories] = useState(new Set())
+  const [allQuestionsLoaded, setAllQuestionsLoaded] = useState(false)
+  const [isLoadingAllForSearch, setIsLoadingAllForSearch] = useState(false)
+  const pendingSearchRef = useRef(null)
+  // scrollTarget: { categoryId, originalIndex } - triggers scroll-to in the virtual list
+  const [scrollTarget, setScrollTarget] = useState(null)
   const [difficultyDropdowns, setDifficultyDropdowns] = useState({})
   const [difficultyFilter, setDifficultyFilter] = useState({})
   const [uploadingQuestionImages, setUploadingQuestionImages] = useState({})
@@ -1981,37 +1990,32 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
   const [zoomedImage, setZoomedImage] = useState(null)
 
   const loadData = async () => {
-    devLog('🔄 Admin loadData called')
+    devLog('🔄 Admin loadData called (lazy mode)')
     try {
-      // Load from Firebase first, with localStorage as cache
-      devLog('📥 Loading data from Firebase...')
-      const gameData = await GameDataLoader.loadGameData()
+      // Load only categories first (no questions) for fast initial load
+      devLog('📥 Loading categories only from Firebase...')
+      const gameData = await GameDataLoader.loadCategoriesOnly()
 
       if (gameData) {
-        devLog('✅ Admin: Loaded data from Firebase:', {
+        devLog('✅ Admin: Loaded categories (lazy mode):', {
           categories: gameData.categories?.length || 0,
-          questions: Object.keys(gameData.questions || {}).length
+          lazyLoaded: gameData.lazyLoaded
         })
 
         setCategories(gameData.categories || [])
 
-        // Transform Firebase data format to admin format
-        const transformedQuestions = gameData.questions || {}
-
-        // Debug: Check if questions have toleranceHint after loading
-        let questionsWithTolerance = 0
-        Object.entries(transformedQuestions).forEach(([categoryId, categoryQuestions]) => {
-          categoryQuestions.forEach((question, index) => {
-            if (!question.id) {
-              devWarn(`⚠️ Question at ${categoryId}[${index}] has no Firebase ID:`, question.text)
-            }
-            if (question.toleranceHint) {
-              questionsWithTolerance++
-            }
-          })
-        })
-
-        setQuestions(transformedQuestions)
+        // If loadCategoriesOnly fell back to loadGameData (no questionIds), use full data
+        if (!gameData.lazyLoaded) {
+          const transformedQuestions = gameData.questions || {}
+          setQuestions(transformedQuestions)
+          setAllQuestionsLoaded(true)
+          setLoadedCategories(new Set(Object.keys(transformedQuestions)))
+        } else {
+          // Lazy mode: start with empty questions, load on demand
+          setQuestions({})
+          setLoadedCategories(new Set())
+          setAllQuestionsLoaded(false)
+        }
 
         devLog('📊 Admin data loaded successfully')
       } else {
@@ -2036,6 +2040,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
           setQuestions(data.questions || {})
           setCategories(data.categories || [])
+          setAllQuestionsLoaded(true)
+          setLoadedCategories(new Set(Object.keys(data.questions || {})))
         } catch (parseError) {
           prodError('❌ Error parsing localStorage:', parseError)
           await loadSampleDataFallback()
@@ -2088,6 +2094,9 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
       if (event.data.type === 'QUESTION_UPDATED') {
         devLog('📡 Received cross-tab update, reloading data...')
+        // Reset lazy loading state so expanded categories reload fresh data
+        setLoadedCategories(new Set())
+        setAllQuestionsLoaded(false)
         loadData()
       }
     }
@@ -2118,27 +2127,16 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     return category ? category.name : 'فئة غير معروفة'
   }
 
-  // Search function - searches questions by text, answer, or category
-  const handleSearch = (query) => {
-    setSearchQuery(query)
-
-    if (!query || query.trim().length < 2) {
-      setSearchResults([])
-      setIsSearching(false)
-      return
-    }
-
-    setIsSearching(true)
+  // Helper to run search on current questions state
+  const runSearchOnQuestions = useCallback((query, questionsData) => {
     const normalizedQuery = query.toLowerCase().trim()
     const results = []
 
-    // Search through all questions
-    Object.entries(questions).forEach(([categoryId, categoryQuestions]) => {
+    Object.entries(questionsData).forEach(([categoryId, categoryQuestions]) => {
       if (!categoryQuestions) return
 
       categoryQuestions.forEach((question, index) => {
         const textMatch = question.text?.toLowerCase().includes(normalizedQuery)
-        // Handle answer that might be an array, object, or other type
         let answerText = question.answer
         if (Array.isArray(answerText)) {
           answerText = answerText[0]
@@ -2153,7 +2151,6 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
         if (textMatch || answerMatch || categoryMatch) {
           results.push({
             ...question,
-            // Normalize answer to string for display
             answer: answerText,
             categoryId,
             categoryName,
@@ -2163,6 +2160,59 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       })
     })
 
+    return results
+  }, [categories])
+
+  // Re-run pending search after questions state updates from full load
+  useEffect(() => {
+    if (pendingSearchRef.current && allQuestionsLoaded) {
+      const query = pendingSearchRef.current
+      pendingSearchRef.current = null
+      const results = runSearchOnQuestions(query, questions)
+      setSearchResults(results)
+      setIsSearching(false)
+      setIsLoadingAllForSearch(false)
+    }
+  }, [allQuestionsLoaded, questions])
+
+  // Search function - searches questions by text, answer, or category
+  const handleSearch = async (query) => {
+    setSearchQuery(query)
+
+    if (!query || query.trim().length < 2) {
+      setSearchResults([])
+      setIsSearching(false)
+      setIsLoadingAllForSearch(false)
+      return
+    }
+
+    // If not all questions loaded, trigger full load first
+    if (!allQuestionsLoaded) {
+      setIsSearching(true)
+      setIsLoadingAllForSearch(true)
+      pendingSearchRef.current = query
+
+      try {
+        devLog('🔍 Search triggered full data load...')
+        const gameData = await GameDataLoader.loadGameData()
+        if (gameData) {
+          setCategories(gameData.categories || [])
+          setQuestions(gameData.questions || {})
+          setAllQuestionsLoaded(true)
+          setLoadedCategories(new Set(Object.keys(gameData.questions || {})))
+          // Search will run via the useEffect watching allQuestionsLoaded
+        }
+      } catch (error) {
+        prodError('❌ Error loading all questions for search:', error)
+        setIsSearching(false)
+        setIsLoadingAllForSearch(false)
+      }
+      return
+    }
+
+    // All questions already loaded - instant search
+    setIsSearching(true)
+    const results = runSearchOnQuestions(query, questions)
     setSearchResults(results)
     setIsSearching(false)
   }
@@ -3482,7 +3532,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
     }
   }
 
-  const toggleCategoryCollapse = (categoryId) => {
+  const toggleCategoryCollapse = async (categoryId) => {
+    const isCurrentlyCollapsed = collapsedCategories.has(categoryId)
+    const isExpanding = isCurrentlyCollapsed
+
+    // Toggle collapse state
     setCollapsedCategories(prev => {
       const newSet = new Set(prev)
       if (newSet.has(categoryId)) {
@@ -3492,15 +3546,97 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       }
       return newSet
     })
+
+    // On expand: load questions for this category if not already loaded
+    if (isExpanding && !loadedCategories.has(categoryId) && !loadingCategories.has(categoryId)) {
+      setLoadingCategories(prev => {
+        const newSet = new Set(prev)
+        newSet.add(categoryId)
+        return newSet
+      })
+
+      try {
+        devLog(`📥 Loading questions for category: ${categoryId}`)
+        const rawQuestions = await FirebaseQuestionsService.getQuestionsByCategory(categoryId)
+
+        // Check if category is still expanded before updating state (race condition guard)
+        setCollapsedCategories(currentCollapsed => {
+          if (currentCollapsed.has(categoryId)) {
+            // User collapsed while loading - still store data but don't force expand
+            devLog(`⚠️ Category ${categoryId} was collapsed during load, storing data anyway`)
+          }
+          return currentCollapsed
+        })
+
+        // Transform raw Firebase data to admin format
+        const transformedQuestions = rawQuestions.map(q => ({
+          id: q.id,
+          text: q.text,
+          answer: q.answer,
+          answer2: q.answer2 || null,
+          difficulty: q.difficulty || 'easy',
+          points: q.points || 200,
+          type: q.type || 'text',
+          options: q.options || [],
+          imageUrl: q.imageUrl || null,
+          answerImageUrl: q.answerImageUrl || null,
+          answerImageUrl2: q.answerImageUrl2 || null,
+          audioUrl: q.audioUrl || null,
+          answerAudioUrl: q.answerAudioUrl || null,
+          videoUrl: q.videoUrl || null,
+          answerVideoUrl: q.answerVideoUrl || null,
+          toleranceHint: q.toleranceHint || null,
+          miniGameQuestions: q.miniGameQuestions || null,
+          category: q.categoryName || q.categoryId || 'عام',
+          categoryId: categoryId
+        }))
+
+        // Merge into questions state
+        setQuestions(prev => ({
+          ...prev,
+          [categoryId]: transformedQuestions
+        }))
+
+        setLoadedCategories(prev => {
+          const newSet = new Set(prev)
+          newSet.add(categoryId)
+          return newSet
+        })
+
+        devLog(`✅ Loaded ${transformedQuestions.length} questions for ${categoryId}`)
+      } catch (error) {
+        prodError(`❌ Error loading questions for ${categoryId}:`, error)
+      } finally {
+        setLoadingCategories(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(categoryId)
+          return newSet
+        })
+      }
+    }
   }
 
   const getDifficultyCounts = (categoryId) => {
     const categoryQuestions = questions[categoryId] || []
+
+    // If category not loaded yet, return estimated count from category metadata
+    if (!loadedCategories.has(categoryId) && categoryQuestions.length === 0) {
+      const category = categories.find(c => c.id === categoryId)
+      return {
+        easy: 0,
+        medium: 0,
+        hard: 0,
+        total: category?.questionCount || 0,
+        estimated: true
+      }
+    }
+
     const counts = {
       easy: 0,
       medium: 0,
       hard: 0,
-      total: categoryQuestions.length
+      total: categoryQuestions.length,
+      estimated: false
     }
 
     categoryQuestions.forEach(question => {
@@ -3892,8 +4028,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold">إدارة الأسئلة</h2>
-          <p className="text-gray-900 text-sm">
-            المجموع: {Object.values(questions).flat().length} سؤال في {categories.length} فئة
+          <p className="text-gray-900 dark:text-gray-100 text-sm font-semibold">
+            المجموع: {allQuestionsLoaded
+              ? Object.values(questions).flat().length
+              : categories.reduce((sum, c) => sum + (c.questionCount || 0), 0)
+            } سؤال في {categories.length} فئة
+            {!allQuestionsLoaded && <span className="text-orange-600 dark:text-orange-400 font-bold mr-2">(تقديري)</span>}
           </p>
         </div>
         <div className="flex gap-2">
@@ -4704,6 +4844,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
               onClick={() => {
                 setSearchQuery('')
                 setSearchResults([])
+                setIsLoadingAllForSearch(false)
+                pendingSearchRef.current = null
               }}
               className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1.5 px-3 rounded-lg text-sm"
             >
@@ -4717,15 +4859,25 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
           <div className="mt-4">
             <div className="flex justify-between items-center mb-4">
               <span className="text-gray-600 dark:text-gray-400">
-                {isSearching ? 'جاري البحث...' : `تم العثور على ${searchResults.length} نتيجة`}
+                {isLoadingAllForSearch ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    جاري تحميل جميع الأسئلة للبحث...
+                  </span>
+                ) : isSearching ? 'جاري البحث...' : `تم العثور على ${searchResults.length} نتيجة`}
               </span>
             </div>
 
             {searchResults.length > 0 && (
-              <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                {searchResults.map((question, idx) => (
+              <VirtualizedQuestionList
+                items={searchResults}
+                editingQuestion={editingSearchQuestion}
+                maxHeight={60}
+                renderItem={(question, idx) => (
                   <div
-                    key={`search-${question.categoryId}-${question.originalIndex}-${idx}`}
                     className="border rounded-lg p-4 bg-gray-50 dark:bg-slate-700"
                   >
                     <div className="flex justify-between items-start mb-2">
@@ -5058,8 +5210,12 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                       {editingSearchQuestion !== `${question.categoryId}-${question.originalIndex}` && (
                         <div className="flex gap-2 mr-4 flex-col">
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               // Navigate to exact question - expand category, clear filters, scroll
+                              // Load category data if not already loaded
+                              if (!loadedCategories.has(question.categoryId)) {
+                                await toggleCategoryCollapse(question.categoryId)
+                              }
                               // Expand the category if collapsed (remove from collapsed set)
                               setCollapsedCategories(prev => {
                                 const newSet = new Set(prev)
@@ -5071,21 +5227,18 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                                 ...prev,
                                 [question.categoryId]: null
                               }))
+                              // Set scroll target so the virtual list scrolls to the exact question
+                              setScrollTarget({ categoryId: question.categoryId, originalIndex: question.originalIndex })
                               // Clear search to show categories
                               setSearchQuery('')
                               setSearchResults([])
-                              // Scroll to exact question after a brief delay to allow DOM update
+                              // Scroll category card into view first
                               setTimeout(() => {
-                                const questionElement = document.getElementById(`question-${question.categoryId}-${question.originalIndex}`)
-                                if (questionElement) {
-                                  questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                                  // Highlight the question briefly
-                                  questionElement.classList.add('ring-4', 'ring-orange-400', 'ring-opacity-75')
-                                  setTimeout(() => {
-                                    questionElement.classList.remove('ring-4', 'ring-orange-400', 'ring-opacity-75')
-                                  }, 2000)
+                                const categoryElement = document.getElementById(`category-${question.categoryId}`)
+                                if (categoryElement) {
+                                  categoryElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
                                 }
-                              }, 150)
+                              }, 200)
                             }}
                             className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm font-bold"
                             title="الذهاب للسؤال"
@@ -5144,8 +5297,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              />
             )}
 
             {searchResults.length === 0 && !isSearching && (
@@ -5174,52 +5327,56 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                     {category.name} ({difficultyCounts.total} سؤال)
                   </h3>
 
-                  {/* Difficulty Filter Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => toggleDifficultyFilter(category.id, null)}
-                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
-                        !activeDifficulty
-                          ? 'bg-gray-600 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      }`}
-                    >
-                      الكل ({difficultyCounts.total})
-                    </button>
+                  {/* Difficulty Filter Buttons - only show when category questions are loaded */}
+                  {!difficultyCounts.estimated ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => toggleDifficultyFilter(category.id, null)}
+                        className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
+                          !activeDifficulty
+                            ? 'bg-gray-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        الكل ({difficultyCounts.total})
+                      </button>
 
-                    <button
-                      onClick={() => toggleDifficultyFilter(category.id, 'easy')}
-                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
-                        activeDifficulty === 'easy'
-                          ? 'bg-green-600 text-white'
-                          : 'bg-green-100 text-green-800 hover:bg-green-200'
-                      }`}
-                    >
-                      سهل ({difficultyCounts.easy})
-                    </button>
+                      <button
+                        onClick={() => toggleDifficultyFilter(category.id, 'easy')}
+                        className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
+                          activeDifficulty === 'easy'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        }`}
+                      >
+                        سهل ({difficultyCounts.easy})
+                      </button>
 
-                    <button
-                      onClick={() => toggleDifficultyFilter(category.id, 'medium')}
-                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
-                        activeDifficulty === 'medium'
-                          ? 'bg-yellow-600 text-white'
-                          : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                      }`}
-                    >
-                      متوسط ({difficultyCounts.medium})
-                    </button>
+                      <button
+                        onClick={() => toggleDifficultyFilter(category.id, 'medium')}
+                        className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
+                          activeDifficulty === 'medium'
+                            ? 'bg-yellow-600 text-white'
+                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                        }`}
+                      >
+                        متوسط ({difficultyCounts.medium})
+                      </button>
 
-                    <button
-                      onClick={() => toggleDifficultyFilter(category.id, 'hard')}
-                      className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
-                        activeDifficulty === 'hard'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-red-100 text-red-800 hover:bg-red-200'
-                      }`}
-                    >
-                      صعب ({difficultyCounts.hard})
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => toggleDifficultyFilter(category.id, 'hard')}
+                        className={`px-3 py-1 rounded-lg text-sm font-bold transition-colors ${
+                          activeDifficulty === 'hard'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        }`}
+                      >
+                        صعب ({difficultyCounts.hard})
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">اضغط إظهار لتحميل الأسئلة</p>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
@@ -5241,18 +5398,41 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                 </div>
               </div>
 
-              {!collapsedCategories.has(category.id) && (
+              {/* Loading spinner for category */}
+              {loadingCategories.has(category.id) && (
+                <div className="flex items-center justify-center py-8 gap-3">
+                  <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-gray-600 font-bold">جاري تحميل الأسئلة...</span>
+                </div>
+              )}
+
+              {!collapsedCategories.has(category.id) && !loadingCategories.has(category.id) && (
                 filteredQuestions.length === 0 ? (
                   <p className="text-gray-900">
                     {categoryQuestions.length === 0
-                      ? 'لا توجد أسئلة في هذه الفئة'
+                      ? (loadedCategories.has(category.id) ? 'لا توجد أسئلة في هذه الفئة' : '')
                       : `لا توجد أسئلة بمستوى الصعوبة المحدد`}
                   </p>
                 ) : (
-                  <div className="space-y-4">
-                    {filteredQuestions.map((question, filteredIndex) => {
-                      // Find the original index in the full category questions array
-                      // Use more specific matching to avoid duplicates
+                  <VirtualizedQuestionList
+                    items={filteredQuestions}
+                    editingQuestion={editingQuestion}
+                    scrollToIndex={
+                      scrollTarget?.categoryId === category.id
+                        ? filteredQuestions.findIndex((q) => {
+                            const oi = categoryQuestions.findIndex(cq =>
+                              cq.text === q.text && cq.answer === q.answer &&
+                              cq.difficulty === q.difficulty && cq.points === q.points
+                            )
+                            return oi === scrollTarget.originalIndex
+                          })
+                        : null
+                    }
+                    onScrollComplete={() => setScrollTarget(null)}
+                    renderItem={(question, filteredIndex) => {
                       const originalIndex = categoryQuestions.findIndex((q) =>
                         q.text === question.text &&
                         q.answer === question.answer &&
@@ -5264,11 +5444,9 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                       )
                       const dropdownKey = `${category.id}-${originalIndex}`
                       const isDropdownOpen = difficultyDropdowns[dropdownKey]
-                      // Create a unique key combining category, original index, and filtered index
-                      const uniqueKey = `${category.id}-${originalIndex}-${filteredIndex}`
 
                       return (
-                    <div key={uniqueKey} id={`question-${category.id}-${originalIndex}`} className="border rounded-lg p-4 bg-gray-50 scroll-mt-24">
+                    <div id={`question-${category.id}-${originalIndex}`} className="border rounded-lg p-4 bg-gray-50 scroll-mt-24">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           {question.imageUrl && (
@@ -6009,8 +6187,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                       </div>
                     </div>
                       )
-                    })}
-                  </div>
+                    }}
+                  />
                 )
               )}
             </div>
