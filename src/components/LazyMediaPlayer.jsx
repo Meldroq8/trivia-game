@@ -1,11 +1,15 @@
 import { devLog, devWarn, prodError } from "../utils/devLog"
 import { useState } from 'react'
 import MediaPlayer from './MediaPlayer'
+import { getOptimizedMediaUrl } from '../utils/mediaUrlConverter'
 
 function LazyMediaPlayer({ src, type = 'audio', className = '', ...props }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
-  if (!src) {
+  // Resolve relative paths to CDN/S3 URLs
+  const resolvedSrc = src ? getOptimizedMediaUrl(src, 'medium', type === 'video' ? 'video' : 'audio') : null
+
+  if (!resolvedSrc) {
     return null
   }
 
@@ -28,7 +32,7 @@ function LazyMediaPlayer({ src, type = 'audio', className = '', ...props }) {
   // Once clicked, load the MediaPlayer which handles both audio and video
   return (
     <MediaPlayer
-      src={src}
+      src={resolvedSrc}
       type={type}
       className={className}
       {...props}
