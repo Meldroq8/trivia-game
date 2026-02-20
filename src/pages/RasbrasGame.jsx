@@ -23,7 +23,7 @@ function RasbrasGame() {
   const [correctCount, setCorrectCount] = useState(0)
   const [finished, setFinished] = useState(false)
   const [answerFeedback, setAnswerFeedback] = useState(null) // { index, correct }
-  const [timeRemaining, setTimeRemaining] = useState(30)
+  const [timeRemaining, setTimeRemaining] = useState(45)
   const [gameActive, setGameActive] = useState(false)
 
   // Refs
@@ -83,7 +83,8 @@ function RasbrasGame() {
       if (!gameStartTimeRef.current) return
 
       const elapsed = (Date.now() - gameStartTimeRef.current.getTime()) / 1000
-      const remaining = Math.max(0, 30 - elapsed)
+      const duration = session?.timerDuration || 45
+      const remaining = Math.max(0, duration - elapsed)
       setTimeRemaining(Math.ceil(remaining))
 
       if (remaining <= 0) {

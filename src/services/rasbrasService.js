@@ -41,7 +41,7 @@ export class RasbrasService {
         teamBFinished: false,
         teamBFinishedAt: null,
 
-        timerDuration: 30,
+        timerDuration: 45,
         gameStartedAt: null,
 
         createdAt: serverTimestamp(),

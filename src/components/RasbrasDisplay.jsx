@@ -13,6 +13,14 @@ function RasbrasDisplay({
   if (!session) return null
 
   const [timerExpired, setTimerExpired] = useState(false)
+  const [graceOver, setGraceOver] = useState(false)
+
+  // When timer expires, wait 3 seconds for in-flight Firestore writes to settle
+  useEffect(() => {
+    if (!timerExpired) return
+    const timeout = setTimeout(() => setGraceOver(true), 3000)
+    return () => clearTimeout(timeout)
+  }, [timerExpired])
 
   const questions = session.questions || []
   const totalQuestions = questions.length || 5
@@ -27,8 +35,8 @@ function RasbrasDisplay({
   const teamAQuestionText = !teamAFinished && questions[teamACurrentQ]?.question
   const teamBQuestionText = !teamBFinished && questions[teamBCurrentQ]?.question
 
-  // Show results when both finished OR timer expired
-  const showResults = (teamAFinished && teamBFinished) || timerExpired
+  // Show results when both finished OR timer expired + grace period over
+  const showResults = (teamAFinished && teamBFinished) || (timerExpired && graceOver)
 
   const TeamPanel = ({ teamName, currentQ, correct, finished, questionText }) => (
     <div className="flex flex-col items-center justify-center gap-3 lg:gap-5 xl:gap-6 px-4 md:px-8 lg:px-12 py-4">
@@ -205,7 +213,7 @@ function RasbrasDisplay({
 }
 
 function CountdownTimer({ session, onExpired }) {
-  const [timeRemaining, setTimeRemaining] = useState(session.timerDuration || 30)
+  const [timeRemaining, setTimeRemaining] = useState(session.timerDuration || 45)
   const timerRef = useRef(null)
   const expiredRef = useRef(false)
 
@@ -215,7 +223,7 @@ function CountdownTimer({ session, onExpired }) {
     const startTime = session.gameStartedAt?.toDate
       ? session.gameStartedAt.toDate()
       : new Date(session.gameStartedAt)
-    const duration = session.timerDuration || 30
+    const duration = session.timerDuration || 45
 
     const tick = () => {
       const elapsed = (Date.now() - startTime.getTime()) / 1000
