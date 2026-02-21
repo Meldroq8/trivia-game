@@ -144,31 +144,20 @@ function Index({ setGameState }) {
     }
   }, [searchParams, setSearchParams])
 
-  // Load settings
+  // Load settings (single attempt, fall back to localStorage cache)
   useEffect(() => {
-    const loadSettings = async (retryCount = 0) => {
+    const loadSettings = async () => {
       try {
         const appSettings = await getAppSettings()
         if (appSettings && Object.keys(appSettings).length > 0) {
           setSettings(appSettings)
-          setSettingsLoaded(true)
           localStorage.setItem('app_settings', JSON.stringify(appSettings))
           devLog('✅ Settings loaded successfully')
-        } else if (retryCount < 3) {
-          devLog(`⏳ Settings empty, retrying in ${(retryCount + 1) * 500}ms...`)
-          setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
-          return
-        } else {
-          setSettingsLoaded(true)
         }
       } catch (error) {
         prodError('Error loading settings:', error)
-        if (retryCount < 3) {
-          devLog(`⏳ Settings error, retrying in ${(retryCount + 1) * 500}ms...`)
-          setTimeout(() => loadSettings(retryCount + 1), (retryCount + 1) * 500)
-        } else {
-          setSettingsLoaded(true)
-        }
+      } finally {
+        setSettingsLoaded(true)
       }
     }
     loadSettings()

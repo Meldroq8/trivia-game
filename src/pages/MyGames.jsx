@@ -109,7 +109,7 @@ function MyGames({ gameState, setGameState }) {
         // Load categories (skip if cached)
         cachedCategories
           ? Promise.resolve(cachedCategories)
-          : GameDataLoader.loadGameData().then(gameData => {
+          : GameDataLoader.loadCategoriesOnly().then(gameData => {
               if (gameData && gameData.categories) {
                 setCategories(gameData.categories)
                 // Cache categories
@@ -120,7 +120,7 @@ function MyGames({ gameState, setGameState }) {
                 } catch (e) {
                   devWarn('⚠️ Cache write error:', e)
                 }
-                devLog('📂 Loaded categories for MyGames:', gameData.categories)
+                devLog('📂 Loaded categories for MyGames:', gameData.categories.length)
               }
               return gameData?.categories || []
             }),

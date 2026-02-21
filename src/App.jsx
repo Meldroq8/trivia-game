@@ -338,8 +338,8 @@ function App() {
       }
     ]
 
-    // Start preloading after 2 seconds to not interfere with initial load
-    componentPreloader.startBackgroundPreloading(preloadComponents, 2000)
+    // Start preloading after 5 seconds to avoid competing with data fetching
+    componentPreloader.startBackgroundPreloading(preloadComponents, 5000)
   }, [])
 
   // Default game state

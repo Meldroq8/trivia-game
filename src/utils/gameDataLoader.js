@@ -27,6 +27,7 @@ export class GameDataLoader {
   static CATEGORIES_CACHE_KEY = 'triviaCategories'
   static CATEGORIES_CACHE_TIMESTAMP_KEY = 'triviaCategoriesTimestamp'
   static CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours - categories rarely change
+  static FRESH_CACHE_TTL = 5 * 60 * 1000 // 5 minutes - skip version check if cache is this fresh
 
   // ============================================
   // MEMORY CACHE - Instant synchronous access
@@ -119,6 +120,12 @@ export class GameDataLoader {
     try {
       // FAST PATH: Check if we should use cache (instant loading)
       if (!forceRefresh && this.isCacheValid()) {
+        const cacheAge = this.getCacheAge(this.CACHE_TIMESTAMP_KEY)
+        if (cacheAge < this.FRESH_CACHE_TTL) {
+          // Cache is very fresh — skip Firestore version check entirely
+          devLog('⚡ Cache fresh (<5min), skipping version check')
+          return this.getFromCache()
+        }
         // Quick version check - compare category count with Firebase
         const cacheStillValid = await this.verifyCacheVersion()
         if (cacheStillValid) {
@@ -181,6 +188,12 @@ export class GameDataLoader {
       if (!forceRefresh) {
         const cachedCategories = this.getCategoriesFromCache()
         if (cachedCategories) {
+          const cacheAge = this.getCacheAge(this.CATEGORIES_CACHE_TIMESTAMP_KEY)
+          if (cacheAge < this.FRESH_CACHE_TTL) {
+            // Cache is very fresh — skip Firestore version check entirely
+            devLog('⚡ Categories cache fresh (<5min), skipping version check')
+            return cachedCategories
+          }
           // Quick version check - compare with Firebase version
           const cacheStillValid = await this.verifyCacheVersion()
           if (cacheStillValid) {
@@ -565,6 +578,17 @@ export class GameDataLoader {
 
     const age = Date.now() - parseInt(timestamp)
     return age < this.CACHE_DURATION
+  }
+
+  /**
+   * Check cache age in milliseconds. Returns Infinity if no cache.
+   * @param {string} timestampKey - The localStorage key for the timestamp
+   * @returns {number} Cache age in ms
+   */
+  static getCacheAge(timestampKey) {
+    const timestamp = localStorage.getItem(timestampKey)
+    if (!timestamp) return Infinity
+    return Date.now() - parseInt(timestamp)
   }
 
   /**

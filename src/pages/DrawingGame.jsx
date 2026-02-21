@@ -68,8 +68,18 @@ function DrawingGame() {
   useEffect(() => {
     devLog('🎨 DrawingGame: Subscribing to session:', sessionId)
 
+    // Timeout: if subscription doesn't respond within 10s, show error
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setError('تعذر الاتصال بالجلسة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.')
+        setLoading(false)
+      }
+    }, 10000)
+
     // Subscribe to real-time session updates
     const unsubscribe = DrawingService.subscribeToSession(sessionId, async (sessionData) => {
+      clearTimeout(timeoutId)
+
       if (!sessionData) {
         devLog('🎨 DrawingGame: Session not found in Firestore')
         setSessionEnded(true)
@@ -96,6 +106,7 @@ function DrawingGame() {
     })
 
     return () => {
+      clearTimeout(timeoutId)
       if (unsubscribe) {
         unsubscribe()
       }

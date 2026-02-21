@@ -26,7 +26,17 @@ function HeadbandGame() {
   useEffect(() => {
     devLog('🎭 HeadbandGame: Subscribing to session:', sessionId)
 
+    // Timeout: if subscription doesn't respond within 10s, show error
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        setError('تعذر الاتصال بالجلسة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.')
+        setLoading(false)
+      }
+    }, 10000)
+
     const unsubscribe = HeadbandService.subscribeToSession(sessionId, (sessionData) => {
+      clearTimeout(timeoutId)
+
       if (!sessionData) {
         setSessionEnded(true)
         setLoading(false)
@@ -55,6 +65,7 @@ function HeadbandGame() {
     })
 
     return () => {
+      clearTimeout(timeoutId)
       if (unsubscribe) unsubscribe()
     }
   }, [sessionId, playerId])

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import questionUsageTracker from '../utils/questionUsageTracker'
 import { GameDataLoader } from '../utils/gameDataLoader'
+import { AuthService } from '../firebase/authService'
 import Header from '../components/Header'
 import { devLog, devWarn, prodError } from '../utils/devLog'
 
@@ -57,7 +58,6 @@ function ProfilePage() {
     if (authLoading || !isAuthenticated || !user?.uid) return
 
     const loadData = async () => {
-
       try {
         setLoading(true)
 
@@ -66,19 +66,26 @@ function ProfilePage() {
         setGameData(data)
 
         // Update question pool and get stats (ensure user ID is set)
-        if (user?.uid) {
-          questionUsageTracker.setUserId(user.uid)
+        questionUsageTracker.setUserId(user.uid)
 
-          // Wait for sync to complete before getting stats
-          await questionUsageTracker.waitForSync(5000)
-
-          // Now update pool and get stats
-          await questionUsageTracker.updateQuestionPool(data)
-          const statistics = await questionUsageTracker.getUsageStatistics()
-          setStats(statistics)
+        // If the global sync (from useAuth) hasn't started yet, trigger it directly
+        // This avoids waiting for the 10s deferred sync
+        if (!questionUsageTracker.syncComplete && !questionUsageTracker.syncInProgress) {
+          const needsSync = await questionUsageTracker.shouldSync()
+          if (needsSync) {
+            devLog('📊 ProfilePage: Triggering usage sync directly')
+            const allGames = await AuthService.getAllUserGamesForSync(user.uid)
+            await questionUsageTracker.syncUsageFromGameHistory(allGames)
+          }
         } else {
-          devLog('⏳ ProfilePage: Waiting for user authentication before loading stats')
+          // Sync already in progress from useAuth — wait for it
+          await questionUsageTracker.waitForSync(5000)
         }
+
+        // Now update pool and get stats
+        await questionUsageTracker.updateQuestionPool(data)
+        const statistics = await questionUsageTracker.getUsageStatistics()
+        setStats(statistics)
       } catch (error) {
         prodError('Error loading profile data:', error)
       } finally {

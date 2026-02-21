@@ -32,14 +32,15 @@ export const useAuth = () => {
     return () => unsubscribe()
   }, [])
 
-  // Sync question usage from game history once per session
+  // Sync question usage from game history once per session (deferred to avoid competing with UI loads)
   useEffect(() => {
-    const syncUsageFromHistory = async () => {
-      if (!user?.uid) return
+    if (!user?.uid) return
 
-      // Set user ID in tracker
-      questionUsageTracker.setUserId(user.uid)
+    // Set user ID in tracker immediately (needed for question filtering)
+    questionUsageTracker.setUserId(user.uid)
 
+    // Defer the actual sync — this is a background task that doesn't need to block anything
+    const timerId = setTimeout(async () => {
       try {
         // Check if sync is needed BEFORE loading games (saves Firebase reads)
         const needsSync = await questionUsageTracker.shouldSync()
@@ -47,18 +48,15 @@ export const useAuth = () => {
           return // Skip - already synced or in progress
         }
 
-        devLog('🔄 Starting usage sync from game history...')
-        devLog('📖 Loading ALL games for usage sync, user:', user.uid)
-        // Fetch ALL user games (not limited to 4)
+        devLog('🔄 Starting deferred usage sync from game history...')
         const allGames = await AuthService.getAllUserGamesForSync(user.uid)
-        // Sync usage data from game history
         await questionUsageTracker.syncUsageFromGameHistory(allGames)
       } catch (error) {
         prodError('❌ Error syncing usage from history:', error)
       }
-    }
+    }, 10000)
 
-    syncUsageFromHistory()
+    return () => clearTimeout(timerId)
   }, [user?.uid])
 
   const signUp = async (email, password, displayName) => {

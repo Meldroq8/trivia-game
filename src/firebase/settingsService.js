@@ -66,6 +66,7 @@ class SettingsService {
       }, { merge: true })
 
       this.appSettingsCache = { ...this.appSettingsCache, ...cleanedSettings }
+      this._saveAppSettingsToLocalStorage(this.appSettingsCache)
       devLog('✅ App settings saved to Firebase')
       return true
     } catch (error) {
@@ -75,19 +76,36 @@ class SettingsService {
   }
 
   /**
-   * Load app-wide settings
+   * Load app-wide settings (with localStorage fallback for instant loads)
    */
   async getAppSettings() {
     try {
+      // 1. In-memory cache (fastest)
       if (this.appSettingsCache) {
         return this.appSettingsCache
       }
 
+      // 2. localStorage cache (instant on page refresh)
+      try {
+        const cached = localStorage.getItem('app_settings')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          this.appSettingsCache = parsed
+          // Return cached immediately, refresh from Firebase in background
+          this._refreshAppSettingsInBackground()
+          return parsed
+        }
+      } catch (e) {
+        // localStorage parse error - continue to Firebase
+      }
+
+      // 3. Firebase (source of truth)
       const docRef = doc(db, 'settings', SettingsService.APP_SETTINGS_DOC)
       const docSnap = await getDoc(docRef)
 
       if (docSnap.exists()) {
         this.appSettingsCache = docSnap.data()
+        this._saveAppSettingsToLocalStorage(this.appSettingsCache)
         return this.appSettingsCache
       }
 
@@ -99,6 +117,39 @@ class SettingsService {
   }
 
   /**
+   * Refresh app settings from Firebase in background (non-blocking)
+   */
+  _refreshAppSettingsInBackground() {
+    // Only refresh once per session
+    if (this._bgRefreshDone) return
+    this._bgRefreshDone = true
+
+    setTimeout(async () => {
+      try {
+        const docRef = doc(db, 'settings', SettingsService.APP_SETTINGS_DOC)
+        const docSnap = await getDoc(docRef)
+        if (docSnap.exists()) {
+          this.appSettingsCache = docSnap.data()
+          this._saveAppSettingsToLocalStorage(this.appSettingsCache)
+        }
+      } catch (e) {
+        // Silent fail - we have cached data
+      }
+    }, 3000)
+  }
+
+  /**
+   * Save app settings to localStorage for instant loads
+   */
+  _saveAppSettingsToLocalStorage(settings) {
+    try {
+      localStorage.setItem('app_settings', JSON.stringify(settings))
+    } catch (e) {
+      // Quota exceeded or other error - ignore
+    }
+  }
+
+  /**
    * Listen for app settings changes in real-time
    */
   subscribeToAppSettings(callback) {
@@ -106,6 +157,7 @@ class SettingsService {
     const unsubscribe = onSnapshot(docRef, (doc) => {
       if (doc.exists()) {
         this.appSettingsCache = doc.data()
+        this._saveAppSettingsToLocalStorage(this.appSettingsCache)
         callback(this.appSettingsCache)
       }
     })
