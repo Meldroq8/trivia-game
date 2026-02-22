@@ -3684,8 +3684,8 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
       devLog('Processing question image...')
 
-      // Process the image (resize to 400x300 WebP)
-      const { blob, info } = await processCategoryImage(file)
+      // Process the image (resize to max 1920x1080 WebP)
+      const { blob, info } = await processQuestionImage(file)
 
       devLog('Question image processed:', info)
 

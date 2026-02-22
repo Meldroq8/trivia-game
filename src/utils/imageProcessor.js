@@ -75,7 +75,8 @@ export const resizeImage = (file, width = 400, height = 300, format = 'webp', qu
 }
 
 /**
- * Process image for category cards (max 400x300 WebP)
+ * Process image for category cards (max 1200x1600 WebP)
+ * Portrait-oriented to match category card aspect ratio (3:4)
  * Maintains aspect ratio, no cropping
  * @param {File} file - Original image file
  * @returns {Promise<{blob: Blob, info: Object}>} - Processed image and info
@@ -83,7 +84,7 @@ export const resizeImage = (file, width = 400, height = 300, format = 'webp', qu
 export const processCategoryImage = async (file) => {
   try {
     const originalSize = (file.size / 1024).toFixed(1) // KB
-    const blob = await resizeImage(file, 400, 300, 'webp', 0.92) // High quality, no cropping
+    const blob = await resizeImage(file, 1200, 1600, 'webp', 0.90)
     const newSize = (blob.size / 1024).toFixed(1) // KB
 
     return {
@@ -92,7 +93,7 @@ export const processCategoryImage = async (file) => {
         originalSize: `${originalSize} KB`,
         newSize: `${newSize} KB`,
         compression: `${Math.round((1 - blob.size / file.size) * 100)}%`,
-        dimensions: 'Max 400×300px (maintains aspect ratio)',
+        dimensions: 'Max 1200×1600px (maintains aspect ratio)',
         format: 'WebP'
       }
     }
