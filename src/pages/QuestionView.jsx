@@ -2849,8 +2849,8 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
               <div className="flex justify-center items-center w-full flex-col h-full question-block-wrapper">
 
-                {/* Question Content - Only show when not in answer mode */}
-                {!showAnswer && (() => {
+                {/* Question Content - Only show when not in answer or scoring mode */}
+                {!showAnswer && !showScoring && (() => {
                   const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
                   const category = gameData?.categories?.find(c => c.id === categoryId)
 

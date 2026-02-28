@@ -414,14 +414,13 @@ export class S3UploadServiceSecure {
         // Draw and compress
         ctx.drawImage(img, 0, 0, newWidth, newHeight)
 
-        // Choose output format: preserve transparency if original supports it
-        const outputType = supportsTransparency ? file.type : 'image/jpeg'
-        const outputQuality = supportsTransparency && file.type === 'image/png' ? 1.0 : quality
+        // Always convert to WebP - best compression with transparency support
+        const outputType = 'image/webp'
+        const outputQuality = quality
 
         canvas.toBlob(
           (blob) => {
-            const extension = outputType.split('/')[1]
-            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, `.${extension}`), {
+            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
               type: outputType,
               lastModified: Date.now()
             })

@@ -22,12 +22,14 @@ import GuessWordGame from './pages/GuessWordGame'
 import RasbrasGame from './pages/RasbrasGame'
 import CategoryPreview from './pages/CategoryPreview'
 
-// Less frequently used components - lazy loaded with background preloading
-const Statistics = lazy(() => import('./pages/Statistics'))
-const ProfilePage = lazy(() => import('./pages/ProfilePage'))
-const MyGames = lazy(() => import('./pages/MyGames'))
+// Secondary pages - eagerly imported to avoid loading spinners
+import Statistics from './pages/Statistics'
+import ProfilePage from './pages/ProfilePage'
+import MyGames from './pages/MyGames'
+import Loader from './pages/Loader'
+
+// Admin page stays lazy loaded (916KB) - preloaded in background
 const Admin = lazy(() => import('./pages/Admin'))
-const Loader = lazy(() => import('./pages/Loader'))
 
 // Reusable loading fallback component
 const PageLoading = ({ message = "جاري التحميل..." }) => (
@@ -313,33 +315,18 @@ function App() {
     devLog('🆕 NEW TAB DETECTED - Will not restore game state')
   }
 
-  // Start background preloading after app loads
+  // Preload Admin chunk in background (only lazy-loaded page remaining)
   useEffect(() => {
     const preloadComponents = [
       {
-        importFn: () => import('./pages/Statistics'),
-        name: 'Statistics',
-        priority: 'low'
-      },
-      {
-        importFn: () => import('./pages/ProfilePage'),
-        name: 'ProfilePage',
-        priority: 'high' // Users might access profile more often
-      },
-      {
-        importFn: () => import('./pages/MyGames'),
-        name: 'MyGames',
-        priority: 'high' // Core feature for users
-      },
-      {
         importFn: () => import('./pages/Admin'),
         name: 'Admin',
-        priority: 'low' // Admin access is rare
+        priority: 'low'
       }
     ]
 
-    // Start preloading after 5 seconds to avoid competing with data fetching
-    componentPreloader.startBackgroundPreloading(preloadComponents, 5000)
+    // Start preloading after 1 second
+    componentPreloader.startBackgroundPreloading(preloadComponents, 1000)
   }, [])
 
   // Default game state
@@ -809,20 +796,8 @@ function App() {
     }
   }, [isPresentationMode])
 
-  // OPTIMIZATION: Skip loading screen entirely if we have cached state
-  // Only show on absolute first visit when no cache exists
-  const hasCachedState = sessionStorage.getItem('gameState_cache')
-
-  if (authLoading && !isAuthenticated && !hasCachedState) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
-        </div>
-      </div>
-    )
-  }
+  // Never block rendering with a loading screen - let the router render immediately
+  // Auth state resolves in the background, individual pages handle their own auth needs
 
   return (
     <>
@@ -860,7 +835,7 @@ function App() {
             />
             <Route
               path="/statistics"
-              element={withSuspense(Statistics, {}, "جاري تحميل الإحصائيات...")}
+              element={<Statistics />}
             />
             <Route
               path="/admin"
@@ -868,11 +843,11 @@ function App() {
             />
             <Route
               path="/profile"
-              element={withSuspense(ProfilePage, {}, "جاري تحميل الملف الشخصي...")}
+              element={<ProfilePage />}
             />
             <Route
               path="/my-games"
-              element={withSuspense(MyGames, { gameState, setGameState }, "جاري تحميل ألعابي...")}
+              element={<MyGames gameState={gameState} setGameState={setGameState} />}
             />
             <Route
               path="/reset-password"
@@ -900,7 +875,7 @@ function App() {
             />
             <Route
               path="/loader/:inviteCode"
-              element={withSuspense(Loader, {}, "جاري التحقق من الدعوة...")}
+              element={<Loader />}
             />
           </Routes>
         </div>

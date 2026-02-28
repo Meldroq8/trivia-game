@@ -205,15 +205,16 @@ export class ImageUploadService {
         // Draw and compress
         ctx.drawImage(img, 0, 0, newWidth, newHeight)
 
+        // Always convert to WebP - best compression with transparency support
         canvas.toBlob(
           (blob) => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
+            const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), {
+              type: 'image/webp',
               lastModified: Date.now()
             })
             resolve(compressedFile)
           },
-          'image/jpeg',
+          'image/webp',
           quality
         )
       }

@@ -114,16 +114,13 @@ const LogoDisplay = memo(function LogoDisplay({ className, style, fallbackEmoji 
 
   return (
     <div className={`flex items-center justify-center ${getSizeClasses()}`}>
-      {logoSrc ? (
+      {logoSrc && (
         <img
           src={logoSrc}
           alt="شعار اللعبة"
           className="w-full h-full object-contain"
+          fetchPriority="high"
         />
-      ) : (
-        <span className="text-white font-bold" style={{ fontSize: getFontSize() }}>
-          {fallbackEmoji}
-        </span>
       )}
     </div>
   )

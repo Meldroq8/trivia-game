@@ -387,20 +387,8 @@ function MyGames({ gameState, setGameState }) {
     return 'text-red-600'
   }
 
-  // Consolidated loading and auth checks - wait for both games AND categories to load
-  if (authLoading || loading || !categoriesLoaded) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">{authLoading ? 'جاري التحقق من تسجيل الدخول...' : 'جاري تحميل ألعابك...'}</h1>
-        </div>
-      </div>
-    )
-  }
-
-  // Redirect handled in useEffect, but don't show content if not authenticated
-  if (!isAuthenticated) {
+  // Redirect handled in useEffect - don't show content if clearly not authenticated
+  if (!authLoading && !isAuthenticated) {
     return null
   }
 
@@ -411,7 +399,12 @@ function MyGames({ gameState, setGameState }) {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {indexError ? (
+        {(authLoading || loading || !categoriesLoaded) ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">{authLoading ? 'جاري التحقق من تسجيل الدخول...' : 'جاري تحميل ألعابك...'}</p>
+          </div>
+        ) : indexError ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">⚠️</div>
             <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-4">مطلوب إعداد قاعدة البيانات</h2>

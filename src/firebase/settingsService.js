@@ -21,6 +21,7 @@ class SettingsService {
     this.currentUser = null
     this.appSettingsCache = null
     this.userSettingsCache = null
+    this._pendingAppSettings = null // Deduplicates concurrent getAppSettings() calls
 
     // Listen for auth state changes
     onAuthStateChanged(auth, (user) => {
@@ -99,18 +100,31 @@ class SettingsService {
         // localStorage parse error - continue to Firebase
       }
 
-      // 3. Firebase (source of truth)
-      const docRef = doc(db, 'settings', SettingsService.APP_SETTINGS_DOC)
-      const docSnap = await getDoc(docRef)
-
-      if (docSnap.exists()) {
-        this.appSettingsCache = docSnap.data()
-        this._saveAppSettingsToLocalStorage(this.appSettingsCache)
-        return this.appSettingsCache
+      // 3. Firebase (source of truth) - deduplicate concurrent calls
+      if (this._pendingAppSettings) {
+        return this._pendingAppSettings
       }
 
-      return {}
+      this._pendingAppSettings = (async () => {
+        const docRef = doc(db, 'settings', SettingsService.APP_SETTINGS_DOC)
+        const docSnap = await getDoc(docRef)
+
+        if (docSnap.exists()) {
+          this.appSettingsCache = docSnap.data()
+          this._saveAppSettingsToLocalStorage(this.appSettingsCache)
+          return this.appSettingsCache
+        }
+
+        return {}
+      })()
+
+      try {
+        return await this._pendingAppSettings
+      } finally {
+        this._pendingAppSettings = null
+      }
     } catch (error) {
+      this._pendingAppSettings = null
       prodError('❌ Error loading app settings:', error)
       return {}
     }

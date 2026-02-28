@@ -91,6 +91,18 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+// Prefetch app settings immediately - populates in-memory cache BEFORE React renders
+// This shaves off the useEffect delay on first visit
+import { settingsService } from './firebase/settingsService'
+settingsService.getAppSettings().then(settings => {
+  // Cache logo/slogan individually for next visit's instant init
+  try {
+    if (settings?.largeLogo) localStorage.setItem('app_large_logo_url', settings.largeLogo)
+    if (settings?.logo) localStorage.setItem('app_logo_url', settings.logo)
+    if (settings?.slogan) localStorage.setItem('app_slogan', settings.slogan)
+  } catch {}
+})
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />

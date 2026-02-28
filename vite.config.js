@@ -86,19 +86,10 @@ export default defineConfig({
           // AI services (only used in admin)
           'ai-services': ['./src/services/aiServiceSecure.js']
         },
-        // More aggressive cache busting with build timestamp
-        entryFileNames: (chunkInfo) => {
-          const buildId = Date.now()
-          return `assets/[name]-${buildId}.[hash].js`
-        },
-        chunkFileNames: (chunkInfo) => {
-          const buildId = Date.now()
-          return `assets/[name]-${buildId}.[hash].js`
-        },
-        assetFileNames: (assetInfo) => {
-          const buildId = Date.now()
-          return `assets/[name]-${buildId}.[hash].[ext]`
-        }
+        // Content-hash based filenames for proper browser caching
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
     // Generate manifest for better cache invalidation

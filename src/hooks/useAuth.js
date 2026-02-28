@@ -3,10 +3,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { AuthService } from '../firebase/authService'
 import { questionUsageTracker } from '../utils/questionUsageTracker'
 
+// Module-level auth cache - survives component remounts and shared across all useAuth() calls
+// This prevents every page from showing a loading spinner while auth re-resolves
+let _cachedUser = null
+let _cachedProfile = null
+let _authResolved = false
+
 export const useAuth = () => {
-  const [user, setUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(_cachedUser)
+  const [userProfile, setUserProfile] = useState(_cachedProfile)
+  const [loading, setLoading] = useState(!_authResolved)
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -14,17 +20,22 @@ export const useAuth = () => {
       try {
         if (firebaseUser) {
           setUser(firebaseUser)
+          _cachedUser = firebaseUser
           // Get user profile from Firestore
           const profile = await AuthService.getUserProfile(firebaseUser.uid)
           setUserProfile(profile)
+          _cachedProfile = profile
         } else {
           setUser(null)
           setUserProfile(null)
+          _cachedUser = null
+          _cachedProfile = null
         }
       } catch (error) {
         prodError('Auth state change error:', error)
         setError(error.message)
       } finally {
+        _authResolved = true
         setLoading(false)
       }
     })
@@ -90,6 +101,8 @@ export const useAuth = () => {
   const signOut = async () => {
     try {
       setError(null)
+      _cachedUser = null
+      _cachedProfile = null
       await AuthService.signOut()
     } catch (error) {
       setError(error.message)

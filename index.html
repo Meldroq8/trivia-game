@@ -11,6 +11,18 @@
       if (localStorage.getItem('darkMode') !== 'false') {
         document.documentElement.classList.add('dark');
       }
+      // Preload cached logos so browser starts downloading before React mounts
+      ['app_logo_url', 'app_large_logo_url'].forEach(function(key) {
+        var url = localStorage.getItem(key);
+        if (url) {
+          var link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.fetchPriority = 'high';
+          link.href = url;
+          document.head.appendChild(link);
+        }
+      });
     </script>
     <link rel="icon" type="image/png" href="/icons/icon-192.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -88,9 +100,12 @@
     }
     </script>
   
-    <!-- Arabic fonts -->
+    <!-- Preconnect to critical origins for faster resource loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://d442zbpa1tgal.cloudfront.net" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
     <style>
       /* Locked footer element widths - change once, applies to both team names and scores */

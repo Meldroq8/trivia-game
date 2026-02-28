@@ -10,10 +10,22 @@ import { devLog, devWarn, prodError } from '../utils/devLog'
 function CategoryPreview() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
-  const [categories, setCategories] = useState([])
-  const [masterCategories, setMasterCategories] = useState([])
+  const [categories, setCategories] = useState(() => {
+    try {
+      const cached = localStorage.getItem('preview_categories')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
+  const [masterCategories, setMasterCategories] = useState(() => {
+    try {
+      const cached = localStorage.getItem('preview_masterCategories')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
   const [selectedMaster, setSelectedMaster] = useState('all')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => {
+    try { return !localStorage.getItem('preview_categories') } catch { return true }
+  })
   const [showAuthModal, setShowAuthModal] = useState(false)
   const filterScrollRef = useRef(null)
 
@@ -47,9 +59,12 @@ function CategoryPreview() {
           const visibleCategories = (gameData.categories || [])
             .filter(cat => cat.id !== 'mystery' && !cat.hidden)
           setCategories(visibleCategories)
+          try { localStorage.setItem('preview_categories', JSON.stringify(visibleCategories)) } catch {}
 
           // Set master categories with "all" option
-          setMasterCategories(gameData.masterCategories || [])
+          const masters = gameData.masterCategories || []
+          setMasterCategories(masters)
+          try { localStorage.setItem('preview_masterCategories', JSON.stringify(masters)) } catch {}
 
           devLog('📚 CategoryPreview: Loaded', visibleCategories.length, 'categories and', gameData.masterCategories?.length || 0, 'master categories')
         }
@@ -95,17 +110,6 @@ function CategoryPreview() {
         behavior: 'smooth'
       })
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري تحميل الفئات...</h1>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -197,6 +201,13 @@ function CategoryPreview() {
 
           {/* Categories Grid */}
           <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 gap-3 sm:gap-4">
+            {loading && filteredCategories.length === 0 ? (
+              Array.from({ length: 16 }).map((_, i) => (
+                <div key={`skel-${i}`}>
+                  <div className="relative aspect-[3/4] rounded-xl sm:rounded-2xl overflow-hidden bg-gray-200 dark:bg-slate-700 animate-pulse" />
+                </div>
+              ))
+            ) : null}
             {filteredCategories.map((category) => (
               <div
                 key={category.id}

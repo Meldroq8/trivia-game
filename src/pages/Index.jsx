@@ -99,22 +99,41 @@ function Index({ setGameState }) {
   const [settings, setSettings] = useState(() => {
     try {
       const cachedSettings = localStorage.getItem('app_settings')
-      return cachedSettings ? JSON.parse(cachedSettings) : {}
+      if (cachedSettings) return JSON.parse(cachedSettings)
+      // Fallback: reconstruct from individually cached values
+      const logo = localStorage.getItem('app_large_logo_url')
+      const slogan = localStorage.getItem('app_slogan')
+      if (logo || slogan) return { largeLogo: logo || '', slogan: slogan || '' }
+      return {}
     } catch {
       return {}
     }
   })
   const [settingsLoaded, setSettingsLoaded] = useState(() => {
     try {
-      return !!localStorage.getItem('app_settings')
+      return !!(localStorage.getItem('app_settings') || localStorage.getItem('app_large_logo_url'))
     } catch {
       return false
     }
   })
-  const [leaderboard, setLeaderboard] = useState([])
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
-  const [categories, setCategories] = useState([])
-  const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [leaderboard, setLeaderboard] = useState(() => {
+    try {
+      const cached = localStorage.getItem('index_leaderboard')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
+  const [leaderboardLoading, setLeaderboardLoading] = useState(() => {
+    try { return !localStorage.getItem('index_leaderboard') } catch { return true }
+  })
+  const [categories, setCategories] = useState(() => {
+    try {
+      const cached = localStorage.getItem('index_categories')
+      return cached ? JSON.parse(cached) : []
+    } catch { return [] }
+  })
+  const [categoriesLoading, setCategoriesLoading] = useState(() => {
+    try { return !localStorage.getItem('index_categories') } catch { return true }
+  })
   const [showPasswordResetSuccess, setShowPasswordResetSuccess] = useState(false)
   const categoriesScrollRef = useRef(null)
 
@@ -152,6 +171,11 @@ function Index({ setGameState }) {
         if (appSettings && Object.keys(appSettings).length > 0) {
           setSettings(appSettings)
           localStorage.setItem('app_settings', JSON.stringify(appSettings))
+          // Cache logo/slogan individually for faster init on next visit
+          try {
+            if (appSettings.largeLogo) localStorage.setItem('app_large_logo_url', appSettings.largeLogo)
+            if (appSettings.slogan) localStorage.setItem('app_slogan', appSettings.slogan)
+          } catch {}
           devLog('✅ Settings loaded successfully')
         }
       } catch (error) {
@@ -171,6 +195,7 @@ function Index({ setGameState }) {
       devLog('📊 Real-time leaderboard update received:', leaderboardData?.length || 0, 'entries')
       setLeaderboard(leaderboardData || [])
       setLeaderboardLoading(false)
+      try { localStorage.setItem('index_leaderboard', JSON.stringify(leaderboardData || [])) } catch {}
     })
     return () => {
       devLog('🏆 Cleaning up leaderboard subscription')
@@ -190,6 +215,7 @@ function Index({ setGameState }) {
             .filter(cat => cat.id !== 'mystery' && !cat.hidden)
             .slice(0, 14)
           setCategories(visibleCategories)
+          try { localStorage.setItem('index_categories', JSON.stringify(visibleCategories)) } catch {}
           devLog('📚 Categories loaded for Index:', visibleCategories.length)
         }
       } catch (error) {
@@ -236,17 +262,9 @@ function Index({ setGameState }) {
     }
   }
 
-  // Show loading screen until settings are loaded
-  if (!settingsLoaded) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
-        </div>
-      </div>
-    )
-  }
+  // Never block with a full-page spinner - render the page immediately
+  // Settings are pre-loaded from localStorage cache, so settingsLoaded is almost always true
+  // Even if not, show the page structure and let data populate in-place
 
   return (
     <div className="min-h-screen bg-[#f7f2e6] dark:bg-slate-900 flex flex-col">
@@ -287,19 +305,17 @@ function Index({ setGameState }) {
                     fetchPriority="high"
                   />
                 ) : (
-                  <div className="mx-auto sm:mx-0 lg:mx-auto flex items-center justify-center">
-                    <span className="text-7xl sm:text-5xl lg:text-7xl">🎯</span>
-                  </div>
+                  <div className="mx-auto sm:mx-0 lg:mx-auto max-w-[280px] sm:max-w-[180px] lg:max-w-[420px] h-[200px] sm:h-[130px] lg:h-[300px]" />
                 )}
               </div>
 
               {/* Slogan + Button - Right side on landscape phones */}
               <div className="sm:text-right lg:text-center sm:flex-1">
                 {/* Slogan */}
-                {settings.showSlogan !== false && (
+                {settings.showSlogan !== false && settings.slogan && (
                   <div className="mb-6 sm:mb-4 lg:mb-8">
                     <h1 className="text-2xl sm:text-xl lg:text-4xl font-bold text-gray-800 dark:text-gray-100 mb-2 sm:mb-1 lg:mb-3 leading-relaxed">
-                      {settings.slogan || 'مرحباً بكم في لعبة المعرفة'}
+                      {settings.slogan}
                     </h1>
                     <p className="text-base sm:text-sm lg:text-lg text-gray-600 dark:text-gray-300">
                       اختبر معلوماتك واستمتع بالتحدي مع الأصدقاء والعائلة
@@ -343,9 +359,13 @@ function Index({ setGameState }) {
             </div>
 
             {/* Categories Grid - 2 rows max */}
-            {categoriesLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            {categoriesLoading && categories.length === 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div key={i} className={`${i >= 4 ? 'hidden sm:block' : ''} ${i >= 5 ? 'sm:hidden md:block' : ''} ${i >= 6 ? 'md:hidden lg:block' : ''}`}>
+                    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-gray-200 dark:bg-slate-700 animate-pulse" />
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 sm:gap-4">
@@ -434,15 +454,14 @@ function Index({ setGameState }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {leaderboardLoading ? (
-                      <tr>
-                        <td colSpan="3" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
-                            <span>جاري تحميل البيانات...</span>
-                          </div>
-                        </td>
-                      </tr>
+                    {leaderboardLoading && leaderboard.length === 0 ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <tr key={`skel-${i}`} className={i % 2 === 0 ? 'bg-gray-50 dark:bg-slate-700/50' : 'bg-white dark:bg-slate-800/50'}>
+                          <td className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-slate-600 rounded animate-pulse mx-auto w-8" /></td>
+                          <td className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-slate-600 rounded animate-pulse w-24 mr-auto" /></td>
+                          <td className="px-4 py-3"><div className="h-4 bg-gray-200 dark:bg-slate-600 rounded animate-pulse mx-auto w-6" /></td>
+                        </tr>
+                      ))
                     ) : leaderboard.length > 0 ? (
                       leaderboard.map((player, index) => (
                         <tr

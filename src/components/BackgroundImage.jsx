@@ -40,13 +40,6 @@ const BackgroundImage = ({
       {...props}
     >
       {children}
-
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-300 bg-opacity-75">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600"></div>
-        </div>
-      )}
     </div>
   );
 };

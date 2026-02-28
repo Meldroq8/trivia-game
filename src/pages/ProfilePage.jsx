@@ -52,7 +52,7 @@ function ProfilePage() {
     }
   }, [user])
 
-  // Load game data and stats
+  // Load game data and stats - show page immediately, load stats in background
   useEffect(() => {
     // Don't load data until auth check is complete and user is authenticated
     if (authLoading || !isAuthenticated || !user?.uid) return
@@ -60,27 +60,27 @@ function ProfilePage() {
     const loadData = async () => {
       try {
         setLoading(true)
-
-        // Load game data
-        const data = await GameDataLoader.loadGameData()
-        setGameData(data)
-
-        // Update question pool and get stats (ensure user ID is set)
         questionUsageTracker.setUserId(user.uid)
 
-        // If the global sync (from useAuth) hasn't started yet, trigger it directly
-        // This avoids waiting for the 10s deferred sync
-        if (!questionUsageTracker.syncComplete && !questionUsageTracker.syncInProgress) {
-          const needsSync = await questionUsageTracker.shouldSync()
-          if (needsSync) {
-            devLog('📊 ProfilePage: Triggering usage sync directly')
-            const allGames = await AuthService.getAllUserGamesForSync(user.uid)
-            await questionUsageTracker.syncUsageFromGameHistory(allGames)
-          }
-        } else {
-          // Sync already in progress from useAuth — wait for it
-          await questionUsageTracker.waitForSync(5000)
-        }
+        // Load game data and sync in parallel for faster loading
+        const [data] = await Promise.all([
+          GameDataLoader.loadGameData(),
+          // Sync usage in parallel - don't block on it sequentially
+          (async () => {
+            if (!questionUsageTracker.syncComplete && !questionUsageTracker.syncInProgress) {
+              const needsSync = await questionUsageTracker.shouldSync()
+              if (needsSync) {
+                devLog('📊 ProfilePage: Triggering usage sync directly')
+                const allGames = await AuthService.getAllUserGamesForSync(user.uid)
+                await questionUsageTracker.syncUsageFromGameHistory(allGames)
+              }
+            } else {
+              await questionUsageTracker.waitForSync(3000)
+            }
+          })()
+        ])
+
+        setGameData(data)
 
         // Now update pool and get stats
         await questionUsageTracker.updateQuestionPool(data)
@@ -313,33 +313,9 @@ function ProfilePage() {
 
   const styles = useMemo(() => getResponsiveStyles(), [dimensions])
 
-  // Check authentication FIRST before showing any content
-  if (!isAuthenticated) {
-    // Show loading while auth is still loading
-    if (authLoading) {
-      return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-          <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-            <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
-          </div>
-        </div>
-      )
-    }
-    // Not authenticated and not loading - don't show anything
+  // Redirect handled in useEffect - don't show content if clearly not authenticated
+  if (!authLoading && !isAuthenticated) {
     return null
-  }
-
-  // Now show loading for data if authenticated
-  if (loading) {
-    return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#f7f2e6] dark:bg-slate-900">
-        <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm rounded-3xl shadow-2xl p-6 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto mb-3"></div>
-          <h1 className="text-lg font-bold text-red-800 dark:text-red-400">جاري التحميل...</h1>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -353,7 +329,7 @@ function ProfilePage() {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="max-w-4xl mx-auto">
-          {/* User Info Card */}
+          {/* User Info Card - always visible immediately */}
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">
               معلومات المستخدم
@@ -364,8 +340,13 @@ function ProfilePage() {
             </div>
           </div>
 
-          {/* Question Statistics Card */}
-          {stats && (
+          {/* Question Statistics Card - loads in background */}
+          {loading ? (
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-3"></div>
+              <p className="text-gray-500 dark:text-gray-400 text-sm">جاري تحميل الإحصائيات...</p>
+            </div>
+          ) : stats ? (
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">
                 إحصائيات الأسئلة
@@ -418,7 +399,7 @@ function ProfilePage() {
                 )}
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Change Password Card */}
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 mb-6">
