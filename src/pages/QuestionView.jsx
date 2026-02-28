@@ -97,8 +97,11 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
       const W = window.innerWidth || 375 // Fallback width
       const H = window.innerHeight || 667 // Fallback height
 
-      // Use dynamic viewport height for better mobile support
-      const actualVH = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : H
+      // Use window.innerHeight (layout viewport) for style calculations.
+      // This is stable during pinch-zoom (unlike visualViewport.height).
+      // Address bar show/hide changes innerHeight slightly (~56px) but we
+      // filter those out in the resize listener to prevent rescaling.
+      const actualVH = H
 
       // Use shared utility for consistent header sizing across pages
       const sharedHeaderStyles = getHeaderStyles(W, actualVH)
@@ -1618,6 +1621,13 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
     setQrTimeRemaining(getQrTimerDuration(currentQuestion?.question?.points || currentQuestion?.points))
     setQrTimerPaused(false)
 
+    // Track last known width to distinguish meaningful resizes from address bar changes.
+    // Width changes = orientation change → must recalculate.
+    // Large height changes (>15%) = keyboard show/hide → must recalculate.
+    // Small height changes (~56px address bar) → ignore to prevent rescaling.
+    let lastWidth = window.innerWidth
+    let lastHeight = window.innerHeight
+
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect()
@@ -1628,10 +1638,29 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
         const headerRect = headerRef.current.getBoundingClientRect()
         setHeaderHeight(headerRect.height)
       }
+
+      lastWidth = window.innerWidth
+      lastHeight = window.innerHeight
     }
 
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+    const handleResize = () => {
+      const newWidth = window.innerWidth
+      const newHeight = window.innerHeight
+      const widthChanged = newWidth !== lastWidth
+      const heightChangeRatio = Math.abs(newHeight - lastHeight) / lastHeight
+
+      // Only recalculate on width change (orientation) or large height change (keyboard, >15%)
+      // This ignores the small ~56px address bar show/hide changes
+      if (widthChanged || heightChangeRatio > 0.15) {
+        updateDimensions()
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
   }, [currentQuestion, previewMode])
 
   // Set initial dimensions after component mounts
@@ -3170,7 +3199,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
 
                   // Show normal question content
                   return (
-                    <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10">
+                    <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10 overflow-hidden">
                     <label className="flex justify-center items-center w-full flex-shrink-0 question-content text-center pb-2 sm:pb-3 font-extrabold text-black dark:text-gray-100"
                            style={{
                              fontSize: `${styles.questionFontSize}px`,
@@ -3687,7 +3716,7 @@ function QuestionView({ gameState, setGameState, stateLoaded }) {
                      }}>
 
                   {/* Answer Content - Same as question content */}
-                  <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10">
+                  <div className="flex justify-center items-center w-full flex-col h-full pt-6 sm:pt-7 md:pt-8 pb-6 sm:pb-8 md:pb-10 overflow-hidden">
                     {/* Answer Text - Hide for headband mode since it shows answers on the cards */}
                     {(() => {
                       const categoryId = currentQuestion?.categoryId || currentQuestion?.question?.categoryId
