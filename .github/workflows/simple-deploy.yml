@@ -9,9 +9,6 @@ on:
         description: 'Reason for manual deployment'
         required: false
         default: 'Manual deployment'
-  schedule:
-    # Run every 6 hours to sync any new images
-    - cron: '0 */6 * * *'
 
 env:
   NODE_VERSION: '20'
