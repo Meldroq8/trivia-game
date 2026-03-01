@@ -3213,13 +3213,9 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
 
       devLog('📋 Updated questions state:', updatedQuestions[categoryId][questionIndex])
 
-      setQuestions(updatedQuestions)
+      // Use a new object reference so React and the virtualizer detect the change
+      setQuestions({ ...updatedQuestions })
       saveQuestions(updatedQuestions)
-
-      // Force a re-render by updating state again with new reference
-      setTimeout(() => {
-        setQuestions({ ...updatedQuestions })
-      }, 50)
 
       // Set the last edited category to prevent auto-collapse
       setLastEditedCategory(categoryId)
@@ -4875,6 +4871,11 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
               <VirtualizedQuestionList
                 items={searchResults}
                 editingQuestion={editingSearchQuestion}
+                editingFilteredIndex={
+                  editingSearchQuestion
+                    ? searchResults.findIndex(q => `${q.categoryId}-${q.originalIndex}` === editingSearchQuestion)
+                    : -1
+                }
                 maxHeight={60}
                 renderItem={(question, idx) => (
                   <div
@@ -5420,6 +5421,20 @@ function QuestionsManager({ isAdmin, isModerator, user, showAIModal, setShowAIMo
                   <VirtualizedQuestionList
                     items={filteredQuestions}
                     editingQuestion={editingQuestion}
+                    editingFilteredIndex={
+                      editingQuestion?.startsWith(category.id + '-')
+                        ? (() => {
+                            const prefix = category.id + '-'
+                            const origIdx = parseInt(editingQuestion.slice(prefix.length), 10)
+                            const editQ = categoryQuestions[origIdx]
+                            if (!editQ) return -1
+                            return filteredQuestions.findIndex(q =>
+                              q.text === editQ.text && q.answer === editQ.answer &&
+                              q.difficulty === editQ.difficulty && q.points === editQ.points
+                            )
+                          })()
+                        : -1
+                    }
                     scrollToIndex={
                       scrollTarget?.categoryId === category.id
                         ? filteredQuestions.findIndex((q) => {

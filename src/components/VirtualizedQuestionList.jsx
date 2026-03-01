@@ -8,11 +8,12 @@ import { useVirtualizer } from '@tanstack/react-virtual'
  * @param {Array} items - Array of question objects to render
  * @param {Function} renderItem - (item, index) => JSX for each question card
  * @param {string} editingQuestion - Currently editing question key (e.g. "categoryId-index")
+ * @param {number} editingFilteredIndex - The filtered index of the item being edited (-1 or undefined if none)
  * @param {number} maxHeight - Max height of scrollable container in vh units (default 70)
  * @param {number|null} scrollToIndex - Index to scroll to (set to null after scrolling)
  * @param {Function} onScrollComplete - Called after scrollToIndex completes
  */
-export default function VirtualizedQuestionList({ items, renderItem, editingQuestion, maxHeight = 70, scrollToIndex = null, onScrollComplete }) {
+export default function VirtualizedQuestionList({ items, renderItem, editingQuestion, editingFilteredIndex, maxHeight = 70, scrollToIndex = null, onScrollComplete }) {
   const parentRef = useRef(null)
 
   const virtualizer = useVirtualizer({
@@ -21,15 +22,25 @@ export default function VirtualizedQuestionList({ items, renderItem, editingQues
     estimateSize: () => 200,
     overscan: 3,
     gap: 16,
+    // measureElement uses ResizeObserver internally to automatically track
+    // height changes. Do NOT call virtualizer.measure() — it resets ALL
+    // cached measurements to estimateSize (200px), causing items to overlap.
     measureElement: (el) => {
       if (!el) return 200
       return el.getBoundingClientRect().height
     }
   })
 
-  // Re-measure when editing state changes (card height changes dramatically)
+  // When entering edit mode, scroll to the edited item after the DOM updates.
+  // The ResizeObserver on measureElement will handle the height change automatically.
   useEffect(() => {
-    virtualizer.measure()
+    const idx = editingFilteredIndex ?? -1
+    if (idx >= 0 && editingQuestion) {
+      // Wait for DOM to render the edit form, then scroll to it
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(idx, { align: 'start' })
+      })
+    }
   }, [editingQuestion])
 
   // Scroll to specific index when requested
